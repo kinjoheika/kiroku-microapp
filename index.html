@@ -234,6 +234,17 @@ table.jo-table td.actions{display:flex; gap:6px; flex-wrap:wrap;}
 .note-text{font-size:13px; line-height:1.45; white-space:pre-wrap; overflow-wrap:anywhere;}
 .note-meta{display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-top:5px; font-size:11.5px; color:var(--ink-soft);}
 .note-tag{background:var(--gold-light); color:var(--gold-ink); border:1px solid #EFDFAE; font-size:10.5px; font-weight:800; padding:1px 6px; border-radius:var(--r); text-transform:uppercase; letter-spacing:.03em;}
+/* Files tab */
+.file-main{display:flex; align-items:center; gap:8px; min-width:0;}
+.file-ico{flex:none;}
+.file-name{flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:700; color:var(--blue); text-decoration:none;}
+a.file-name:hover{text-decoration:underline;}
+.file-name.nofile{color:var(--ink-soft); font-weight:600;}
+.file-dl{flex:none; font:inherit; font-size:11.5px; font-weight:700; padding:3px 9px; border:1px solid #CFDDEE; background:var(--blue-light); color:var(--blue); border-radius:var(--r); cursor:pointer;}
+.file-dl:hover{filter:brightness(.97);}
+.file-none{flex:none; font-size:11px; color:var(--ink-soft); font-style:italic;}
+.file-tag{background:var(--gold-light); color:var(--gold-ink); border:1px solid #EFDFAE; font-size:10.5px; font-weight:800; padding:1px 6px; border-radius:var(--r); text-transform:uppercase; letter-spacing:.03em;}
+.file-row .note-meta{margin-top:5px;}
 
 /* Send Message popup */
 .msg-ov{position:fixed; inset:0; background:rgba(15,20,25,.35); display:flex; align-items:center; justify-content:center; padding:16px; z-index:1000;}
@@ -399,6 +410,103 @@ body.logging .action-row, body.logging .gate-row .ball, body.logging .cbx{pointe
 .jo3-ball .tsc-of{font-size:7px;font-weight:700;line-height:1;margin-top:1px;}
 .jo3-ball.active-ring{box-shadow:0 2px 5px rgba(0,0,0,.15), 0 0 0 3px var(--gold);}
 .jo3-lbl{font-size:9.5px;color:var(--ink-soft);font-weight:800;text-transform:uppercase;}
+
+/* ===== Full-screen dashboard layout =====
+   The page itself never scrolls: body is a fixed 100dvh flex column, the active screen fills what is
+   left under the slim env bar, and inside each screen only the list/table sections scroll. */
+html, body{height:100%; overflow:hidden; overscroll-behavior:none;}
+body{height:100vh; height:100dvh; width:100%; padding:0; display:flex; flex-direction:column; background:var(--card);}
+.page-head{display:none;}
+.env-bar{max-width:none; width:100%; margin:0; flex-shrink:0; border:none; border-bottom:1px solid #2A2D33; border-radius:0; background:#202329; color:#9BA0A8; padding:4px 14px; gap:10px; font-size:11.5px;}
+.env-bar label{color:#C7CBD1; font-size:11.5px;}
+.env-bar select{padding:2px 6px; font-size:12px;}
+.env-bar button{padding:2px 9px; font-size:11px; border-color:#5B6470; background:transparent; color:#C7CBD1;}
+.env-bar button:hover{background:#2E3138; color:#fff;}
+.env-bar .tag{font-size:10.5px; padding:1px 7px;}
+.env-bar .tag + .tag{margin-left:0;}
+.screen{max-width:none; margin:0;}
+.screen.active{display:flex; flex:1 1 auto; min-height:0; min-width:0;}
+.app-frame{flex:1 1 auto; min-height:0; min-width:0; display:flex; flex-direction:column; border:none; border-radius:0; box-shadow:none; overflow:hidden;}
+.app-frame > *{flex-shrink:0;}
+.app-frame > .body-row, .app-frame > .tri, .app-frame > .cfg-wrap, .app-frame > .frame-scroll{flex:1 1 auto; min-height:0;}
+.app-nav{padding:9px 18px; gap:20px;}
+.notif-pop{max-width:calc(100vw - 16px);}
+.status-strip{padding:8px 18px; flex-wrap:wrap; gap:6px 20px;}
+.detail-top{padding:10px 18px 0;}
+.scope-tag{align-self:flex-start; margin:8px 18px 0;}
+.app-frame > .tri{margin-top:8px !important;}
+.bottom-bar{padding:8px 18px;}
+
+/* Template A (My Tasks, task detail, JO profile): main column and side list scroll on their own */
+.body-row{min-height:0;}
+.main-col{padding:16px 18px; overflow-y:auto; overscroll-behavior:contain;}
+.side-col{height:auto; min-height:0;}
+.side-list, .gate-list-scroll, .tri-body{overscroll-behavior:contain;}
+
+/* Template B (Due Gates, CEO): three columns fill the height, each column body scrolls */
+.tri{height:auto; min-height:0;}
+.tri-col{height:auto; min-height:0;}
+.jo-form-panel, .jo-form-left{height:auto !important; min-height:0;}
+.col-jolist.open{display:flex;}
+
+/* Archived Job Orders table */
+.frame-scroll{overflow:auto; overscroll-behavior:contain;}
+.frame-scroll table.jo-table th{position:sticky; top:0; z-index:1;}
+
+/* Configuration: headings and filters stay put, only the table body scrolls under a sticky header */
+.cfg-wrap{display:flex; flex-direction:column; padding:10px 18px 14px;}
+.cfg-wrap > *{flex-shrink:0;}
+.cfg-tabs{margin-bottom:8px;}
+.cfg-table-wrap{flex:1 1 auto; min-height:0; max-height:none;}
+.cfg-wrap > .empty-note{padding:15px 0;}
+/* Event Logs columns fit the width; long file names and details wrap instead of overflowing */
+.ev-table{min-width:0;}
+.ev-table th:nth-child(1){width:96px;}
+.ev-table th:nth-child(2){width:12%;}
+.ev-table th:nth-child(4){width:18%;}
+.ev-table th:nth-child(6){width:150px;}
+.ev-table td{overflow-wrap:anywhere;}
+.ev-table td:nth-child(3){white-space:normal !important; min-width:170px;}
+.ev-table td.ev-det{min-width:0; max-width:none;}
+.ev-table .ra-status{white-space:normal;}
+
+@media (max-width:1100px){
+  .col-workers{width:250px;}
+  .col-tracks{width:180px;}
+  .col-kumiai{width:230px;}
+  .col-jolist.open{width:300px;}
+  .side-col{width:270px;}
+  .track-summary-grid{gap:16px;}
+}
+@media (max-width:820px){
+  .env-bar{flex-wrap:nowrap; overflow-x:auto; white-space:nowrap; padding:4px 12px;}
+  .env-bar .tag{margin-left:0;}
+  .app-nav{gap:4px 14px; flex-wrap:wrap; padding:7px 12px;}
+  .app-nav .brand{font-size:13.5px;}
+  .status-strip, .bottom-bar{padding-left:12px; padding-right:12px;}
+  .detail-top{padding:8px 12px 0;}
+  .scope-tag{margin:8px 12px 0;}
+  .main-col{padding:12px;}
+  .cfg-wrap{padding:8px 12px 10px;}
+  .cfg-search{min-width:0; flex:1 1 100%;}
+  .stat-row, .dual-card-row{flex-wrap:wrap;}
+  .dual-card-row .card{flex:1 1 260px;}
+  /* Side-by-side columns stack; the whole section scrolls, each list keeps a capped height */
+  .body-row{flex-direction:column; overflow-y:auto; overscroll-behavior:contain;}
+  .body-row > .main-col{overflow:visible; flex:none;}
+  .body-row > .side-col{width:auto; border-left:none; border-top:1px solid var(--border); flex:none;}
+  .body-row .side-list, .body-row .gate-list-scroll{max-height:60dvh;}
+  .tri{flex-direction:column; overflow-y:auto; overscroll-behavior:contain;}
+  .tri > .tri-col, .tri > .jo-form-panel{width:auto; flex:none; border-right:none; border-bottom:1px solid var(--border);}
+  .tri-body{max-height:55dvh;}
+  .col-jolist{display:none;}
+  .col-jolist.open{width:auto;}
+  .jo-form-panel{flex-direction:column !important;}
+  .jo-form-left{flex:none !important; border-right:none !important; border-bottom:1px solid var(--border);}
+  .jo-form-panel .gate-list-scroll{max-height:55dvh;}
+  .cfg-table{min-width:640px;}
+  .cfg-table td:nth-child(6){min-width:180px;}
+}
 </style>
 </head>
 <body>
@@ -834,7 +942,7 @@ function ingestLogRow(row){
   if(kind && t){
     const s = supaManilaStamp(row.created_at);
     addTaskActivity(t, {type:kind, date:s.slice(0,10), time:s.slice(11,16), user:row.user_id, logId:row.activity_id,
-      ...((kind==='note' || kind==='message') ? {text:row.action_details||''} : {}), ...(kind==='upload' ? {fileName:row.action_details||''} : {})});
+      ...((kind==='note' || kind==='message') ? {text:row.action_details||''} : {}), ...(kind==='upload' ? {fileName:row.action_details||'', fileRef:row.client_ref} : {})});
   }
   return true;
 }
@@ -898,22 +1006,95 @@ function logActivity(taskId, type, pageContext){
     saveDB();
   }).then(ok=>{ if(ok){ renderAllScreens(); showToast(`✓ ${LOG_TYPE_FOR[type]} recorded`); } });
 }
+/* ---------- Task files (Supabase Storage bucket task-files, supabase/08_task_files.sql) ----------
+   A file is stored at task-files/<task_id>/<client_ref>, where client_ref is the client_ref of its
+   Upload row in activity_logs (action_details = the original file name). The file is stored first
+   and the Upload row written after, so a row never points at a missing file. */
+const FILE_BUCKET = 'task-files';
+const FILE_MAX_MB = 10;
+function taskFilePath(taskId, ref){ return `${encodeURIComponent(taskId)}/${encodeURIComponent(ref)}`; }
+async function storageFetch(path, opts={}){
+  const res = await fetch(`${SUPABASE_URL}/storage/v1/object/${path}`, {...opts, cache:'no-store',
+    headers:{apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, ...(opts.headers||{})}});
+  if(!res.ok){
+    let msg = '';
+    try { msg = (await res.json()).message || ''; } catch(e){}
+    if(/bucket not found/i.test(msg)) msg = 'file storage is not set up (run supabase/08_task_files.sql)';
+    throw new Error(msg || `HTTP ${res.status}`);
+  }
+  return res;
+}
 /* Upload: pick a file; a cancelled picker records nothing. */
 function pickUpload(taskId, pageContext){
   const t = DB.tasks.find(x=>x.id===taskId);
   if(!canEditInContext(t, pageContext)) return;
   const input = document.createElement('input');
   input.type = 'file';
-  input.onchange = ()=>{
+  input.onchange = async ()=>{
     const file = input.files && input.files[0];
     if(!file) return;
-    runLogged(`${taskId}|upload`, [logEntry('Upload', {taskId, details:file.name})], rows=>{
+    if(file.size > FILE_MAX_MB*1024*1024){ showToast(`⚠ ${file.name} is over ${FILE_MAX_MB} MB`, 4000); return; }
+    const key = `${taskId}|upload`;
+    if(logInFlight.has(key)) return;
+    const entry = logEntry('Upload', {taskId, details:file.name});
+    logInFlight.add(key);
+    document.body.classList.add('logging');
+    showToast(`Uploading ${file.name}…`, 60000);
+    try {
+      await storageFetch(`${FILE_BUCKET}/${taskFilePath(taskId, entry.client_ref)}`, {method:'POST',
+        headers:{'Content-Type': file.type || 'application/octet-stream', 'x-upsert':'false'}, body:file});
+    } catch(e){
+      console.warn('File not uploaded:', e);
+      showToast(`⚠ Not uploaded: ${e.message}`, 5000);
+      return;
+    } finally {
+      logInFlight.delete(key);
+      if(!logInFlight.size) document.body.classList.remove('logging');
+    }
+    const ok = await runLogged(key, [entry], rows=>{
       const s = nowStamp();
-      addTaskActivity(t, {type:'upload', date:s.date, time:s.time, user:currentUserId, fileName:file.name, logId:rows[0].activity_id});
+      addTaskActivity(t, {type:'upload', date:s.date, time:s.time, user:currentUserId, fileName:file.name,
+        fileRef:entry.client_ref, logId:rows[0].activity_id});
       saveDB();
-    }).then(ok=>{ if(ok){ renderAllScreens(); showToast(`✓ ${file.name} recorded`); } });
+    });
+    const known = storedFiles.get(taskId);
+    if(known instanceof Set) known.add(entry.client_ref); else storedFiles.delete(taskId);
+    if(ok){ taskCardTab = 'files'; renderAllScreens(); showToast(`✓ ${file.name} uploaded`); }
   };
   input.click();
+}
+// Which Upload rows of a task have a stored file: uploads logged before file storage existed
+// have only a name. taskId -> Set of client_refs, or 'loading' / 'error'.
+const storedFiles = new Map();
+function ensureStoredFiles(taskId){
+  if(storedFiles.has(taskId)) return;
+  storedFiles.set(taskId, 'loading');
+  storageFetch(`list/${FILE_BUCKET}`, {method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({prefix:`${taskId}/`, limit:1000})})
+    .then(r=>r.json())
+    .then(list=>{ storedFiles.set(taskId, new Set(list.map(o=>o.name))); })
+    .catch(e=>{ console.warn('task files list failed:', e); storedFiles.set(taskId, 'error'); })
+    .finally(refreshActivityViews);
+}
+function openTaskFileEl(el, download){ openTaskFile(el.dataset.task, el.dataset.ref, el.dataset.name, download); }
+// Open (view in a new tab) or download a stored file. The tab is opened before the fetch so
+// the browser does not block it as a pop-up.
+async function openTaskFile(taskId, ref, name, download){
+  const win = download ? null : window.open('', '_blank');
+  try {
+    const res = await storageFetch(`authenticated/${FILE_BUCKET}/${taskFilePath(taskId, ref)}`);
+    const url = URL.createObjectURL(await res.blob());
+    if(win){ win.location.href = url; }
+    else {
+      const a = document.createElement('a');
+      a.href = url; a.download = name || 'file';
+      document.body.appendChild(a); a.click(); a.remove();
+    }
+    setTimeout(()=>URL.revokeObjectURL(url), 60000);
+  } catch(e){
+    if(win) win.close();
+    showToast(`⚠ Could not open ${name}: ${e.message}`, 5000);
+  }
 }
 /* Send Message: email-style compose. To = registered users (pick, or type @ and a name). */
 let msgDraft = null;
@@ -1289,10 +1470,62 @@ function onFormKumiaiChange(){
   const companies = companiesForKumiai(kid);
   sel.innerHTML = companies.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
 }
-function submitCreateJO(){
-  if(!canManageJOs()) return;
+/* Job Order changes → Google Sheets → Supabase, through apps-script/JobOrders.gs.
+   Create, edit, archive, reactivate and delete are made in the sheets first (the masterlist and
+   each officer's Tasks tab), then the web app runs the sync, so Supabase and every sheet match.
+   The page then reloads from Supabase. Leave JO_WRITE_URL blank to keep changes in this browser
+   only (old behaviour: they are gone on the next page load). */
+const JO_WRITE_URL = '';
+const JO_WRITE_TOKEN = 'kiroku-demo-token';
+let joSaving = false;
+async function joWrite(action, body, savingMsg){
+  if(joSaving) return null;
+  joSaving = true;
+  document.body.classList.add('logging');
+  showToast(savingMsg, 60000);
+  let res;
+  try {
+    // text/plain keeps this a simple request (no CORS preflight, which Apps Script does not answer).
+    const r = await fetch(JO_WRITE_URL, {method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body:JSON.stringify({token:JO_WRITE_TOKEN, action, user_id:currentUserId, user_name:(getUser(currentUserId)||{}).name||'', ...body})});
+    res = await r.json();
+  } catch(e){ res = {ok:false, error:e.message}; }
+  if(res.ok) await reloadFromSource();
+  joSaving = false;
+  document.body.classList.remove('logging');
+  if(!res.ok){ showToast('✗ Not saved'); alert(`Not saved: ${res.error}`); return null; }
+  return res;
+}
+function joWrittenToast(res, what){
+  showToast(res.synced ? `✓ ${what} · Google Sheets and Supabase updated`
+    : `✓ ${what} in Google Sheets · Supabase updates on the next sync (within 5 min)`, 5000);
+}
+function tasksPlanForJO(deploy){
+  const deployDate = new Date(deploy+'T00:00:00');
+  const tasks = [];
+  TRACK_DEFS.forEach(trackDef=>{
+    TASKS_CONFIG[trackDef.key].slice().sort((a,b)=>a.order-b.order).forEach((cfg,i)=>{
+      tasks.push({track:trackDef.key, index:i, task_name:cfg.name, order:cfg.order, offset_days:cfg.offset,
+        editor_id:cfg.editor, due_date:isoStr(addDays(deployDate, cfg.offset))});
+    });
+  });
+  return tasks;
+}
+async function submitCreateJO(){
+  if(!canManageJOs() || joSaving) return;
   const f = readJOForm();
   if(!f.num || !f.deploy || !f.companyId){ alert('JO number, target deploy date, and company are required.'); return; }
+  if(JO_WRITE_URL){
+    if(DB.jobOrders.some(j=>j.jo===f.num)){ alert(`JO# ${f.num} already exists.`); return; }
+    const res = await joWrite('create_jo', {jo:{jo_number:f.num, company_id:f.companyId, target_deployment_date:f.deploy,
+      work_category:f.workCategory, program_type:f.programType}, tasks:tasksPlanForJO(f.deploy)}, 'Saving Job Order…');
+    if(!res) return;
+    s2Form = null;
+    s2Profile = getJO(res.jo_id) ? res.jo_id : null;
+    renderAllScreens();
+    joWrittenToast(res, `JO# ${f.num} created`);
+    return;
+  }
   const id = 'j'+Date.now();
   const jo = {id, jo:f.num, companyId:f.companyId, targetDeploymentDate:f.deploy, workCategory:f.workCategory, programType:f.programType, active:true};
   DB.jobOrders.push(jo);
@@ -1303,62 +1536,88 @@ function submitCreateJO(){
   renderAllScreens();
   showToast('✓ Job Order created');
 }
-function submitEditJO(joId){
-  if(!canManageJOs()) return;
+async function submitEditJO(joId){
+  if(!canManageJOs() || joSaving) return;
   const jo = getJO(joId);
   const f = readJOForm();
   if(!f.num || !f.deploy || !f.companyId){ alert('JO number, target deploy date, and company are required.'); return; }
   const before = {...jo};
   const deployChanged = jo.targetDeploymentDate !== f.deploy;
-  jo.jo = f.num; jo.companyId = f.companyId; jo.targetDeploymentDate = f.deploy; jo.workCategory = f.workCategory; jo.programType = f.programType;
+  // [task, old due, new due] for every task whose due date moves with the deploy date
   const dueChanges = [];
   if(deployChanged){
     const deployDate = new Date(f.deploy+'T00:00:00');
     tasksForJO(joId).forEach(t=>{
       const cfg = TASKS_CONFIG[t.track].find(c=>c.name===t.name);
-      const oldDue = t.due;
-      t.due = isoStr(addDays(deployDate, cfg.offset));
-      if(t.due!==oldDue) dueChanges.push([t, oldDue]);
+      const due = isoStr(addDays(deployDate, cfg.offset));
+      if(due!==t.due) dueChanges.push([t, t.due, due]);
     });
   }
-  saveDB();
-  s2Form = null;
-  renderAllScreens();
-  showToast('✓ Saved');
+  if(JO_WRITE_URL){
+    if(DB.jobOrders.some(j=>j.id!==joId && j.jo===f.num)){ alert(`JO# ${f.num} already exists.`); return; }
+    const res = await joWrite('edit_jo', {jo:{jo_id:joId, jo_number:f.num, company_id:f.companyId, target_deployment_date:f.deploy,
+      work_category:f.workCategory, program_type:f.programType},
+      due_changes:dueChanges.map(([t,,due])=>({task_id:t.id, due_date:due}))}, 'Saving changes…');
+    if(!res) return;
+    s2Form = null;
+    renderAllScreens();
+    joWrittenToast(res, `JO# ${f.num} saved`);
+  } else {
+    jo.jo = f.num; jo.companyId = f.companyId; jo.targetDeploymentDate = f.deploy; jo.workCategory = f.workCategory; jo.programType = f.programType;
+    dueChanges.forEach(([t,,due])=>{ t.due = due; });
+    saveDB();
+    s2Form = null;
+    renderAllScreens();
+    showToast('✓ Saved');
+  }
 
   // Record the update: one row for the job order, one per task whose due date moved.
   const changes = [];
-  if(before.jo!==jo.jo) changes.push(`JO number ${before.jo} → ${jo.jo}`);
-  if(before.companyId!==jo.companyId) changes.push(`Company ${(getCompany(before.companyId)||{}).name} → ${getCompany(jo.companyId).name}`);
-  if(deployChanged) changes.push(`Target deploy ${fmtFullDate(before.targetDeploymentDate)} → ${fmtFullDate(jo.targetDeploymentDate)}`);
-  if(before.workCategory!==jo.workCategory) changes.push(`Work category ${before.workCategory||'—'} → ${jo.workCategory}`);
-  if(before.programType!==jo.programType) changes.push(`Program type ${before.programType||'—'} → ${jo.programType}`);
+  if(before.jo!==f.num) changes.push(`JO number ${before.jo} → ${f.num}`);
+  if(before.companyId!==f.companyId) changes.push(`Company ${(getCompany(before.companyId)||{}).name} → ${getCompany(f.companyId).name}`);
+  if(deployChanged) changes.push(`Target deploy ${fmtFullDate(before.targetDeploymentDate)} → ${fmtFullDate(f.deploy)}`);
+  if(before.workCategory!==f.workCategory) changes.push(`Work category ${before.workCategory||'—'} → ${f.workCategory}`);
+  if(before.programType!==f.programType) changes.push(`Program type ${before.programType||'—'} → ${f.programType}`);
   if(!changes.length) return;
-  const entries = [logEntry('Task Update', {joId, details:`JO# ${jo.jo} updated: ${changes.join('; ')}`})]
-    .concat(dueChanges.map(([t, oldDue])=> logEntry('Task Update', {taskId:t.id,
-      details:`Due date ${fmtFullDate(oldDue)} → ${fmtFullDate(t.due)} (target deploy changed)`})));
+  const entries = [logEntry('Task Update', {joId, details:`JO# ${f.num} updated: ${changes.join('; ')}`})]
+    .concat(dueChanges.map(([t, oldDue, due])=> logEntry('Task Update', {taskId:t.id,
+      details:`Due date ${fmtFullDate(oldDue)} → ${fmtFullDate(due)} (target deploy changed)`})));
   runLogged(`${joId}|edit`, entries).then(ok=>{ if(ok) refreshActivityViews(); });
 }
-function archiveJO(joId){
-  if(!canManageJOs()) return;
-  getJO(joId).active = false;
-  saveDB();
-  s2Profile = null;
-  renderAllScreens();
-  showToast('🗄 Archived');
+async function setJOActive(joId, active){
+  if(!canManageJOs() || joSaving) return;
+  const num = getJO(joId).jo;
+  if(JO_WRITE_URL){
+    const res = await joWrite(active?'reactivate_jo':'archive_jo', {jo_id:joId}, active?'Reactivating…':'Archiving…');
+    if(!res) return;
+    if(!active) s2Profile = null;
+    renderAllScreens();
+    joWrittenToast(res, `JO# ${num} ${active?'reactivated':'archived'}`);
+  } else {
+    getJO(joId).active = active;
+    saveDB();
+    if(!active) s2Profile = null;
+    renderAllScreens();
+    showToast(active?'↩ Reactivated':'🗄 Archived');
+  }
+  // Not written to activity_logs: those rows are permanent and would block deleting an archived JO.
+  // The sync records the change in Sync Logs (Job Orders · Active).
 }
-function reactivateJO(joId){
-  if(!canManageJOs()) return;
-  getJO(joId).active = true;
-  saveDB();
-  renderAllScreens();
-  showToast('↩ Reactivated');
-}
-function deleteJOConfirm(joId){
-  if(!canManageJOs()) return;
+function archiveJO(joId){ return setJOActive(joId, false); }
+function reactivateJO(joId){ return setJOActive(joId, true); }
+async function deleteJOConfirm(joId){
+  if(!canManageJOs() || joSaving) return;
   const jo = getJO(joId);
   const count = tasksForJO(joId).length;
-  if(!confirm(`Delete JO# ${jo.jo} permanently? This removes the Job Order and all ${count} tasks. This cannot be undone.`)) return;
+  if(!confirm(`Delete JO# ${jo.jo} permanently? This removes the Job Order and all ${count} tasks${JO_WRITE_URL?' from the Google Sheets and Supabase':''}. This cannot be undone.`)) return;
+  if(JO_WRITE_URL){
+    const res = await joWrite('delete_jo', {jo_id:joId}, 'Deleting…');
+    if(!res) return;
+    s2Profile = null;
+    renderAllScreens();
+    joWrittenToast(res, `JO# ${jo.jo} deleted`);
+    return;
+  }
   DB.jobOrders = DB.jobOrders.filter(j=>j.id!==joId);
   DB.tasks = DB.tasks.filter(t=>t.joId!==joId);
   saveDB();
@@ -1725,18 +1984,43 @@ function buildJODetail(joId, highlightTaskId, backFn, backLabel, pageContext, pa
   `;
 }
 
-/* Notes and Messages share one card on the task detail; the tab chooses which one shows. */
+/* Notes, Messages and Files share one card on the task detail; the tab chooses which one shows. */
 let taskCardTab = 'notes';
 function setTaskCardTab(tab){ taskCardTab = tab; renderAllScreens(); }
 function notesCardHTML(task){
   const notes = (task.activity||[]).filter(a=>a.type==='note' && a.text);
   const msgs = (task.activity||[]).filter(a=>a.type==='message' && a.text);
+  const files = (task.activity||[]).filter(a=>a.type==='upload');
   const tab = taskCardTab;
   return `<div class="card-tabs">
       <button type="button" class="card-tab ${tab==='notes'?'on':''}" onclick="setTaskCardTab('notes')">Notes <span class="tab-n">${notes.length}</span></button>
       <button type="button" class="card-tab ${tab==='messages'?'on':''}" onclick="setTaskCardTab('messages')">Messages <span class="tab-n">${msgs.length}</span></button>
+      <button type="button" class="card-tab ${tab==='files'?'on':''}" onclick="setTaskCardTab('files')">Files <span class="tab-n">${files.length}</span></button>
     </div>
-    <div class="card-body">${tab==='notes' ? notesHTML(task) : messagesHTML(task)}</div>`;
+    <div class="card-body">${tab==='notes' ? notesHTML(task) : tab==='files' ? filesHTML(task) : messagesHTML(task)}</div>`;
+}
+function filesHTML(task){
+  const files = (task.activity||[]).filter(a=>a.type==='upload').sort((a,b)=>(b.date+b.time).localeCompare(a.date+a.time));
+  if(!files.length) return '<div class="empty-note">No files uploaded for this task yet.</div>';
+  ensureStoredFiles(task.id);
+  const known = storedFiles.get(task.id);
+  if(known==='loading') return '<div class="empty-note">Checking stored files…</div>';
+  const warn = known==='error' ? '<div class="ra-warn">File storage not reachable. Run supabase/08_task_files.sql, then reload.</div>' : '';
+  return warn + files.map(a=>{
+    const name = a.fileName || '(no name)';
+    // Uploads imported from the sheets, or logged before file storage existed, have only a name.
+    const stored = !!a.fileRef && known instanceof Set && known.has(a.fileRef);
+    const data = stored ? `data-task="${escAttr(task.id)}" data-ref="${escAttr(a.fileRef)}" data-name="${escAttr(name)}"` : '';
+    return `<div class="note-row file-row">
+      <div class="file-main">
+        <span class="file-ico">📎</span>
+        ${stored ? `<a class="file-name" href="#" ${data} onclick="event.preventDefault(); openTaskFileEl(this, false)">${escHTML(name)}</a>`
+                 : `<span class="file-name nofile" title="Only the file name was recorded">${escHTML(name)}</span>`}
+        ${stored ? `<button type="button" class="file-dl" ${data} onclick="openTaskFileEl(this, true)">Download</button>` : '<span class="file-none">name only</span>'}
+      </div>
+      <div class="note-meta"><span class="file-tag">Upload</span><span>${escHTML((getUser(a.user)||{}).name || a.user || '')}</span><span>${fmtStamp(a)}</span></div>
+    </div>`;
+  }).join('');
 }
 function messagesHTML(task){
   const msgs = (task.activity||[]).filter(a=>a.type==='message' && a.text).sort((a,b)=>(b.date+b.time).localeCompare(a.date+a.time));
@@ -1811,7 +2095,8 @@ function actionButtonHTML(type, icon, label, task, pageContext){
   const editable = canEditInContext(task, pageContext);
   if(!editable) return `<button class="act-btn locked" disabled><span class="ico">🔒</span>${label}</button>`;
   // Follow Up stays clickable every time, so each click can add another follow-up.
-  if(type!=='followup' && type!=='message' && type!=='note' && loggedToday(task, type)) return `<button class="act-btn logged-today" disabled><span class="ico">✓</span>${label} logged</button>`;
+  // Upload too: a task can need several files on the same day.
+  if(type!=='followup' && type!=='message' && type!=='note' && type!=='upload' && loggedToday(task, type)) return `<button class="act-btn logged-today" disabled><span class="ico">✓</span>${label} logged</button>`;
   if(type==='note') return `<button class="act-btn" onclick="openNoteModal('${task.id}','${pageContext}')"><span class="ico">${icon}</span>${label}</button>`;
   if(type==='message') return `<button class="act-btn" onclick="openMessageModal('${task.id}','${pageContext}')"><span class="ico">${icon}</span>${label}</button>`;
   if(type==='upload') return `<button class="act-btn" onclick="pickUpload('${task.id}','${pageContext}')"><span class="ico">${icon}</span>${label}</button>`;
@@ -1923,10 +2208,10 @@ function buildArchivedTable(){
   }).join('') || '<tr><td colspan="5" style="padding:15px 22px; color:var(--ink-soft); font-style:italic;">No archived Job Orders.</td></tr>';
   return `<div class="detail-top"><span class="back-link" onclick="closeS2Archived()">← Back to My Due Gates</span></div>
     <div style="padding:18px 22px 4px;"><span style="font-family:var(--font-head); font-weight:800; font-size:16px;">Archived Job Orders</span></div>
-    <table class="jo-table" style="margin-bottom:20px;">
+    <div class="frame-scroll"><table class="jo-table" style="margin-bottom:20px;">
       <tr><th>JO #</th><th>Receiving Org</th><th>Receiving Company</th><th>Target Deploy</th><th>Actions</th></tr>
       ${rows}
-    </table>`;
+    </table></div>`;
 }
 
 function buildJOFormPanel(formState){
@@ -1949,8 +2234,8 @@ function buildJOFormPanel(formState){
     previewHTML = `<div id="jf-preview-list">${tasks.map(t=>`<div class="gate-row"><span class="ball ${computeStatus(t)}"></span><span class="gn">${t.name} <span style="color:var(--ink-soft); font-weight:400;">· ${t.track}</span></span>${dueBadgeHTML(t)}</div>`).join('')}</div>`;
   }
 
-  return `<div style="flex:1; display:flex; flex-direction:row; min-width:0; height:100%;">
-    <div style="flex:0 0 320px; border-right:1px solid var(--border); padding:18px; overflow-y:auto; height:100%; box-sizing:border-box;">
+  return `<div class="jo-form-panel" style="flex:1; display:flex; flex-direction:row; min-width:0; height:100%;">
+    <div class="jo-form-left" style="flex:0 0 320px; border-right:1px solid var(--border); padding:18px; overflow-y:auto; height:100%; box-sizing:border-box;">
       <div class="section-label" style="margin-top:0;">${isCreate?'New Job Order':'Edit JO# '+jo.jo}</div>
       <div class="form-field" style="margin-bottom:12px;"><label>JO number</label><input id="jf-num" value="${jo?jo.jo:''}" placeholder="2026-0201"></div>
       <div class="form-field" style="margin-bottom:12px;"><label>Target deploy date</label><input id="jf-deploy" type="date" value="${jo?jo.targetDeploymentDate:''}" ${isCreate?'oninput="updateJOFormPreview()"':''}></div>

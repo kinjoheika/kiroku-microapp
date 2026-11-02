@@ -14,7 +14,7 @@
  *   - each Doc Officer sheet sends only its owner's Tasks (editor_id) and their Activity
  * Every Doc Officer sheet still shows every task. After the sync, the other officers'
  * task rows are refreshed from Supabase and shaded grey; edits to them are ignored.
- * Run syncAll() manually once, then installTrigger() to run it every 5 minutes.
+ * Run syncAll() manually once, then installTrigger() to run scheduledSync() every 5 minutes.
  */
 
 const SHARED_TABS = { Users: 'users', Kumiai: 'kumiai', Companies: 'companies', JobOrders: 'job_orders' };
@@ -320,13 +320,21 @@ function cell(v, header) {
   return v;
 }
 
+// The 5-minute trigger runs this, so it never overlaps a Job Order change from the app
+// (JobOrders.gs holds the same lock while it edits the sheets and syncs).
+function scheduledSync() {
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(30000)) { Logger.log('skipped: an app change is syncing right now'); return; }
+  try { syncAll(); } finally { lock.releaseLock(); }
+}
+
 // Run once: replaces any existing sync schedule with one that runs every 5 minutes.
 // Google Apps Script allows only 1, 5, 10, 15 or 30 minutes.
 function installTrigger() {
   ScriptApp.getProjectTriggers()
-    .filter(t => t.getHandlerFunction() === 'syncAll')
+    .filter(t => ['syncAll', 'scheduledSync'].indexOf(t.getHandlerFunction()) >= 0)
     .forEach(t => ScriptApp.deleteTrigger(t));
-  ScriptApp.newTrigger('syncAll').timeBased().everyMinutes(5).create();
+  ScriptApp.newTrigger('scheduledSync').timeBased().everyMinutes(5).create();
 }
 
 // One-time cleanup: each Doc Officer sheet keeps only the tabs it uses

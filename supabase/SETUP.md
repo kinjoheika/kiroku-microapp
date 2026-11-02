@@ -111,6 +111,62 @@ Never put the service_role key in `index.html` or any file in the GitHub repo.
 
 ---
 
+## V4: Job Orders from the app (saved to the Sheets and Supabase)
+
+File: `apps-script/JobOrders.gs`. Without it, Job Order changes made in the app stay in that browser
+and are gone on the next page load.
+
+1. In the **same** Apps Script project as `Sync.gs`, add a file `JobOrders.gs` and paste `apps-script/JobOrders.gs`.
+   Also paste the updated `Sync.gs`, then run `installTrigger` once more: the 5-minute trigger now runs
+   `scheduledSync`, which waits while an app change is being saved.
+2. Script Properties: add `APP_TOKEN` = the value of `JO_WRITE_TOKEN` in `index.html`.
+3. Deploy > New deployment > type **Web app**. Execute as: **Me**. Who has access: **Anyone**. Approve the permissions.
+4. Copy the Web app URL into `JO_WRITE_URL` in `index.html`.
+5. If the old `Code.gs` (EditLog) is in this project, remove it: a project can have only one `doPost`.
+
+What each button does (Doc Officer 1), then `syncAll()` runs right away:
+
+| In the app | Google Sheets | Supabase |
+|---|---|---|
+| Create Job Order | row added to masterlist **JobOrders** (next free `jo_id`, `worker_name` = `TBA`); each task added to its owner's **Tasks** tab | inserted by the sync; copied to the other officers' sheets |
+| Save changes | JobOrders row updated; if the deploy date moved, the owners' task `due_date`s too | updated by the sync |
+| Archive / Reactivate | `active` set to FALSE / TRUE | updated by the sync |
+| Delete | JO row, its task rows (all four officer sheets) and their Activity rows removed | Job Order deleted (tasks and activity go with it); one Record Deleted row in `event_logs` |
+
+Every change shows in Configuration > **Sync Logs** (Record Created / Updated / Deleted). Edits also add a
+Task Update row to **Event Logs**.
+
+Delete is refused for a Job Order that has rows in `activity_logs` (follow-ups, notes, edits ...): that
+history is append-only and kept forever. Archive it instead.
+If the sync step fails, the sheets are already changed and the 5-minute trigger brings Supabase up to date.
+
+The token is visible in the page, so anyone who reads it can change job orders. Replace it with
+Supabase Auth when writes move to Supabase.
+After changing `JobOrders.gs` or `Sync.gs`, use Deploy > Manage deployments > Edit > New version,
+or the web app keeps running the old code.
+
+---
+
+## V4: file uploads (Upload button + Files tab)
+
+File: `08_task_files.sql`. Run it once in the SQL Editor, after `06_activity_logs.sql`.
+
+It creates the private Storage bucket `task-files` (10 MB per file) and its access rules.
+The Upload button on a task:
+
+1. stores the file at `task-files/<task_id>/<client_ref>`
+2. then writes an Upload row to `activity_logs` (file name in `action_details`, same `client_ref`)
+
+The file shows in the task's **Files** tab, where it can be opened in a new tab or downloaded.
+Files cannot be overwritten or deleted from the page. Uploads imported from the sheets, or logged
+before this step, have no stored file and show as "name only".
+
+Until this script is run, the Upload button shows "file storage is not set up".
+Anyone with the page can read the files, the same as the other data; limit this to signed-in users
+when Supabase Auth is added.
+
+---
+
 ## V4: activity log (Recent Actions + Configuration > Event Logs)
 
 File: `06_activity_logs.sql`. Run it once in the SQL Editor, after `01_schema.sql`.
