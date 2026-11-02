@@ -78,14 +78,25 @@ body{background:var(--bg); font-family:var(--font-body); color:var(--ink); paddi
 .bell{position:relative; background:none; border:none; color:#fff; font-size:15px; line-height:1; padding:4px 6px; cursor:pointer;}
 .bell:hover{color:var(--gold);}
 .bell-count{position:absolute; top:-3px; right:-4px; min-width:16px; height:16px; padding:0 4px; border-radius:8px; background:var(--darkred); color:#fff; font-size:10px; font-weight:800; line-height:16px; text-align:center;}
-.notif-pop{display:none; position:absolute; right:0; top:32px; width:340px; max-height:380px; overflow-y:auto; overscroll-behavior:contain; background:#fff; color:var(--ink); border:1px solid var(--border); box-shadow:0 6px 18px rgba(0,0,0,.14); z-index:60; text-align:left;}
+.notif-pop{display:none; position:absolute; right:0; top:32px; width:360px; max-height:420px; overflow-y:auto; overscroll-behavior:contain; background:#fff; color:var(--ink); border:1px solid #E3E6E9; border-radius:12px; box-shadow:0 12px 32px rgba(16,24,40,.18); z-index:60; text-align:left;}
 .notif-pop.open{display:block;}
 .notif-hd{padding:9px 12px; font-size:11.5px; font-weight:800; letter-spacing:.05em; text-transform:uppercase; color:var(--ink-soft); border-bottom:1px solid var(--border); background:#FAFAFB;}
-.notif-item{display:flex; flex-direction:column; gap:2px; width:100%; text-align:left; border:none; border-bottom:1px solid #F1F3F4; background:#fff; padding:9px 12px; cursor:pointer; font-family:var(--font-body);}
+.notif-item{display:flex; flex-direction:row; align-items:flex-start; gap:8px; width:100%; text-align:left; border:none; border-bottom:1px solid #F1F3F4; background:#fff; padding:9px 12px; cursor:pointer; font-family:var(--font-body);}
 .notif-item:hover{background:var(--gold-light);}
 .notif-kind{font-size:10.5px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; color:var(--blue);}
 .notif-kind.overdue{color:var(--darkred);}
-.notif-new{background:var(--darkred); color:#fff; border-radius:2px; padding:0 4px; margin-left:4px;}
+.notif-hd{display:flex; align-items:center; justify-content:space-between; gap:8px; position:sticky; top:0; z-index:1;}
+.notif-unread-n{font-size:10.5px; font-weight:800; text-transform:none; letter-spacing:0; color:var(--darkred); background:var(--darkred-light); border-radius:999px; padding:1px 8px; margin-left:4px;}
+.notif-markall{border:none; background:none; color:var(--blue); font-family:var(--font-body); font-size:11.5px; font-weight:700; text-transform:none; letter-spacing:0; cursor:pointer; padding:2px 4px; border-radius:6px;}
+.notif-markall:hover{background:var(--blue-light);}
+.notif-text{flex:1; min-width:0; display:flex; flex-direction:column; gap:2px;}
+.notif-item.unread{background:#F4F8FD;}
+.notif-item.unread .notif-main{font-weight:800;}
+.notif-item:not(.unread) .notif-main{font-weight:600; color:var(--ink-soft);}
+.notif-dot{flex-shrink:0; width:18px; height:18px; margin-top:2px; border:none; border-radius:50%; background:transparent; cursor:pointer; position:relative;}
+.notif-dot::after{content:""; position:absolute; inset:5px; border-radius:50%; border:1.5px solid #C9CDD2;}
+.notif-item.unread .notif-dot::after{background:var(--blue); border-color:var(--blue);}
+.notif-dot:hover{background:#E7EEF7;}
 .notif-main{font-size:13px; font-weight:700; color:var(--ink);}
 .notif-sub{font-size:11.5px; color:var(--ink-soft);}
 .card-tabs{display:flex; gap:6px; padding:8px 10px; border-bottom:1px solid #ECEEF0; background:#FAFAFB;}
@@ -1789,53 +1800,89 @@ function notifItems(){
     .sort((a,b)=>diffDays(a.due)-diffDays(b.due));
   return {msgs, overdue};
 }
+// Before per-item read state, opening the list stored a "seen" time; messages older than it count as read.
 function notifSeen(){
   try { return Number(localStorage.getItem('kiroku_notif_seen_'+currentUserId) || 0); } catch(e){ return 0; }
 }
-function markNotifSeen(){
-  try { localStorage.setItem('kiroku_notif_seen_'+currentUserId, String(Date.now())); } catch(e){}
+// Read state per notification, kept in this browser per user. An overdue task is keyed by its due date,
+// so it shows as unread again if the due date changes.
+function notifReadSet(){
+  try { return new Set(JSON.parse(localStorage.getItem('kiroku_notif_read_'+currentUserId) || '[]')); } catch(e){ return new Set(); }
 }
-function notifHTML(){
+function saveNotifReadSet(set){
+  try { localStorage.setItem('kiroku_notif_read_'+currentUserId, JSON.stringify([...set].slice(-500))); } catch(e){}
+}
+function notifEntries(){
   const {msgs, overdue} = notifItems();
-  const seen = notifSeen();
-  const fresh = msgs.filter(r=>new Date(r.created_at).getTime() > seen).length;
-  const count = fresh + overdue.length;
+  const read = notifReadSet(), seen = notifSeen();
+  const entries = [
+    ...msgs.map(r=>({kind:'m', key:'m:'+r.activity_id, data:r,
+      read: read.has('m:'+r.activity_id) || new Date(r.created_at).getTime() <= seen})),
+    ...overdue.map(t=>({kind:'o', key:'o:'+t.id+':'+t.due, data:t, read: read.has('o:'+t.id+':'+t.due)})),
+  ];
+  return {entries, unread: entries.filter(e=>!e.read).length};
+}
+function bellInner(n){ return '🔔' + (n ? `<span class="bell-count">${n > 99 ? '99+' : n}</span>` : ''); }
+function notifHTML(){
+  const {entries, unread} = notifEntries();
   return `<span class="notif-wrap">
-    <button class="bell" type="button" onclick="toggleNotif(this)" aria-label="Notifications, ${count} new" title="Notifications">🔔${count ? `<span class="bell-count">${count}</span>` : ''}</button>
-    <div class="notif-pop">${notifListHTML(msgs, overdue, seen)}</div>
+    <button class="bell" type="button" onclick="toggleNotif(this)" aria-label="Notifications, ${unread} unread" title="Notifications">${bellInner(unread)}</button>
+    <div class="notif-pop">${notifListHTML(entries, unread)}</div>
   </span>`;
 }
-function notifListHTML(msgs, overdue, seen){
-  const msgRows = msgs.map(r=>{
-    const subject = (String(r.action_details||'').split('\n')[1] || '').replace(/^Subject: /,'');
-    const isNew = new Date(r.created_at).getTime() > seen;
-    return `<button type="button" class="notif-item" onclick="openMessageView(${r.activity_id})">
-      <span class="notif-kind">Message${isNew ? ' <span class="notif-new">new</span>' : ''}</span>
-      <span class="notif-main">${escHTML(r.user_name)} · ${escHTML(subject || '(no subject)')}</span>
-      <span class="notif-sub">${escHTML(getTaskById(r.task_id)?.name || '')} · ${fmtActivityTime(r.created_at)}</span>
-    </button>`;
+function notifListHTML(entries, unread){
+  const rows = entries.map(e=>{
+    const open = e.kind==='m' ? `openMessageView(${e.data.activity_id})` : `openNotif('${e.data.id}')`;
+    let kind, main, sub;
+    if(e.kind==='m'){
+      const r = e.data;
+      const subject = (String(r.action_details||'').split('\n')[1] || '').replace(/^Subject: /,'');
+      kind = '<span class="notif-kind">Message</span>';
+      main = `${escHTML(r.user_name)} · ${escHTML(subject || '(no subject)')}`;
+      sub = `${escHTML(getTaskById(r.task_id)?.name || '')} · ${fmtActivityTime(r.created_at)}`;
+    } else {
+      const t = e.data;
+      kind = '<span class="notif-kind overdue">Overdue</span>';
+      main = `${escHTML(t.name)} · ${escHTML(t.track)}`;
+      sub = `JO# ${escHTML(getJO(t.joId).jo)} · ${Math.abs(diffDays(t.due))} days late`;
+    }
+    return `<div class="notif-item ${e.read?'':'unread'}" role="button" tabindex="0"
+        onclick="setNotifRead('${e.key}', true); ${open}" onkeydown="if(event.key==='Enter'){this.click();}">
+      <div class="notif-text">${kind}<span class="notif-main">${main}</span><span class="notif-sub">${sub}</span></div>
+      <button type="button" class="notif-dot" title="${e.read?'Mark as unread':'Mark as read'}" aria-label="${e.read?'Mark as unread':'Mark as read'}"
+        onclick="event.stopPropagation(); setNotifRead('${e.key}', ${!e.read})"></button>
+    </div>`;
   }).join('');
-  const overdueRows = overdue.map(t=>`<button type="button" class="notif-item" onclick="openNotif('${t.id}')">
-      <span class="notif-kind overdue">Overdue</span>
-      <span class="notif-main">${escHTML(t.name)} · ${escHTML(t.track)}</span>
-      <span class="notif-sub">JO# ${escHTML(getJO(t.joId).jo)} · ${Math.abs(diffDays(t.due))} days late</span>
-    </button>`).join('');
-  const body = msgRows + overdueRows;
-  return `<div class="notif-hd">Notifications</div>${body || '<div class="notif-empty">Nothing new.</div>'}`;
+  return `<div class="notif-hd"><span>Notifications${unread ? ` <span class="notif-unread-n">${unread} unread</span>` : ''}</span>
+      ${unread ? `<button type="button" class="notif-markall" onclick="event.stopPropagation(); markAllNotifRead()">✓ Mark all as read</button>` : ''}
+    </div>${rows || '<div class="notif-empty">You are all caught up.</div>'}`;
+}
+function refreshNotifs(){
+  const {entries, unread} = notifEntries();
+  document.querySelectorAll('.notif-wrap').forEach(w=>{
+    w.querySelector('.notif-pop').innerHTML = notifListHTML(entries, unread);
+    const b = w.querySelector('.bell');
+    b.innerHTML = bellInner(unread);
+    b.setAttribute('aria-label', `Notifications, ${unread} unread`);
+  });
+}
+function setNotifRead(key, read){
+  const set = notifReadSet();
+  if(read) set.add(key); else set.delete(key);
+  saveNotifReadSet(set);
+  refreshNotifs();
+}
+function markAllNotifRead(){
+  const set = notifReadSet();
+  notifEntries().entries.forEach(e=>set.add(e.key));
+  saveNotifReadSet(set);
+  refreshNotifs();
 }
 function toggleNotif(btn){
   const pop = btn.closest('.notif-wrap').querySelector('.notif-pop');
   const opening = !pop.classList.contains('open');
   closeNotifs();
-  if(!opening) return;
-  pop.classList.add('open');
-  markNotifSeen();
-  const {overdue} = notifItems();
-  // the badge shows only what is still open (overdue tasks) once the list is opened
-  document.querySelectorAll('.bell').forEach(b=>{
-    const n = overdue.length;
-    b.innerHTML = '🔔' + (n ? `<span class="bell-count">${n}</span>` : '');
-  });
+  if(opening) pop.classList.add('open');
 }
 function closeNotifs(){ document.querySelectorAll('.notif-pop.open').forEach(p=>p.classList.remove('open')); }
 // Full view of one message from the bell list.
