@@ -442,6 +442,13 @@ body{height:100vh; height:100dvh; width:100%; padding:0; display:flex; flex-dire
 .main-col{padding:16px 18px; overflow-y:auto; overscroll-behavior:contain;}
 .side-col{height:auto; min-height:0;}
 .side-list, .gate-list-scroll, .tri-body{overscroll-behavior:contain;}
+/* My Tasks: the two cards fill the rest of the column and only their lists scroll.
+   On a very short window the column itself scrolls instead of squashing the cards. */
+.fit-col{display:flex; flex-direction:column;}
+.fit-col > *{flex-shrink:0;}
+.fit-col > .dual-card-row{flex:1 1 auto; min-height:220px; align-items:stretch;}
+.fit-col .dual-card-row .card{display:flex; flex-direction:column; margin-bottom:0;}
+.card-scroll{flex:1 1 auto; min-height:0; overflow-y:auto; overscroll-behavior:contain;}
 
 /* Template B (Due Gates, CEO): three columns fill the height, each column body scrolls */
 .tri{height:auto; min-height:0;}
@@ -496,6 +503,8 @@ body{height:100vh; height:100dvh; width:100%; padding:0; display:flex; flex-dire
   .body-row > .main-col{overflow:visible; flex:none;}
   .body-row > .side-col{width:auto; border-left:none; border-top:1px solid var(--border); flex:none;}
   .body-row .side-list, .body-row .gate-list-scroll{max-height:60dvh;}
+  .fit-col > .dual-card-row{flex:none; min-height:0;}
+  .card-scroll{max-height:320px;}
   .tri{flex-direction:column; overflow-y:auto; overscroll-behavior:contain;}
   .tri > .tri-col, .tri > .jo-form-panel{width:auto; flex:none; border-right:none; border-bottom:1px solid var(--border);}
   .tri-body{max-height:55dvh;}
@@ -1882,10 +1891,10 @@ function buildScreen1(){
       const av = a.doneAt ? a.doneAt.date+a.doneAt.time : '';
       const bv = b.doneAt ? b.doneAt.date+b.doneAt.time : '';
       return bv.localeCompare(av);
-    }).slice(0,3);
+    }).slice(0,20);
     const myActivity = my.flatMap(t=>(t.activity||[]).map(a=>({...a, task:t})))
       .sort((a,b)=> (b.date+b.time).localeCompare(a.date+a.time))
-      .slice(0,5);
+      .slice(0,20);
     const topTask = open[0];
     const queueRows = open.slice(0,8).map(t=>{
       const st = computeStatus(t);
@@ -1899,7 +1908,7 @@ function buildScreen1(){
 
     body = `
     <div class="body-row">
-      <div class="main-col">
+      <div class="main-col fit-col">
         <div class="greet">
           <h2>Good day, ${user.name}</h2>
           <p>${total} task${total===1?'':'s'} assigned to you in this sample database.</p>
@@ -1916,16 +1925,16 @@ function buildScreen1(){
         <div class="dual-card-row">
           <div class="card">
             <div class="card-hd"><span class="t">My Recently Completed</span></div>
-            ${doneList.length ? doneList.map(t=>{
+            <div class="card-scroll">${doneList.length ? doneList.map(t=>{
               return `<div class="done-row"><span class="ck">✓</span><div class="ci-body">${joNametagHTML(t.joId, t.track, t.name)}<div class="ci-badges"><span class="badge-done">Completed · ${fmtStamp(t.doneAt)}</span></div></div></div>`;
-            }).join('') : '<div class="empty-note">Nothing completed yet.</div>'}
+            }).join('') : '<div class="empty-note">Nothing completed yet.</div>'}</div>
           </div>
           <div class="card">
             <div class="card-hd"><span class="t">My Recent Actions</span></div>
-            ${myActivity.length ? myActivity.map(a=>{
+            <div class="card-scroll">${myActivity.length ? myActivity.map(a=>{
               const meta = ACTION_META[a.type];
               return `<div class="done-row"><span class="ck" style="color:var(--ink-soft);">${meta.icon}</span><div class="ci-body">${joNametagHTML(a.task.joId, a.task.track, a.task.name)}<div class="ci-badges"><span class="badge-followup">${meta.label} · ${fmtStamp(a)}</span></div></div></div>`;
-            }).join('') : '<div class="empty-note">No actions logged yet.</div>'}
+            }).join('') : '<div class="empty-note">No actions logged yet.</div>'}</div>
           </div>
         </div>
       </div>
