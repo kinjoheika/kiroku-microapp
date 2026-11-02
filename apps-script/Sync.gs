@@ -92,10 +92,11 @@ function keepOwnRows(payload, owner, sourceKey) {
 }
 
 // ---------------------------------------------------------------- Activity tabs
-// Every Doc Officer sheet's Activity tab is a copy of Supabase activity_logs, newest first.
+// Each Doc Officer sheet's Activity tab is a copy of that officer's own rows in Supabase
+// activity_logs (user_id = the sheet's owner), newest first.
 //   1. Rows typed into the tab (activity_id blank) are added to activity_logs as the sheet's
 //      owner, through import_sheet_activity() (supabase/09_merge_activity.sql).
-//   2. The tab is rewritten from activity_logs, so it shows every action from the app and all sheets.
+//   2. The tab is rewritten from activity_logs: every action the officer took, in the app or the sheet.
 // A typed row Supabase refuses (unknown task_id, action_type, date) is kept at the bottom in red.
 // Edits to rows that have an activity_id are overwritten: activity_logs rows are permanent.
 // Never throws, like writeEventLogTab: a failed copy must not stop the sync.
@@ -104,7 +105,7 @@ const ACTIVITY_COLUMNS = ['task_id', 'action_type', 'date', 'time', 'details', '
   'jo_id', 'previous_status', 'updated_status', 'source', 'activity_id'];
 // The kinds that can be added from a sheet (Mark Done and the rest need the app).
 const SHEET_ACTIVITY_TYPES = ['Follow Up', 'Send Message', 'Log Note', 'Upload'];
-const ACTIVITY_NOTE = 'Copied from Supabase activity_logs after every sync (every 5 minutes).\n' +
+const ACTIVITY_NOTE = 'This Doc Officer\'s actions, copied from Supabase activity_logs after every sync (every 5 minutes).\n' +
   'To add an activity: type a new row at the bottom (task_id, action_type, date, time, details) ' +
   'and leave activity_id blank. It is recorded as this sheet\'s Doc Officer.\n' +
   'Rows with an activity_id cannot be changed: edits to them are put back.';
@@ -124,7 +125,7 @@ function syncActivityTabs(url, key, props) {
 
   // A sheet whose typed rows could not be sent is left as it is, so those rows are not lost.
   sheets.filter(s => !s.failed).forEach(s => {
-    try { writeActivityTab(s.sheetId, logs, s.keep); }
+    try { writeActivityTab(s.sheetId, logs.filter(r => r.user_id === s.src.owner), s.keep); }
     catch (e) { Logger.log(s.src.key + ': could not write the Activity tab: ' + e); }
   });
 }

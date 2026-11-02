@@ -193,7 +193,8 @@ File: `09_merge_activity.sql`. Before it, there were two lists: `activity` (rows
 Activity tabs) and `activity_logs` (actions taken in the app). The app never wrote to the sheets,
 so the Activity tabs and the `activity` table never grew.
 
-After it, `activity_logs` is the only list, and every Doc Officer sheet's **Activity** tab is a copy of it.
+After it, `activity_logs` is the only list. Each Doc Officer sheet's **Activity** tab is a copy of that
+officer's own rows in it (`user_id` = u1..u4): everything they did, in the app or typed into the sheet, on any task.
 
 Steps, in this order:
 
@@ -208,8 +209,10 @@ How it works from then on (every sync, every 5 minutes):
 
 | Where the action happens | What happens |
 |---|---|
-| In the app (Follow Up, Send Message, Log Note, Upload, Mark Done …) | saved to `activity_logs` at once; shows in every Activity tab after the next sync |
-| Typed into a sheet's Activity tab (new row, `activity_id` blank) | added to `activity_logs` as that sheet's Doc Officer, then shows in every tab and in the app |
+| In the app (Follow Up, Send Message, Log Note, Upload, Mark Done …) | saved to `activity_logs` at once; shows in that user's Activity tab after the next sync |
+| Typed into a sheet's Activity tab (new row, `activity_id` blank) | added to `activity_logs` as that sheet's Doc Officer, then shows in the app |
+
+Actions by users without a Doc Officer sheet (for example the CEO) are in `activity_logs` and the app, but in no Activity tab.
 
 - From a sheet, only Follow Up, Send Message, Log Note and Upload can be added (Mark Done changes the task, so it needs the app).
 - A typed row that cannot be added (unknown `task_id`, wrong type, bad date) stays at the bottom in red, with the reason as a note.

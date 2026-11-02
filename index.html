@@ -1432,12 +1432,14 @@ async function loadFromOfficerSheets(){
     Promise.all(SHARED_SHEET_TABS.map(async tab=>[tab, await fetchTab(tab, SHEET_ID)])),
     Promise.all(owners.map(async ([owner, id])=>[owner, await fetchTab('Tasks', id), await fetchTab('Activity', id)])),
   ]);
-  const tasks = [], activity = [];
+  const tasks = [], activity = [], seenAct = new Set();
   parts.forEach(([owner, taskRows, actRows])=>{
     const own = tabToObjects(taskRows).filter(t=>t.editor_id===owner);
     const ids = new Set(own.map(t=>t.task_id));
     tasks.push(...own);
-    activity.push(...tabToObjects(actRows).filter(a=>ids.has(a.task_id)));
+    // Activity tabs copied from activity_logs (activity_id set) hold the owner's own actions, on any task.
+    // Older tabs held every task's activity, so only the owner's tasks are taken from them.
+    activity.push(...tabToObjects(actRows).filter(a=>a.activity_id ? !seenAct.has(a.activity_id) && seenAct.add(a.activity_id) : ids.has(a.task_id)));
   });
   const db = buildDBFromTabs({...Object.fromEntries(shared),
     Tasks: objectsToRows(tasks, parts[0][1][0]), Activity: objectsToRows(activity, parts[0][2][0])});
