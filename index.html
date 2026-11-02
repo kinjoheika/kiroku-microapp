@@ -1072,9 +1072,21 @@ function ensureStoredFiles(taskId){
   storageFetch(`list/${FILE_BUCKET}`, {method:'POST', headers:{'Content-Type':'application/json'},
       body:JSON.stringify({prefix:`${taskId}/`, limit:1000})})
     .then(r=>r.json())
-    .then(list=>{ storedFiles.set(taskId, new Set(list.map(o=>o.name))); })
+    .then(async list=>{
+      // A missing bucket lists as [] too; ask for an object to tell "no files" from "not set up".
+      if(!list.length && !(await fileBucketExists())) throw new Error('bucket not found');
+      storedFiles.set(taskId, new Set(list.map(o=>o.name)));
+    })
     .catch(e=>{ console.warn('task files list failed:', e); storedFiles.set(taskId, 'error'); })
     .finally(refreshActivityViews);
+}
+let bucketCheck = null;
+function fileBucketExists(){
+  if(!bucketCheck) bucketCheck = fetch(`${SUPABASE_URL}/storage/v1/object/authenticated/${FILE_BUCKET}/.probe`, {cache:'no-store',
+      headers:{apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`}})
+    .then(r=>r.text()).then(t=>!/bucket not found/i.test(t))
+    .catch(()=>true);
+  return bucketCheck;
 }
 function openTaskFileEl(el, download){ openTaskFile(el.dataset.task, el.dataset.ref, el.dataset.name, download); }
 // Open (view in a new tab) or download a stored file. The tab is opened before the fetch so
@@ -2005,7 +2017,7 @@ function filesHTML(task){
   ensureStoredFiles(task.id);
   const known = storedFiles.get(task.id);
   if(known==='loading') return '<div class="empty-note">Checking stored files…</div>';
-  const warn = known==='error' ? '<div class="ra-warn">File storage not reachable. Run supabase/08_task_files.sql, then reload.</div>' : '';
+  const warn = known==='error' ? '<div class="ra-warn">File storage is not set up, so these uploads kept only the file name and cannot be opened. Run supabase/08_task_files.sql in Supabase, reload, then upload the files again.</div>' : '';
   return warn + files.map(a=>{
     const name = a.fileName || '(no name)';
     // Uploads imported from the sheets, or logged before file storage existed, have only a name.
