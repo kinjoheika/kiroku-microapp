@@ -457,6 +457,46 @@ body{height:100vh; height:100dvh; width:100%; padding:0; display:flex; flex-dire
 .fit-col .dual-card-row .card{display:flex; flex-direction:column; margin-bottom:0;}
 .card-scroll{flex:1 1 auto; min-height:0; overflow-y:auto; overscroll-behavior:contain;}
 
+/* My Tasks, modern pass: banner and numbers share one row, so the lists get the height */
+.greet p{margin-bottom:12px;}
+.hero-row{display:flex; gap:12px; margin-bottom:14px; align-items:stretch;}
+.hero-row .cta-banner{flex:1.5 1 0; min-width:0; margin-bottom:0; padding:14px 18px;}
+.hero-row .stat-row{flex:1 1 0; min-width:0; margin-bottom:0;}
+.hero-row .stat-chip{display:flex; flex-direction:column; justify-content:center; padding:10px 14px;}
+.cta-txt{flex:1; min-width:0;}
+.cta-go{flex-shrink:0; background:rgba(255,255,255,.14); border:1px solid rgba(255,255,255,.25); color:#fff; font-size:12px; font-weight:700; padding:7px 14px; border-radius:999px; white-space:nowrap; transition:background .15s ease;}
+.cta-banner:hover .cta-go{background:rgba(255,255,255,.24);}
+.card-hd .hd-count{font-size:11px; font-weight:800; color:var(--ink-soft); background:#EEF0F2; border-radius:999px; padding:1px 9px;}
+.fit-col .done-row{padding:9px 15px; transition:background .12s ease;}
+.fit-col .done-row:hover{background:#FAFAFB;}
+.fit-col .badge-done, .fit-col .badge-followup{border-radius:999px; padding:2px 10px;}
+
+/* To Do list: rounded rows with a status bar on the left and a clear due pill */
+.side-col{background:#F7F8FA;}
+.side-hd{border-bottom:none; padding:14px 16px 6px;}
+.side-hd .count{border-radius:999px; border:none; padding:2px 10px;}
+.side-list{padding:6px 12px 12px;}
+.queue-item{background:#fff; border:1px solid #ECEEF0; border-radius:12px; padding:10px 12px 10px 14px; margin-bottom:8px; position:relative; overflow:hidden; box-shadow:0 1px 2px rgba(16,24,40,.04); transition:box-shadow .15s ease, transform .15s ease;}
+.queue-item::before{content:""; position:absolute; left:0; top:0; bottom:0; width:4px; background:#D8DBDE;}
+.queue-item.q-flagged::before{background:var(--darkred);}
+.queue-item.q-pending::before{background:var(--gold);}
+.queue-item.q-done::before{background:var(--blue);}
+.queue-item:hover{background:#fff; box-shadow:0 4px 12px rgba(16,24,40,.08); transform:translateY(-1px);}
+.queue-item .qd{font-size:10.5px; font-weight:800; padding:2px 8px; border-radius:999px; background:#EEF0F2; color:var(--ink-soft);}
+.queue-item .qd.flagged{background:var(--darkred-light); color:var(--darkred);}
+.queue-item .qd.pending{background:var(--gold-light); color:var(--gold-ink);}
+
+/* Bottom bar with a small progress track */
+.bottom-bar{background:#fff; color:var(--ink); gap:12px;}
+.bb-track{width:160px; height:6px; background:#E5E7EB; border-radius:999px; overflow:hidden; display:inline-block;}
+.bb-track > span{display:block; height:100%; background:var(--blue); border-radius:999px;}
+
+/* Thin, rounded scrollbars in the scrolling lists */
+.card-scroll, .side-list, .gate-list-scroll, .tri-body, .main-col{scrollbar-width:thin; scrollbar-color:#C9CDD2 transparent;}
+.card-scroll::-webkit-scrollbar, .side-list::-webkit-scrollbar, .gate-list-scroll::-webkit-scrollbar, .tri-body::-webkit-scrollbar, .main-col::-webkit-scrollbar{width:8px;}
+.card-scroll::-webkit-scrollbar-thumb, .side-list::-webkit-scrollbar-thumb, .gate-list-scroll::-webkit-scrollbar-thumb, .tri-body::-webkit-scrollbar-thumb, .main-col::-webkit-scrollbar-thumb{background:#C9CDD2; border-radius:999px; border:2px solid transparent; background-clip:padding-box;}
+.card-scroll::-webkit-scrollbar-track, .side-list::-webkit-scrollbar-track, .gate-list-scroll::-webkit-scrollbar-track, .tri-body::-webkit-scrollbar-track, .main-col::-webkit-scrollbar-track{background:transparent;}
+
 /* Template B (Due Gates, CEO): three columns fill the height, each column body scrolls */
 .tri{height:auto; min-height:0;}
 .tri-col{height:auto; min-height:0;}
@@ -485,6 +525,7 @@ body{height:100vh; height:100dvh; width:100%; padding:0; display:flex; flex-dire
 .ev-table .ra-status{white-space:normal;}
 
 @media (max-width:1100px){
+  .hero-row{flex-direction:column;}
   .col-workers{width:250px;}
   .col-tracks{width:180px;}
   .col-kumiai{width:230px;}
@@ -511,6 +552,7 @@ body{height:100vh; height:100dvh; width:100%; padding:0; display:flex; flex-dire
   .body-row > .side-col{width:auto; border-left:none; border-top:1px solid var(--border); flex:none;}
   .body-row .side-list, .body-row .gate-list-scroll{max-height:60dvh;}
   .fit-col > .dual-card-row{flex:none; min-height:0;}
+  .hero-row{flex-direction:column;}
   .card-scroll{max-height:320px;}
   .tri{flex-direction:column; overflow-y:auto; overscroll-behavior:contain;}
   .tri > .tri-col, .tri > .jo-form-panel{width:auto; flex:none; border-right:none; border-bottom:1px solid var(--border);}
@@ -1905,11 +1947,11 @@ function buildScreen1(){
     const topTask = open[0];
     const queueRows = open.slice(0,8).map(t=>{
       const st = computeStatus(t);
-      const dtext = diffDays(t.due)<0 ? `${Math.abs(diffDays(t.due))}D` : `${diffDays(t.due)}D`;
-      return `<div class="queue-item" onclick="openTaskDetail('${t.id}')">
-        <span class="ball ${st}"></span>
+      const dd = diffDays(t.due);
+      const dtext = dd<0 ? `${-dd}d late` : dd===0 ? 'Today' : `in ${dd}d`;
+      return `<div class="queue-item q-${st}" onclick="openTaskDetail('${t.id}')">
         <div class="qbody">${joNametagHTML(t.joId, t.track, t.name)}</div>
-        <span class="qd">${dtext}</span>
+        <span class="qd ${st}">${dtext}</span>
       </div>`;
     }).join('') || '<div class="empty-note">All caught up — nothing open right now.</div>';
 
@@ -1920,24 +1962,27 @@ function buildScreen1(){
           <h2>Good day, ${user.name}</h2>
           <p>${total} task${total===1?'':'s'} assigned to you in this sample database.</p>
         </div>
-        ${topTask ? `<div class="cta-banner" onclick="openTaskDetail('${topTask.id}')">
-          <div class="play">▶</div>
-          <div><div class="lbl">Continue with</div>${joNametagHTML(topTask.joId, topTask.track, topTask.name, {dark:true})}</div>
-        </div>` : ''}
-        <div class="stat-row">
-          <div class="stat-chip c-red"><div class="sv">${overdueCount}</div><div class="sl">Overdue</div></div>
-          <div class="stat-chip c-blue"><div class="sv">${open.length}</div><div class="sl">Open tasks</div></div>
-          <div class="stat-chip c-gold"><div class="sv">${trackCount}</div><div class="sl">Tracks touched</div></div>
+        <div class="hero-row">
+          ${topTask ? `<div class="cta-banner" onclick="openTaskDetail('${topTask.id}')">
+            <div class="play">▶</div>
+            <div class="cta-txt"><div class="lbl">Continue with</div>${joNametagHTML(topTask.joId, topTask.track, topTask.name, {dark:true})}</div>
+            <span class="cta-go">Open task →</span>
+          </div>` : ''}
+          <div class="stat-row">
+            <div class="stat-chip c-red"><div class="sv">${overdueCount}</div><div class="sl">Overdue</div></div>
+            <div class="stat-chip c-blue"><div class="sv">${open.length}</div><div class="sl">Open tasks</div></div>
+            <div class="stat-chip c-gold"><div class="sv">${trackCount}</div><div class="sl">Tracks touched</div></div>
+          </div>
         </div>
         <div class="dual-card-row">
           <div class="card">
-            <div class="card-hd"><span class="t">My Recently Completed</span></div>
+            <div class="card-hd"><span class="t">My Recently Completed</span><span class="hd-count">${doneList.length}</span></div>
             <div class="card-scroll">${doneList.length ? doneList.map(t=>{
               return `<div class="done-row"><span class="ck">✓</span><div class="ci-body">${joNametagHTML(t.joId, t.track, t.name)}<div class="ci-badges"><span class="badge-done">Completed · ${fmtStamp(t.doneAt)}</span></div></div></div>`;
             }).join('') : '<div class="empty-note">Nothing completed yet.</div>'}</div>
           </div>
           <div class="card">
-            <div class="card-hd"><span class="t">My Recent Actions</span></div>
+            <div class="card-hd"><span class="t">My Recent Actions</span><span class="hd-count">${myActivity.length}</span></div>
             <div class="card-scroll">${myActivity.length ? myActivity.map(a=>{
               const meta = ACTION_META[a.type];
               return `<div class="done-row"><span class="ck" style="color:var(--ink-soft);">${meta.icon}</span><div class="ci-body">${joNametagHTML(a.task.joId, a.task.track, a.task.name)}<div class="ci-badges"><span class="badge-followup">${meta.label} · ${fmtStamp(a)}</span></div></div></div>`;
@@ -1950,7 +1995,7 @@ function buildScreen1(){
         <div class="side-list">${queueRows}</div>
       </div>
     </div>
-    <div class="bottom-bar">✓ Cleared: ${doneCount} / ${total} <span class="dim">·</span> ${pct}% complete</div>`;
+    <div class="bottom-bar">✓ Cleared: ${doneCount} / ${total}<span class="bb-track"><span style="width:${pct}%"></span></span>${pct}% complete</div>`;
   }
 
   return navHTML('My Tasks') + `
