@@ -132,24 +132,20 @@ function syncActivityTabs(url, key, props) {
 
 // Sends the tab's rows with a blank activity_id. Returns the refused rows (as sheet values) with the reason.
 function importTypedActivity(url, key, src, sheetId) {
-  const ss = SpreadsheetApp.openById(sheetId);
-  const sh = ss.getSheetByName(ACTIVITY_TAB);
+  const sh = SpreadsheetApp.openById(sheetId).getSheetByName(ACTIVITY_TAB);
   if (!sh || sh.getLastRow() < 2) return [];
-  // A typed date or time is in the sheet's own time zone (File > Settings), which may not be Manila.
-  const sheetTz = ss.getSpreadsheetTimeZone();
-  const values = sh.getDataRange().getValues();
+  // Date and time are taken as the sheet shows them ("2026-07-29", "10:30"), which is Philippine
+  // time. Reading them as Date values would shift them by the sheet's own time zone setting.
+  const range = sh.getDataRange();
+  const values = range.getValues();
+  const shown = range.getDisplayValues();
   const head = values[0].map(h => String(h).trim());
   const typed = [];
   values.slice(1).forEach((row, i) => {
     const obj = {};
     head.forEach((h, j) => {
       if (!h) return;
-      const v = row[j];
-      if (v instanceof Date && (h === 'date' || h === 'time')) {
-        obj[h] = Utilities.formatDate(v, sheetTz, h === 'time' ? 'HH:mm' : 'yyyy-MM-dd');
-      } else {
-        obj[h] = cell(v, h);
-      }
+      obj[h] = (h === 'date' || h === 'time') ? shown[i + 1][j].trim() : cell(row[j], h);
     });
     if (obj.activity_id || !obj.task_id) return;
     typed.push({
