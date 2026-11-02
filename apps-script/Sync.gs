@@ -131,14 +131,25 @@ function syncActivityTabs(url, key, props) {
 
 // Sends the tab's rows with a blank activity_id. Returns the refused rows (as sheet values) with the reason.
 function importTypedActivity(url, key, src, sheetId) {
-  const sh = SpreadsheetApp.openById(sheetId).getSheetByName(ACTIVITY_TAB);
+  const ss = SpreadsheetApp.openById(sheetId);
+  const sh = ss.getSheetByName(ACTIVITY_TAB);
   if (!sh || sh.getLastRow() < 2) return [];
+  // A typed date or time is in the sheet's own time zone (File > Settings), which may not be Manila.
+  const sheetTz = ss.getSpreadsheetTimeZone();
   const values = sh.getDataRange().getValues();
   const head = values[0].map(h => String(h).trim());
   const typed = [];
   values.slice(1).forEach((row, i) => {
     const obj = {};
-    head.forEach((h, j) => { if (h) obj[h] = cell(row[j], h); });
+    head.forEach((h, j) => {
+      if (!h) return;
+      const v = row[j];
+      if (v instanceof Date && (h === 'date' || h === 'time')) {
+        obj[h] = Utilities.formatDate(v, sheetTz, h === 'time' ? 'HH:mm' : 'yyyy-MM-dd');
+      } else {
+        obj[h] = cell(v, h);
+      }
+    });
     if (obj.activity_id || !obj.task_id) return;
     typed.push({
       row: i + 2, task_id: String(obj.task_id),
