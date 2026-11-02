@@ -166,7 +166,7 @@ function deleteJobOrder(data) {
     if (act) deleteRowsWhere(act, 'task_id', v => v.indexOf(prefix) === 0);
   });
 
-  // Tasks and their activity rows go with it (on delete cascade).
+  // Its tasks go with it (on delete cascade). It has no activity_logs rows (checked above).
   const res = UrlFetchApp.fetch(url + '/rest/v1/job_orders?jo_id=eq.' + encodeURIComponent(joId), {
     method: 'delete', headers: headers, muteHttpExceptions: true,
   });

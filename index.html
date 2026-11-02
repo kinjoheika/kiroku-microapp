@@ -560,7 +560,8 @@ const STORAGE_KEY = 'kiroku_sample_db_v2';
 /* ---------- Data source ----------
    Backup when Supabase is unreachable, split the same way as apps-script/Sync.gs:
    the masterlist (SHEET_ID) gives Users, Kumiai, Companies, JobOrders, and each
-   Doc Officer sheet gives only its owner's Tasks (editor_id) and their Activity.
+   Doc Officer sheet gives only its owner's Tasks (editor_id) and their Activity
+   (each Activity tab is a copy of activity_logs, so only the owner's tasks are kept).
    Every sheet must be shared "Anyone with the link: Viewer".
    index.html?sheet=<ID> reads all six tabs from one sheet instead (see Kiroku_Sample_Sheet.xlsx).
    Blank SHEET_ID = read the bundled CSVs in ./data instead. */
@@ -578,8 +579,9 @@ const OFFICER_SHEETS = {   // Doc Officer 1..4 sheet IDs (SHEET_ID_1..4 in Sync.
    the Sheet / CSV above. */
 const SUPABASE_URL = 'https://epslvipdnpsqgonaxzbd.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_O4Ii-EGo57qt0fDI0LT_7A_lfs2afiq';
+// Activity comes from activity_logs (loadActivityLogs), which holds the sheets' activity too.
 const SUPABASE_TABLES = {Users:'users', Kumiai:'kumiai', Companies:'companies',
-  JobOrders:'job_orders', Tasks:'tasks', Activity:'activity'};
+  JobOrders:'job_orders', Tasks:'tasks'};
 let SOURCE_LABEL = '';
 const SEV = {flagged:3, pending:2, none:1, done:0};
 const ACTION_META = {followup:{icon:'🔁',label:'Follow Up'}, message:{icon:'✉️',label:'Send Message'}, note:{icon:'📝',label:'Log Note'}, upload:{icon:'📎',label:'Upload Document'}};
@@ -1358,7 +1360,14 @@ function tabToObjects(rows){
 function buildDBFromTabs(t){
   const R = Object.fromEntries(Object.entries(t).map(([k,rows])=>[k,tabToObjects(rows)]));
   const actByTask = {};
-  R.Activity.forEach(a=>{ (actByTask[a.task_id] ||= []).push({type:a.type, date:a.date, time:a.time}); });
+  // Sheet Activity tabs are a copy of activity_logs (action_type, details); older tabs have type.
+  (R.Activity||[]).forEach(a=>{
+    const type = a.type || KIND_FOR_LOG[a.action_type];
+    if(!type) return;
+    const text = a.details || '';
+    (actByTask[a.task_id] ||= []).push({type, date:a.date, time:a.time,
+      ...((type==='note' || type==='message') && text ? {text} : {}), ...(type==='upload' && text ? {fileName:text} : {})});
+  });
   return {
     users: R.Users.map(r=>({id:r.user_id, name:r.name, role:r.role, initials:''})),
     kumiai: R.Kumiai.map(r=>({id:r.kumiai_id, name:r.name})),
@@ -1391,7 +1400,6 @@ function supaManilaStamp(ts){
 }
 function supaToRows(tab, objs){
   // Shape the table rows like the Sheet tab, so buildDBFromTabs handles both sources the same way.
-  if(tab==='Activity') objs = objs.map(o=>({task_id:o.task_id, type:o.type, date:o.activity_date, time:(o.activity_time||'').slice(0,5)}));
   if(tab==='Tasks') objs = objs.map(o=>({...o, order:o.sort_order, done_at: o.done_at ? supaManilaStamp(o.done_at) : ''}));
   const hdr = Object.keys(objs[0]);
   return [hdr, ...objs.map(o=>hdr.map(h=>supaValue(o[h])))];
@@ -2068,7 +2076,7 @@ function fmtActivityTime(iso){
 }
 function taskActivityItems(task){
   const logged = (ACTIVITY_LOGS||[]).filter(r=>r.task_id===task.id);
-  // Activity imported from the Google Sheets (table activity) predates activity_logs; keep showing it.
+  // Activity read from a Sheet (when Supabase is unreachable) has no activity_logs row; keep showing it.
   const imported = (task.activity||[]).filter(a=>!a.logId && LOG_TYPE_FOR[a.type]).map(a=>({
     action_type: LOG_TYPE_FOR[a.type], created_at: `${a.date}T${a.time||'00:00'}:00+08:00`,
     user_name: a.user ? (getUser(a.user)||{}).name : '', action_details: a.text || a.fileName || '', imported: true}));

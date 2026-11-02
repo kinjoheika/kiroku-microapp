@@ -11,14 +11,16 @@
  *
  * One owner per row, so no sheet can undo another sheet's edit:
  *   - the masterlist sends the shared tabs (Users, Kumiai, Companies, JobOrders)
- *   - each Doc Officer sheet sends only its owner's Tasks (editor_id) and their Activity
+ *   - each Doc Officer sheet sends only its owner's Tasks (editor_id)
  * Every Doc Officer sheet still shows every task. After the sync, the other officers'
  * task rows are refreshed from Supabase and shaded grey; edits to them are ignored.
+ * Activity: Supabase activity_logs is the one list. New rows typed into a sheet's Activity tab
+ * are added to it, then every Activity tab is rewritten from it (see syncActivityTabs).
  * Run syncAll() manually once, then installTrigger() to run scheduledSync() every 5 minutes.
  */
 
 const SHARED_TABS = { Users: 'users', Kumiai: 'kumiai', Companies: 'companies', JobOrders: 'job_orders' };
-const OWN_TABS = { Tasks: 'tasks', Activity: 'activity' };
+const OWN_TABS = { Tasks: 'tasks' };
 
 const MASTERLIST_ID = '1OcjPALavuFbnMdhoTTRtqppKyK94CIDCWord2Gqi6OA';
 
@@ -79,21 +81,148 @@ function syncAll() {
   });
 
   refreshOtherOfficersRows(url, key, props);
+  syncActivityTabs(url, key, props);
 }
 
-// Drops the rows this sheet does not own: other officers' tasks, and activity on those tasks.
+// Drops the rows this sheet does not own: other officers' tasks.
 function keepOwnRows(payload, owner, sourceKey) {
-  const own = new Set();
   const allTasks = payload.tasks || [];
-  payload.tasks = allTasks.filter(r => {
-    if (String(r.editor_id) !== owner) return false;
-    own.add(String(r.task_id));
-    return true;
+  payload.tasks = allTasks.filter(r => String(r.editor_id) === owner);
+  Logger.log(sourceKey + ': sending ' + payload.tasks.length + ' of ' + allTasks.length + ' tasks (owner ' + owner + ')');
+}
+
+// ---------------------------------------------------------------- Activity tabs
+// Every Doc Officer sheet's Activity tab is a copy of Supabase activity_logs, newest first.
+//   1. Rows typed into the tab (activity_id blank) are added to activity_logs as the sheet's
+//      owner, through import_sheet_activity() (supabase/09_merge_activity.sql).
+//   2. The tab is rewritten from activity_logs, so it shows every action from the app and all sheets.
+// A typed row Supabase refuses (unknown task_id, action_type, date) is kept at the bottom in red.
+// Edits to rows that have an activity_id are overwritten: activity_logs rows are permanent.
+// Never throws, like writeEventLogTab: a failed copy must not stop the sync.
+const ACTIVITY_TAB = 'Activity';
+const ACTIVITY_COLUMNS = ['task_id', 'action_type', 'date', 'time', 'details', 'user_name',
+  'jo_id', 'previous_status', 'updated_status', 'source', 'activity_id'];
+// The kinds that can be added from a sheet (Mark Done and the rest need the app).
+const SHEET_ACTIVITY_TYPES = ['Follow Up', 'Send Message', 'Log Note', 'Upload'];
+const ACTIVITY_NOTE = 'Copied from Supabase activity_logs after every sync (every 5 minutes).\n' +
+  'To add an activity: type a new row at the bottom (task_id, action_type, date, time, details) ' +
+  'and leave activity_id blank. It is recorded as this sheet\'s Doc Officer.\n' +
+  'Rows with an activity_id cannot be changed: edits to them are put back.';
+
+function syncActivityTabs(url, key, props) {
+  const sheets = SOURCES.filter(src => src.owner && props.getProperty(src.idProp))
+    .map(src => ({ src: src, sheetId: props.getProperty(src.idProp), keep: [] }));
+
+  sheets.forEach(s => {
+    try { s.keep = importTypedActivity(url, key, s.src, s.sheetId); }
+    catch (e) { Logger.log(s.src.key + ': could not import typed activity: ' + e); s.failed = true; }
   });
-  const allActivity = payload.activity || [];
-  payload.activity = allActivity.filter(r => own.has(String(r.task_id)));
-  Logger.log(sourceKey + ': sending ' + payload.tasks.length + ' of ' + allTasks.length + ' tasks, ' +
-             payload.activity.length + ' of ' + allActivity.length + ' activities (owner ' + owner + ')');
+
+  let logs;
+  try { logs = readAllActivityLogs(url, key); }
+  catch (e) { Logger.log('could not read activity_logs to write the Activity tabs: ' + e); return; }
+
+  // A sheet whose typed rows could not be sent is left as it is, so those rows are not lost.
+  sheets.filter(s => !s.failed).forEach(s => {
+    try { writeActivityTab(s.sheetId, logs, s.keep); }
+    catch (e) { Logger.log(s.src.key + ': could not write the Activity tab: ' + e); }
+  });
+}
+
+// Sends the tab's rows with a blank activity_id. Returns the refused rows (as sheet values) with the reason.
+function importTypedActivity(url, key, src, sheetId) {
+  const sh = SpreadsheetApp.openById(sheetId).getSheetByName(ACTIVITY_TAB);
+  if (!sh || sh.getLastRow() < 2) return [];
+  const values = sh.getDataRange().getValues();
+  const head = values[0].map(h => String(h).trim());
+  const typed = [];
+  values.slice(1).forEach((row, i) => {
+    const obj = {};
+    head.forEach((h, j) => { if (h) obj[h] = cell(row[j], h); });
+    if (obj.activity_id || !obj.task_id) return;
+    typed.push({
+      row: i + 2, task_id: String(obj.task_id),
+      // the old tab used type / body; the new one action_type / details
+      action_type: obj.action_type || obj.type || '',
+      date: obj.date || '', time: obj.time || '', details: obj.details || obj.body || '',
+    });
+  });
+  if (!typed.length) return [];
+
+  const res = UrlFetchApp.fetch(url + '/rest/v1/rpc/import_sheet_activity', {
+    method: 'post',
+    contentType: 'application/json',
+    headers: { apikey: key, Authorization: 'Bearer ' + key },
+    payload: JSON.stringify({ p_source: src.key, p_user: src.owner, p_rows: typed }),
+    muteHttpExceptions: true,
+  });
+  if (res.getResponseCode() >= 300) throw new Error(res.getContentText());
+  const out = JSON.parse(res.getContentText());
+  Logger.log(src.key + ': typed activity added ' + out.added + ', already there ' + out.existing +
+             ', refused ' + out.skipped.length);
+
+  const byRow = {};
+  typed.forEach(t => { byRow[t.row] = t; });
+  return out.skipped.map(s => {
+    const t = byRow[s.row];
+    return { values: [t.task_id, t.action_type, t.date, t.time, t.details], reason: s.reason };
+  });
+}
+
+// All activity_logs rows, newest first (PostgREST returns at most 1000 per request).
+function readAllActivityLogs(url, key) {
+  const all = [];
+  for (let offset = 0; ; offset += 1000) {
+    const res = UrlFetchApp.fetch(url + '/rest/v1/activity_logs?select=*' +
+      '&order=created_at.desc,activity_id.desc&limit=1000&offset=' + offset, {
+      headers: { apikey: key, Authorization: 'Bearer ' + key },
+      muteHttpExceptions: true,
+    });
+    if (res.getResponseCode() >= 300) throw new Error(res.getContentText());
+    const page = JSON.parse(res.getContentText());
+    all.push.apply(all, page);
+    if (page.length < 1000) return all;
+  }
+}
+
+function writeActivityTab(sheetId, logs, keep) {
+  const width = ACTIVITY_COLUMNS.length;
+  const rows = logs.map(r => {
+    const at = Utilities.formatDate(new Date(r.created_at), TZ, 'yyyy-MM-dd HH:mm');
+    const v = Object.assign({}, r, { date: at.slice(0, 10), time: at.slice(11), details: r.action_details });
+    return ACTIVITY_COLUMNS.map(c => (v[c] === null || v[c] === undefined) ? '' : String(v[c]));
+  });
+  const kept = keep.map(k => k.values.map(String).concat(Array(width - k.values.length).fill('')));
+
+  const values = [ACTIVITY_COLUMNS].concat(rows, kept);
+
+  const ss = SpreadsheetApp.openById(sheetId);
+  const sh = ss.getSheetByName(ACTIVITY_TAB) || ss.insertSheet(ACTIVITY_TAB);
+  // Nothing new: leave the tab alone, so it does not flicker every 5 minutes.
+  if (!keep.length && sh.getLastRow() === values.length && sh.getLastColumn() === width &&
+      JSON.stringify(sh.getDataRange().getDisplayValues()) === JSON.stringify(values)) return;
+
+  sh.clear();
+  sh.clearNotes();
+  sh.getRange(1, 1, sh.getMaxRows(), sh.getMaxColumns()).clearDataValidations();
+  if (sh.getMaxColumns() < width) sh.insertColumnsAfter(sh.getMaxColumns(), width - sh.getMaxColumns());
+  if (sh.getMaxRows() < values.length + 50) sh.insertRowsAfter(sh.getMaxRows(), values.length + 50 - sh.getMaxRows());
+  // Plain text, so a note like "=SUM(...)" is shown, not run as a formula.
+  sh.getRange(1, 1, values.length, width).setNumberFormat('@').setValues(values);
+
+  sh.getRange(1, 1, 1, width).setFontWeight('bold');
+  sh.getRange(1, 1).setNote(ACTIVITY_NOTE);
+  sh.setFrozenRows(1);
+  if (rows.length) sh.getRange(2, 1, rows.length, width).setFontColor('#555555');
+  keep.forEach((k, i) => {
+    const r = 2 + rows.length + i;
+    sh.getRange(r, 1, 1, width).setBackground('#fde2e1');
+    sh.getRange(r, 1).setNote('Not added to Supabase: ' + k.reason + '. Fix this row; it is sent again on the next sync.');
+  });
+  // A dropdown for the action type of new rows (the empty rows below the data).
+  const first = values.length + 1;
+  sh.getRange(first, 2, sh.getMaxRows() - first + 1, 1).setDataValidation(
+    SpreadsheetApp.newDataValidation().requireValueInList(SHEET_ACTIVITY_TYPES, true).setAllowInvalid(false).build());
 }
 
 // The same corrections the first setup made to the officer sheets, so the

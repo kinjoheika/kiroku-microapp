@@ -94,8 +94,10 @@ declare
 begin
   insert into public.sync_runs (source_key) values (p_source) returning run_id into v_run;
 
-  -- parents before children, so foreign keys always resolve
-  foreach t in array array['users','kumiai','companies','job_orders','tasks','activity'] loop
+  -- parents before children, so foreign keys always resolve.
+  -- Activity is not synced here: rows typed into a sheet go to activity_logs through
+  -- import_sheet_activity() (09_merge_activity.sql). An 'activity' key in the payload is ignored.
+  foreach t in array array['users','kumiai','companies','job_orders','tasks'] loop
     if p_payload ? t then
       key_col := case t
         when 'users'      then 'user_id'
@@ -103,7 +105,6 @@ begin
         when 'companies'  then 'company_id'
         when 'job_orders' then 'jo_id'
         when 'tasks'      then 'task_id'
-        when 'activity'   then 'activity_key'
       end;
       res := res || jsonb_build_object(t, public.sync_entity(p_source, v_run, t, key_col, p_payload -> t));
     end if;

@@ -94,7 +94,7 @@ The old rows are kept in `event_log_old`, and their created/updated history is c
 | Sheet | Sends to Supabase |
 |---|---|
 | Masterlist | Users, Kumiai, Companies, JobOrders (synced first) |
-| Doc Officer 1..4 | Only Tasks where `editor_id` is that officer (u1..u4), and Activity on those tasks |
+| Doc Officer 1..4 | Only Tasks where `editor_id` is that officer (u1..u4); new rows typed into its Activity tab (see "one activity list" below) |
 
 Every Doc Officer sheet still shows every task. After the sync, the other officers' task rows are
 rewritten from Supabase and shaded grey; edits there are ignored and put back. New companies and
@@ -131,7 +131,7 @@ What each button does (Doc Officer 1), then `syncAll()` runs right away:
 | Create Job Order | row added to masterlist **JobOrders** (next free `jo_id`, `worker_name` = `TBA`); each task added to its owner's **Tasks** tab | inserted by the sync; copied to the other officers' sheets |
 | Save changes | JobOrders row updated; if the deploy date moved, the owners' task `due_date`s too | updated by the sync |
 | Archive / Reactivate | `active` set to FALSE / TRUE | updated by the sync |
-| Delete | JO row, its task rows (all four officer sheets) and their Activity rows removed | Job Order deleted (tasks and activity go with it); one Record Deleted row in `event_logs` |
+| Delete | JO row, its task rows (all four officer sheets) and their Activity rows removed | Job Order deleted (its tasks go with it); one Record Deleted row in `event_logs` |
 
 Every change shows in Configuration > **Sync Logs** (Record Created / Updated / Deleted). Edits also add a
 Task Update row to **Event Logs**.
@@ -184,3 +184,34 @@ Rows cannot be updated, deleted or truncated, not even with the service_role key
 The script also adds the table to Supabase Realtime so open pages show new actions without a refresh.
 
 Until this script is run, the task page shows "Activity log not reachable" and actions are not recorded.
+
+---
+
+## V4: one activity list (activity + activity_logs merged, copied to every sheet)
+
+File: `09_merge_activity.sql`. Before it, there were two lists: `activity` (rows from the sheets'
+Activity tabs) and `activity_logs` (actions taken in the app). The app never wrote to the sheets,
+so the Activity tabs and the `activity` table never grew.
+
+After it, `activity_logs` is the only list, and every Doc Officer sheet's **Activity** tab is a copy of it.
+
+Steps, in this order:
+
+1. Run `09_merge_activity.sql` in the SQL Editor. It copies every `activity` row into `activity_logs`
+   (source `Google Sheets`, user = the row's user or else the task's editor, time = the sheet's date and time),
+   then deletes the `activity` table. Both happen together: if the copy fails, the table is not deleted.
+2. Run `03_sync.sql` again (the sync no longer sends the Activity tab as a table).
+3. Paste the new `apps-script/Sync.gs` and run `syncAll` once. Each Activity tab is rewritten with these
+   columns: `task_id, action_type, date, time, details, user_name, jo_id, previous_status, updated_status, source, activity_id`.
+
+How it works from then on (every sync, every 5 minutes):
+
+| Where the action happens | What happens |
+|---|---|
+| In the app (Follow Up, Send Message, Log Note, Upload, Mark Done …) | saved to `activity_logs` at once; shows in every Activity tab after the next sync |
+| Typed into a sheet's Activity tab (new row, `activity_id` blank) | added to `activity_logs` as that sheet's Doc Officer, then shows in every tab and in the app |
+
+- From a sheet, only Follow Up, Send Message, Log Note and Upload can be added (Mark Done changes the task, so it needs the app).
+- A typed row that cannot be added (unknown `task_id`, wrong type, bad date) stays at the bottom in red, with the reason as a note.
+- Rows with an `activity_id` cannot be changed or deleted: edits to them are put back on the next sync.
+- A Job Order with any activity (including the rows copied from the old table) can no longer be deleted, only archived.
