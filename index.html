@@ -754,7 +754,7 @@ textarea.tf-input{resize:vertical; line-height:1.4;}
 }
 
 /* ===== Sign-in ===== */
-#userSwitchGrp[hidden], .si[hidden], .si form[hidden], .si-card[hidden], .si-alert[hidden], .si-note[hidden]{display:none;}
+#userSwitchGrp[hidden], .si-link[hidden], .si[hidden], .si form[hidden], .si-card[hidden], .si-alert[hidden], .si-note[hidden]{display:none;}
 .si{position:fixed; inset:0; z-index:70; overflow-y:auto; display:flex; flex-direction:column; align-items:center; gap:22px; padding:max(32px,10vh) 16px 28px; background:var(--bg);}
 .si-logo{display:flex; flex-direction:column; align-items:center; text-align:center;}
 .si-mark{width:46px; height:46px; margin-bottom:14px; border-radius:12px; display:grid; place-items:center; background:var(--darkred); color:#fff; font-size:21px; font-weight:700;}
@@ -804,7 +804,7 @@ textarea.tf-input{resize:vertical; line-height:1.4;}
     <form id="siForm" onsubmit="submitSignIn(event)" novalidate hidden>
       <label for="siEmail">Work email</label>
       <input id="siEmail" name="username" type="email" autocomplete="username" inputmode="email" autocapitalize="none" spellcheck="false" required>
-      <div class="si-label-row"><label for="siPass">Password</label><button class="si-link" type="button" onclick="sendPasswordReset()">Forgot password?</button></div>
+      <div class="si-label-row"><label for="siPass">Password</label><button class="si-link" id="siForgot" type="button" onclick="sendPasswordReset()">Forgot password?</button></div>
       <div class="si-pass">
         <input id="siPass" name="password" type="password" autocomplete="current-password" required>
         <button class="si-eye" type="button" aria-label="Show password" aria-pressed="false" onclick="togglePassword(this,'siPass')">Show</button>
@@ -2320,7 +2320,7 @@ function navHTML(activeTab){
     ${notifHTML()}
     <span class="who">${user.name===user.role ? user.name : `${user.name} (${user.role})`}</span>
     ${isCEO(user) || activeTab==='All Due Gates' ? '<span class="readonly-pill">View only</span>' : ''}
-    ${SIGN_IN ? '<button class="signout-btn" onclick="signOut()">Sign out</button>' : ''}
+    ${SIGN_IN || mockActive ? '<button class="signout-btn" onclick="signOut()">Sign out</button>' : ''}
   </div>`;
 }
 
@@ -3196,6 +3196,16 @@ function updateConfigTable(){
 const LOGIN_REQUIRED = false;
 // Opening the page with ?login shows real sign-in without changing it for anyone else, to try accounts first.
 const SIGN_IN = LOGIN_REQUIRED || new URLSearchParams(location.search).has('login');
+// Demo accounts, until real accounts exist. This is a convenience, not security: the details are in
+// this page for anyone to read, and Supabase cannot tell who is signed in. Set to false to remove them.
+const MOCK_LOGIN = true;
+const MOCK_PASSWORD = 'kiroku2026';
+const MOCK_ACCOUNTS = {
+  'admin@kiroku.sample':'u6', 'ceo@kiroku.sample':'u5', 'docofficer1@kiroku.sample':'u1',
+  'docofficer2@kiroku.sample':'u2', 'docofficer3@kiroku.sample':'u3', 'docofficer4@kiroku.sample':'u4',
+};
+const MOCK_USER_KEY = 'kiroku_mock_user';
+const mockActive = MOCK_LOGIN && !SIGN_IN;
 let sessionToken = null;
 let sessionRole = null;
 let recoveringPassword = false;
@@ -3244,6 +3254,14 @@ async function submitSignIn(ev){
   const email = emailEl.value.trim();
   if(!email || !emailEl.validity.valid){ showSignIn('form', 'Enter your work email.'); emailEl.focus(); return; }
   if(!passEl.value){ showSignIn('form', 'Enter your password.'); passEl.focus(); return; }
+  if(mockActive){
+    const uid = MOCK_ACCOUNTS[email.toLowerCase()], ok = uid && getUser(uid) && passEl.value===MOCK_PASSWORD;
+    passEl.value = '';
+    if(!ok){ showSignIn('form', 'Incorrect email or password.'); passEl.focus(); return; }
+    try { localStorage.setItem(SI_EMAIL_KEY, email); localStorage.setItem(MOCK_USER_KEY, uid); } catch(e){}
+    enterMock(uid);
+    return;
+  }
   const btn = document.getElementById('siSubmit');
   btn.disabled = true; btn.textContent = 'Signing in…';
   let result;
@@ -3287,6 +3305,11 @@ async function submitNewPassword(ev){
   if(session) await startSession(session); else showSignIn('form', '', 'Password saved. Sign in with it.');
 }
 async function signOut(){
+  if(mockActive){
+    try { localStorage.removeItem(MOCK_USER_KEY); } catch(e){}
+    location.reload();
+    return;
+  }
   await sbClient().auth.signOut();
   location.reload();
 }
@@ -3313,6 +3336,21 @@ function populateUserSwitch(){
   const sel = document.getElementById('userSwitch');
   sel.innerHTML = DB.users.map(u=>`<option value="${u.id}" ${u.id===currentUserId?'selected':''}>${u.name}${u.role===u.name?'':' ('+u.role+')'}</option>`).join('');
 }
+async function startWithMockLogin(){
+  await reloadFromSource();
+  initSelections();
+  let saved = null;
+  try { saved = localStorage.getItem(MOCK_USER_KEY); } catch(e){}
+  if(saved && getUser(saved)) enterMock(saved);
+  else showSignIn('form');
+  startActivityRealtime();
+  window.addEventListener('load', startActivityRealtime);   // in case supabase-js loads after init
+}
+function enterMock(uid){
+  document.getElementById('signin').hidden = true;
+  initSelections();
+  enterAs(uid);
+}
 async function startWithoutLogin(){
   await reloadFromSource();
   initSelections();
@@ -3322,7 +3360,13 @@ async function startWithoutLogin(){
   startActivityRealtime();
   window.addEventListener('load', startActivityRealtime);   // in case supabase-js loads after init
 }
-if(!SIGN_IN) startWithoutLogin();
+if(mockActive){
+  document.getElementById('userSwitchGrp').hidden = true;
+  document.getElementById('siForgot').hidden = true;
+  showSignIn('wait');
+  startWithMockLogin();
+}
+else if(!SIGN_IN) startWithoutLogin();
 else {
   document.getElementById('userSwitchGrp').hidden = true;
   showSignIn('wait');   // covers the empty page until Kiroku knows whether someone is signed in
