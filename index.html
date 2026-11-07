@@ -1059,9 +1059,9 @@ function canEditInContext(task, pageContext){
   return getEditor(task) === user.id;
 }
 function tabsFor(user){
-  if(isCEO(user)) return [{id:'s4', label:'CEO Page'}, {id:'s3', label:'All Due Gates'}, {id:'s5', label:'Configuration'}];
+  if(isCEO(user)) return [{id:'s4', label:'CEO Page'}, {id:'s3', label:'All Due Gates'}];
   if(isAdmin(user)) return [{id:'s1', label:'My Tasks'}, {id:'s2', label:'My Due Gates'}, {id:'s3', label:'All Due Gates'}, {id:'s4', label:'CEO Page'}, {id:'s5', label:'Configuration'}];
-  return [{id:'s1', label:'My Tasks'}, {id:'s2', label:'My Due Gates'}, {id:'s3', label:'All Due Gates'}, {id:'s5', label:'Configuration'}];
+  return [{id:'s1', label:'My Tasks'}, {id:'s2', label:'My Due Gates'}, {id:'s3', label:'All Due Gates'}];
 }
 function myTracksFor(userId){
   if(isAdmin(getUser(userId))) return TRACK_DEFS;
@@ -2079,6 +2079,7 @@ function openNotif(taskId){
 document.addEventListener('click', e=>{ if(!e.target.closest('.notif-wrap')) closeNotifs(); });
 
 function showScreen(id){
+  if(id==='s5' && !isAdmin(getUser(currentUserId))) id = isCEO(getUser(currentUserId)) ? 's4' : 's1';
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
   document.getElementById(id).classList.add('active');
   renderAllScreens();
@@ -2836,6 +2837,7 @@ let cfgTab = 'events';
 const evFilter = {q:'', type:''};
 function cfgShowTab(tab){ cfgTab = tab; renderAllScreens(); }
 function buildConfigScreen(){
+  if(!isAdmin(getUser(currentUserId))) return '';
   const tabs = `<div class="cfg-tabs">
     <button class="cfg-tab ${cfgTab==='events'?'on':''}" onclick="cfgShowTab('events')">Event Logs</button>
     <button class="cfg-tab ${cfgTab==='sync'?'on':''}" onclick="cfgShowTab('sync')">Sync Logs</button>
