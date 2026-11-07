@@ -754,23 +754,32 @@ textarea.tf-input{resize:vertical; line-height:1.4;}
 }
 
 /* ===== Sign-in ===== */
-#userSwitchGrp[hidden], .si[hidden], .si form[hidden], .si-alert[hidden], .si-note[hidden]{display:none;}
-.si{position:fixed; inset:0; z-index:70; overflow-y:auto; display:flex; flex-direction:column; align-items:center; gap:24px; padding:clamp(32px,10vh,96px) 16px 28px; background:var(--bg);}
-.si-logo{display:flex; flex-direction:column; align-items:center; gap:12px;}
-.si-logo h2{font-size:22px; font-weight:600;}
-.si-mark{width:44px; height:44px; border-radius:12px; display:grid; place-items:center; background:var(--darkred); color:#fff; font-size:20px; font-weight:700;}
-.si-card{width:100%; max-width:380px; padding:26px; border:1px solid var(--line); border-radius:14px; background:#fff; box-shadow:0 12px 32px -14px rgba(16,18,22,.2);}
+#userSwitchGrp[hidden], .si[hidden], .si form[hidden], .si-card[hidden], .si-alert[hidden], .si-note[hidden]{display:none;}
+.si{position:fixed; inset:0; z-index:70; overflow-y:auto; display:flex; flex-direction:column; align-items:center; gap:22px; padding:max(32px,10vh) 16px 28px; background:var(--bg);}
+.si-logo{display:flex; flex-direction:column; align-items:center; text-align:center;}
+.si-mark{width:46px; height:46px; margin-bottom:14px; border-radius:12px; display:grid; place-items:center; background:var(--darkred); color:#fff; font-size:21px; font-weight:700;}
+.si-logo h1{font-family:var(--font-body); font-size:22px; font-weight:600; letter-spacing:-.01em; color:var(--ink);}
+.si-sub{margin-top:3px; font-size:13px; color:var(--ink-3);}
+.si-card{width:100%; max-width:380px; padding:24px; border:1px solid var(--line); border-radius:12px; background:#fff;}
 .si form{display:flex; flex-direction:column;}
-.si label{margin:0 0 6px; font-size:13px; font-weight:500; color:var(--ink-2);}
-.si input{height:42px; margin-bottom:14px; padding:0 12px; border:1px solid var(--line); border-radius:8px; font-family:var(--font-body); font-size:14px; color:var(--ink);}
-.si input:focus{outline:none; border-color:var(--darkred);}
-.si-btn{height:42px; border:none; border-radius:8px; background:var(--darkred); color:#fff; font-family:var(--font-body); font-size:14px; font-weight:600; cursor:pointer;}
+.si label{display:block; margin:0 0 6px; font-size:13px; font-weight:500; color:var(--ink-2);}
+.si input{width:100%; height:42px; margin-bottom:16px; padding:0 12px; border:1px solid var(--line); border-radius:8px; background:#fff; font-family:var(--font-body); font-size:15px; color:var(--ink); transition:border-color .15s ease, box-shadow .15s ease;}
+.si input:hover{border-color:#C9CDD2;}
+.si input:focus{outline:none; border-color:var(--blue); box-shadow:0 0 0 3px rgba(31,87,160,.15);}
+.si-label-row{display:flex; align-items:baseline; justify-content:space-between; gap:10px;}
+.si-pass{position:relative;}
+.si-pass input{padding-right:62px;}
+.si-eye{position:absolute; top:4px; right:4px; height:34px; padding:0 10px; border:none; border-radius:6px; background:none; color:var(--ink-2); font-family:var(--font-body); font-size:13px; font-weight:500; cursor:pointer;}
+.si-eye:hover{background:#F0F1F3; color:var(--ink);}
+.si-btn{height:42px; margin-top:2px; border:none; border-radius:8px; background:var(--darkred); color:#fff; font-family:var(--font-body); font-size:15px; font-weight:600; cursor:pointer;}
 .si-btn:hover{background:#641923;}
-.si-btn:disabled{opacity:.6; cursor:default;}
-.si-link{margin-top:12px; border:none; background:none; color:var(--ink-2); font-family:var(--font-body); font-size:13px; cursor:pointer;}
-.si-link:hover{text-decoration:underline;}
-.si-alert{margin-bottom:14px; padding:9px 11px; border:1px solid var(--red-line); border-radius:8px; background:var(--red-soft); color:var(--red); font-size:13px;}
-.si-note{margin-bottom:14px; font-size:13px; color:var(--ink-2);}
+.si-btn:disabled{opacity:.6; cursor:default; transform:none;}
+.si-link{border:none; background:none; padding:0; color:var(--ink-2); font-family:var(--font-body); font-size:13px; cursor:pointer;}
+.si-link:hover{color:var(--ink); text-decoration:underline;}
+.si-alert{margin-bottom:16px; padding:9px 11px; border:1px solid var(--red-line); border-radius:8px; background:var(--red-soft); color:var(--red); font-size:13px;}
+.si-alert:focus{outline:none;}
+.si-note{margin-bottom:16px; font-size:13px; color:var(--ink-2);}
+.si-hint{margin:-8px 0 16px; font-size:12.5px; color:var(--ink-3);}
 .signout-btn{border:1px solid #5B6470; border-radius:6px; background:none; color:#C7CBD1; padding:3px 10px; font-family:var(--font-body); font-size:12px; cursor:pointer;}
 .signout-btn:hover{background:#2E3138; color:#fff;}
 @media (max-width:820px){
@@ -788,22 +797,28 @@ textarea.tf-input{resize:vertical; line-height:1.4;}
 </div>
 
 <div class="si" id="signin" hidden>
-  <div class="si-logo"><span class="si-mark">記</span><h2 id="siTitle">Sign in to Kiroku</h2></div>
-  <section class="si-card">
-    <div class="si-alert" id="siAlert" role="alert" hidden></div>
-    <p class="si-note" id="siNote" hidden></p>
-    <form id="siForm" onsubmit="submitSignIn(event)" hidden>
+  <div class="si-logo"><span class="si-mark" aria-hidden="true">記</span><h1 id="siTitle">Sign in to Kiroku</h1><p class="si-sub" id="siSub">Completeness Gate</p></div>
+  <section class="si-card" id="siCard" hidden>
+    <div class="si-alert" id="siAlert" role="alert" tabindex="-1" hidden></div>
+    <p class="si-note" id="siNote" role="status" hidden></p>
+    <form id="siForm" onsubmit="submitSignIn(event)" novalidate hidden>
       <label for="siEmail">Work email</label>
-      <input id="siEmail" type="email" autocomplete="username" required>
-      <label for="siPass">Password</label>
-      <input id="siPass" type="password" autocomplete="current-password" required>
+      <input id="siEmail" name="username" type="email" autocomplete="username" inputmode="email" autocapitalize="none" spellcheck="false" required>
+      <div class="si-label-row"><label for="siPass">Password</label><button class="si-link" type="button" onclick="sendPasswordReset()">Forgot password?</button></div>
+      <div class="si-pass">
+        <input id="siPass" name="password" type="password" autocomplete="current-password" required>
+        <button class="si-eye" type="button" aria-label="Show password" aria-pressed="false" onclick="togglePassword(this,'siPass')">Show</button>
+      </div>
       <button class="si-btn" id="siSubmit" type="submit">Sign in</button>
-      <button class="si-link" type="button" onclick="sendPasswordReset()">Forgot password?</button>
     </form>
-    <form id="siNewPass" onsubmit="submitNewPassword(event)" hidden>
+    <form id="siNewPass" onsubmit="submitNewPassword(event)" novalidate hidden>
       <label for="siPass2">New password</label>
-      <input id="siPass2" type="password" autocomplete="new-password" minlength="8" required>
-      <button class="si-btn" type="submit">Save new password</button>
+      <div class="si-pass">
+        <input id="siPass2" name="new-password" type="password" autocomplete="new-password" minlength="8" aria-describedby="siPass2Hint" required>
+        <button class="si-eye" type="button" aria-label="Show password" aria-pressed="false" onclick="togglePassword(this,'siPass2')">Show</button>
+      </div>
+      <p class="si-hint" id="siPass2Hint">Use at least 8 characters.</p>
+      <button class="si-btn" id="siSaveNew" type="submit">Save new password</button>
     </form>
   </section>
 </div>
@@ -3188,38 +3203,83 @@ function sbClient(){
   if(!sbInstance && window.supabase) sbInstance = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   return sbInstance;
 }
+const SI_EMAIL_KEY = 'kiroku_signin_email';
+// view: 'form', 'newpass', or 'wait' (logo only, while Kiroku checks for an existing sign-in).
 function showSignIn(view, alertText, noteText){
-  const box = document.getElementById('signin');
-  box.hidden = false;
+  document.getElementById('signin').hidden = false;
+  document.getElementById('siCard').hidden = view==='wait';
   document.getElementById('siTitle').textContent = view==='newpass' ? 'Set a new password' : 'Sign in to Kiroku';
   document.getElementById('siForm').hidden = view!=='form';
   document.getElementById('siNewPass').hidden = view!=='newpass';
-  const a = document.getElementById('siAlert'); a.hidden = !alertText; a.textContent = alertText||'';
   const n = document.getElementById('siNote'); n.hidden = !noteText; n.textContent = noteText||'';
+  const a = document.getElementById('siAlert'); a.hidden = !alertText; a.textContent = alertText||'';
+  if(view==='form'){
+    const email = document.getElementById('siEmail');
+    if(!email.value){ try { email.value = localStorage.getItem(SI_EMAIL_KEY) || ''; } catch(e){} }
+  }
+  if(alertText) a.focus();
+  else if(view==='form') document.getElementById(document.getElementById('siEmail').value ? 'siPass' : 'siEmail').focus();
+  else if(view==='newpass') document.getElementById('siPass2').focus();
+}
+function togglePassword(btn, inputId){
+  const input = document.getElementById(inputId), show = input.type==='password';
+  input.type = show ? 'text' : 'password';
+  btn.textContent = show ? 'Hide' : 'Show';
+  btn.setAttribute('aria-pressed', show);
+  btn.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+}
+function signInMessage(error){
+  const m = (error && error.message) || '';
+  if(/invalid/i.test(m)) return 'Incorrect email or password.';
+  if(/rate|too many/i.test(m)) return 'Too many tries. Wait a few minutes, then try again.';
+  if(/not confirmed/i.test(m)) return 'This account is not active yet. Ask Admin to confirm it.';
+  if(/fetch|network/i.test(m)) return 'Could not reach Kiroku. Check your connection and try again.';
+  return m || 'Could not sign in. Try again.';
 }
 async function submitSignIn(ev){
   ev.preventDefault();
+  const emailEl = document.getElementById('siEmail'), passEl = document.getElementById('siPass');
+  const email = emailEl.value.trim();
+  if(!email || !emailEl.validity.valid){ showSignIn('form', 'Enter your work email.'); emailEl.focus(); return; }
+  if(!passEl.value){ showSignIn('form', 'Enter your password.'); passEl.focus(); return; }
   const btn = document.getElementById('siSubmit');
   btn.disabled = true; btn.textContent = 'Signing in…';
-  const {data, error} = await sbClient().auth.signInWithPassword({
-    email: document.getElementById('siEmail').value.trim(), password: document.getElementById('siPass').value});
+  let result;
+  try { result = await sbClient().auth.signInWithPassword({email, password: passEl.value}); }
+  catch(e){ result = {error:e}; }
+  passEl.value = '';
+  if(result.error){
+    btn.disabled = false; btn.textContent = 'Sign in';
+    showSignIn('form', signInMessage(result.error));
+    passEl.focus();
+    return;
+  }
+  try { localStorage.setItem(SI_EMAIL_KEY, email); } catch(e){}
+  await startSession(result.data.session);
   btn.disabled = false; btn.textContent = 'Sign in';
-  document.getElementById('siPass').value = '';
-  if(error){ showSignIn('form', /invalid/i.test(error.message) ? 'Incorrect email or password.' : error.message); return; }
-  await startSession(data.session);
 }
 async function sendPasswordReset(){
-  const email = document.getElementById('siEmail').value.trim();
-  if(!email){ showSignIn('form', 'Enter your work email first.'); return; }
-  const {error} = await sbClient().auth.resetPasswordForEmail(email, {redirectTo: location.origin + location.pathname});
-  if(error) showSignIn('form', error.message);
+  const emailEl = document.getElementById('siEmail'), email = emailEl.value.trim();
+  if(!email || !emailEl.validity.valid){ showSignIn('form', 'Enter your work email first, then choose Forgot password.'); emailEl.focus(); return; }
+  let error = null;
+  try { ({error} = await sbClient().auth.resetPasswordForEmail(email, {redirectTo: location.origin + location.pathname})); }
+  catch(e){ error = e; }
+  // The same answer whether or not the email has an account, so this cannot be used to test for accounts.
+  if(error) showSignIn('form', signInMessage(error));
   else showSignIn('form', '', 'If that email has an account, a reset link is on its way.');
 }
 async function submitNewPassword(ev){
   ev.preventDefault();
-  const {error} = await sbClient().auth.updateUser({password: document.getElementById('siPass2').value});
-  document.getElementById('siPass2').value = '';
-  if(error){ showSignIn('newpass', error.message); return; }
+  const passEl = document.getElementById('siPass2');
+  if(passEl.value.length < 8){ showSignIn('newpass', 'Use at least 8 characters.'); passEl.focus(); return; }
+  const btn = document.getElementById('siSaveNew');
+  btn.disabled = true;
+  let error = null;
+  try { ({error} = await sbClient().auth.updateUser({password: passEl.value})); }
+  catch(e){ error = e; }
+  btn.disabled = false;
+  passEl.value = '';
+  if(error){ showSignIn('newpass', signInMessage(error)); return; }
   recoveringPassword = false;
   const {data:{session}} = await sbClient().auth.getSession();
   if(session) await startSession(session); else showSignIn('form', '', 'Password saved. Sign in with it.');
@@ -3261,9 +3321,12 @@ async function startWithoutLogin(){
   window.addEventListener('load', startActivityRealtime);   // in case supabase-js loads after init
 }
 if(!LOGIN_REQUIRED) startWithoutLogin();
-else document.getElementById('userSwitchGrp').hidden = true;
+else {
+  document.getElementById('userSwitchGrp').hidden = true;
+  showSignIn('wait');   // covers the empty page until Kiroku knows whether someone is signed in
+}
 if(LOGIN_REQUIRED) window.addEventListener('load', async ()=>{
-  if(!sbClient()){ showSignIn('none', 'Could not load the sign-in service. Check your connection and reload.'); return; }
+  if(!sbClient()){ showSignIn('form', 'Could not load the sign-in service. Check your connection and reload the page.'); return; }
   sbClient().auth.onAuthStateChange((event, session)=>{
     if(event==='PASSWORD_RECOVERY'){ recoveringPassword = true; showSignIn('newpass'); }
     // Later tokens replace the old one; supabase-js refreshes them before they expire.

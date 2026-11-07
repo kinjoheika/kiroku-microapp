@@ -1070,43 +1070,92 @@ function asText(v, header, tz) {
   return s;
 }
 
-// Read-only copy of the latest event_logs rows, in the Admin Masterlist's "Event Log" tab.
-// Supabase stays the real log: the tab is rewritten after every sync and never synced back.
+// Read-only copy of the latest event_logs rows, in the Admin Masterlist's "Event Log" tab, in everyday
+// words. Supabase stays the real log: the tab is rewritten after every sync and never synced back.
 // Never throws: a failed copy must not stop the sync.
 const EVENT_LOG_TAB = 'Event Log';
 const EVENT_LOG_LIMIT = 500;
 const EVENT_LOG_COLUMNS = [
-  ['event_at', 'Date & Time (PH)'], ['event_type', 'Event'], ['source_sheet', 'Sheet'], ['module', 'Module'],
-  ['record_id', 'Record ID'], ['field_changed', 'Field'], ['old_value', 'Old Value'],
-  ['new_value', 'New Value'], ['description', 'Description'], ['sync_status', 'Status'],
+  ['event_at', 'Date & Time', 135], ['event_type', 'What Happened', 135], ['source_sheet', 'From', 120], ['module', 'Section', 95],
+  ['record_id', 'Record', 280], ['field_changed', 'Field', 140], ['old_value', 'Old Value', 150],
+  ['new_value', 'New Value', 150], ['description', 'Details', 300], ['sync_status', 'Result', 80],
 ];
+const EVENT_FIELD_NAMES = {
+  'Jo Number': 'Job Order No.', 'Worker Name': 'Worker Name', 'Target Deployment Date': 'Target Deployment Date', 'Task Name': 'Task Description',
+  'Editor Id': 'Assigned Officer', 'Done At': 'Completed At', 'Sort Order': 'Order', 'Offset Days': 'Days From Deployment',
+  'Company Id': 'Company', 'Kumiai Id': 'Kumiai',
+};
+
+// "doc-officer-2" -> "Doc Officer 2"
+function eventSheetName(key) {
+  if (!key) return '';
+  if (key === 'admin') return 'Admin';
+  if (key === 'masterlist') return 'Old Masterlist';
+  return String(key).replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+}
+
+// The name of a record instead of its code: "j1-TIO-0" -> "JO# 2026-0143 · TIO · Fill Up".
+function eventRecordNames(url, key) {
+  const names = {};
+  const jos = {};
+  readAllRows(url, key, 'job_orders?select=jo_id,jo_number').forEach(j => { jos[j.jo_id] = j.jo_number; names[j.jo_id] = 'JO# ' + j.jo_number; });
+  readAllRows(url, key, 'tasks?select=task_id,jo_id,track,task_name').forEach(t => {
+    names[t.task_id] = 'JO# ' + (jos[t.jo_id] || t.jo_id) + ' · ' + t.track + ' · ' + t.task_name;
+  });
+  readAllRows(url, key, 'users?select=user_id,name').forEach(u => { names[u.user_id] = u.name; });
+  readAllRows(url, key, 'kumiai?select=kumiai_id,name').forEach(k => { names[k.kumiai_id] = k.name; });
+  readAllRows(url, key, 'companies?select=company_id,name').forEach(c => { names[c.company_id] = c.name; });
+  return names;
+}
 
 function writeAdminEventLog(url, key, props) {
   try {
     const query = '?select=' + EVENT_LOG_COLUMNS.map(c => c[0]).join(',') + '&order=event_at.desc&limit=' + EVENT_LOG_LIMIT;
     const res = UrlFetchApp.fetch(url + '/rest/v1/event_logs' + query, { headers: supabaseHeaders(key), muteHttpExceptions: true });
     if (res.getResponseCode() >= 300) throw new Error(res.getContentText());
+    const records = eventRecordNames(url, key);
 
     const rows = JSON.parse(res.getContentText()).map(e => EVENT_LOG_COLUMNS.map(([col]) => {
-      if (e[col] === null || e[col] === undefined) return '';
-      if (col === 'event_at') return Utilities.formatDate(new Date(e[col]), TZ, 'yyyy-MM-dd HH:mm');
-      return String(e[col]);
+      const v = e[col];
+      if (v === null || v === undefined) return '';
+      if (col === 'event_at') return Utilities.formatDate(new Date(v), TZ, 'yyyy-MM-dd HH:mm');
+      if (col === 'source_sheet') return eventSheetName(v);
+      if (col === 'record_id') return records[v] || String(v);
+      if (col === 'field_changed') return EVENT_FIELD_NAMES[v] || String(v);
+      return String(v);
     }));
-    const values = [EVENT_LOG_COLUMNS.map(c => c[1])].concat(rows);
+    const head = EVENT_LOG_COLUMNS.map(c => c[1]);
+    const values = [head].concat(rows);
 
     const ss = SpreadsheetApp.openById(props.getProperty('ADMIN_SHEET_ID'));
     const sh = ss.getSheetByName(EVENT_LOG_TAB) || ss.insertSheet(EVENT_LOG_TAB);
     if (sh.getProtections(SpreadsheetApp.ProtectionType.SHEET).length === 0) {
       sh.protect().setDescription('Copied from Supabase after each sync. Edits here are overwritten.').setWarningOnly(true);
     }
+    const laidOut = !!sh.getFilter();
     sh.clearContents();
     // Plain text, so a value like "=SUM(...)" from the log is shown, not run as a formula.
-    sh.getRange(1, 1, values.length, values[0].length).setNumberFormat('@').setValues(values);
-    sh.getRange(1, 1, 1, values[0].length).setFontWeight('bold');
-    sh.setFrozenRows(1);
+    sh.getRange(1, 1, values.length, head.length).setNumberFormat('@').setValues(values);
+    if (!laidOut) formatEventLogTab(sh);
   } catch (e) {
     Logger.log('could not write the Event Log tab: ' + e);
   }
+}
+
+function formatEventLogTab(sh) {
+  const width = EVENT_LOG_COLUMNS.length;
+  if (sh.getMaxRows() < EVENT_LOG_LIMIT + 1) sh.insertRowsAfter(sh.getMaxRows(), EVENT_LOG_LIMIT + 1 - sh.getMaxRows());
+  sh.setFrozenRows(1);
+  sh.getRange(1, 1, sh.getMaxRows(), width).setFontFamily('Arial').setFontSize(11).setVerticalAlignment('middle').setFontColor('#1A1D22');
+  sh.getRange(1, 1, 1, width).setFontWeight('bold').setBackground('#F5F5F7');
+  sh.setRowHeight(1, 34);
+  EVENT_LOG_COLUMNS.forEach((c, i) => sh.setColumnWidth(i + 1, c[2]));
+  const result = sh.getRange(2, width, sh.getMaxRows() - 1, 1);
+  sh.setConditionalFormatRules([
+    SpreadsheetApp.newConditionalFormatRule().whenTextEqualTo('Success').setBackground('#E3F3E8').setFontColor('#1E7B44').setRanges([result]).build(),
+    SpreadsheetApp.newConditionalFormatRule().whenTextEqualTo('Failed').setBackground('#FBECEB').setFontColor('#B3261E').setRanges([result]).build(),
+  ]);
+  if (!sh.getFilter()) sh.getRange(1, 1, sh.getMaxRows(), width).createFilter();
 }
 
 // Writes one 'Sync Failed' row to event_logs. It never throws, so the original error still shows.
