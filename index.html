@@ -1059,7 +1059,7 @@ function canEditInContext(task, pageContext){
   return getEditor(task) === user.id;
 }
 function tabsFor(user){
-  if(isCEO(user)) return [{id:'s4', label:'CEO Page'}, {id:'s3', label:'All Due Gates'}];
+  if(isCEO(user)) return [{id:'s3', label:'All Due Gates'}];
   if(isAdmin(user)) return [{id:'s1', label:'My Tasks'}, {id:'s2', label:'My Due Gates'}, {id:'s3', label:'All Due Gates'}, {id:'s4', label:'CEO Page'}, {id:'s5', label:'Configuration'}];
   return [{id:'s1', label:'My Tasks'}, {id:'s2', label:'My Due Gates'}, {id:'s3', label:'All Due Gates'}];
 }
@@ -1523,7 +1523,7 @@ function onUserChange(uid){
   const myTracks = myTracksFor(uid);
   s2Track = null;
   s2JO = firstJOForTrack(myTracks.length ? myTracks[0].key : null);
-  showScreenById(isCEO(user) ? 's4' : 's1');
+  showScreenById(isCEO(user) ? 's3' : 's1');
 }
 async function resetSampleData(){
   if(!confirm('Reload all data from the source (Google Sheet or bundled CSVs)? Local edits made in this browser will be discarded.')) return;
@@ -2079,7 +2079,8 @@ function openNotif(taskId){
 document.addEventListener('click', e=>{ if(!e.target.closest('.notif-wrap')) closeNotifs(); });
 
 function showScreen(id){
-  if(id==='s5' && !isAdmin(getUser(currentUserId))) id = isCEO(getUser(currentUserId)) ? 's4' : 's1';
+  // CEO Page and Configuration are Admin only.
+  if((id==='s4' || id==='s5') && !isAdmin(getUser(currentUserId))) id = isCEO(getUser(currentUserId)) ? 's3' : 's1';
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
   document.getElementById(id).classList.add('active');
   renderAllScreens();
