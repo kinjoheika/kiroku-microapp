@@ -1,10 +1,10 @@
 /**
  * Kiroku V4 — Job Order changes made in the app, written to the Google Sheets and Supabase.
- * Add this file to the same Apps Script project as Sync.gs (it uses SOURCES, MASTERLIST_ID and syncAll()).
+ * Add this file to the same Apps Script project as Sync.gs (it uses SOURCES, masterlistId() and syncAll()).
  *
  * The sheets stay the source of truth: each change is made in the sheets first, the way a
  * hand edit would be, and syncAll() then carries it to Supabase and the other officers' sheets.
- *   create      JO row -> masterlist JobOrders, each task -> its owner's Tasks tab
+ *   create      JO row -> Admin Masterlist JobOrders, each task -> its owner's Tasks tab
  *   edit        JO row updated; when the deploy date moves, the owners' task due dates too
  *   archive     active = FALSE      reactivate   active = TRUE
  *   delete      rows removed from every sheet, then from Supabase (the sync never deletes)
@@ -15,8 +15,9 @@
 function doPost(e) {
   try {
     const data = JSON.parse(e.postData.contents);
-    const token = PropertiesService.getScriptProperties().getProperty('APP_TOKEN');
-    if (!token || data.token !== token) return jsonOut({ ok: false, error: 'bad token' });
+    // The page sends the signed-in user's Supabase token; who they are is read from Supabase.
+    data.user = signedInManager(data.access_token);
+    if (!data.user) return jsonOut({ ok: false, error: 'Only Admin and Doc Officer 1 can change Job Orders. Sign in again if you are one of them.' });
     const handler = JO_ACTIONS[data.action];
     if (!handler) return jsonOut({ ok: false, error: 'unknown action' });
 
@@ -37,6 +38,22 @@ function doPost(e) {
   } catch (err) {
     return jsonOut({ ok: false, error: String(err) });
   }
+}
+
+function signedInManager(accessToken) {
+  if (!accessToken) return null;
+  const props = PropertiesService.getScriptProperties();
+  const url = props.getProperty('SUPABASE_URL');
+  const key = props.getProperty('SUPABASE_SERVICE_KEY');
+  const res = UrlFetchApp.fetch(url + '/auth/v1/user', {
+    headers: { apikey: key, Authorization: 'Bearer ' + accessToken }, muteHttpExceptions: true,
+  });
+  if (res.getResponseCode() >= 300) return null;
+  const authId = JSON.parse(res.getContentText()).id;
+  const rows = supabaseJson(url + '/rest/v1/users?select=user_id,name,role&auth_user_id=eq.' + encodeURIComponent(authId),
+    { apikey: key, Authorization: 'Bearer ' + key });
+  const user = rows[0];
+  return user && (user.role === 'Admin' || user.user_id === 'u1') ? user : null;
 }
 
 const JO_ACTIONS = {
@@ -78,13 +95,13 @@ function createJobOrder(data) {
   };
   m.sheet.appendRow(m.head.map(h => (h in joRow ? joRow[h] : '')));
 
-  // Tasks go to their owner's sheet; the sync copies them into the other officers' sheets.
+  // Tasks go to their owner's sheet; the sync copies them into the Admin Masterlist.
   const byOwner = {};
   tasks.forEach(t => {
     (byOwner[t.editor_id] = byOwner[t.editor_id] || []).push({
-      task_id: joId + '-' + t.track + '-' + t.index, jo_id: joId, track: t.track, task_name: t.task_name,
-      order: t.order, offset_days: t.offset_days, editor_id: t.editor_id, due_date: t.due_date,
-      done: false, done_at: '',
+      'Job Order': number, 'Track': t.track, 'Task Description': t.task_name, 'Due Date': t.due_date, 'Status': 'Pending',
+      'task_id': joId + '-' + t.track + '-' + t.index, 'jo_id': joId, 'editor_id': t.editor_id,
+      'order': t.order, 'offset_days': t.offset_days, 'done': false,
     });
   });
   Object.keys(byOwner).forEach(owner => {
@@ -103,7 +120,7 @@ function editJobOrder(data) {
   }
   const m = masterlistJobOrders();
   const i = m.rows.findIndex(r => cellText(r[m.col.jo_id]) === jo.jo_id);
-  if (i < 0) return { ok: false, error: 'Job Order ' + jo.jo_id + ' is not in the masterlist.' };
+  if (i < 0) return { ok: false, error: 'Job Order ' + jo.jo_id + ' is not in the Admin Masterlist.' };
   const number = String(jo.jo_number).trim();
   if (m.rows.some((r, j) => j !== i && cellText(r[m.col.jo_number]) === number)) {
     return { ok: false, error: 'JO# ' + number + ' already exists.' };
@@ -120,7 +137,7 @@ function editJobOrder(data) {
     ownerSources().forEach(src => {
       const sh = officerTab(src.owner, 'Tasks');
       const head = headerOf(sh);
-      const idCol = head.indexOf('task_id'), edCol = head.indexOf('editor_id'), dueCol = head.indexOf('due_date');
+      const idCol = head.indexOf('task_id'), edCol = head.indexOf('editor_id'), dueCol = head.indexOf('Due Date');
       sh.getDataRange().getValues().forEach((r, k) => {
         const id = cellText(r[idCol]);
         if (k > 0 && id in due && cellText(r[edCol]) === src.owner) sh.getRange(k + 1, dueCol + 1).setValue(due[id]);
@@ -133,7 +150,7 @@ function editJobOrder(data) {
 function setJobOrderActive(data, active) {
   const m = masterlistJobOrders();
   const i = m.rows.findIndex(r => cellText(r[m.col.jo_id]) === data.jo_id);
-  if (i < 0) return { ok: false, error: 'Job Order ' + data.jo_id + ' is not in the masterlist.' };
+  if (i < 0) return { ok: false, error: 'Job Order ' + data.jo_id + ' is not in the Admin Masterlist.' };
   setCells(m.sheet, m.head, i + 2, { active: active });
   return { ok: true, jo_id: data.jo_id };
 }
@@ -157,7 +174,9 @@ function deleteJobOrder(data) {
   const number = i >= 0 ? cellText(m.rows[i][m.col.jo_number]) : joId;
   if (i >= 0) m.sheet.deleteRow(i + 2);
 
-  // Every officer sheet shows every task, so the rows go from all of them.
+  // Every sheet shows every task, so the rows go from all of them, and their sync state with them.
+  const adminTasks = SpreadsheetApp.openById(masterlistId()).getSheetByName('Tasks');
+  if (adminTasks) deleteRowsWhere(adminTasks, 'jo_id', v => v === joId);
   const prefix = joId + '-';
   let taskRows = 0;
   ownerSources().forEach(src => {
@@ -166,6 +185,9 @@ function deleteJobOrder(data) {
     if (act) deleteRowsWhere(act, 'task_id', v => v.indexOf(prefix) === 0);
   });
 
+  UrlFetchApp.fetch(url + '/rest/v1/sheet_sync_state?task_id=like.' + encodeURIComponent(prefix + '*'), {
+    method: 'delete', headers: headers, muteHttpExceptions: true,
+  });
   // Its tasks go with it (on delete cascade). It has no activity_logs rows (checked above).
   const res = UrlFetchApp.fetch(url + '/rest/v1/job_orders?jo_id=eq.' + encodeURIComponent(joId), {
     method: 'delete', headers: headers, muteHttpExceptions: true,
@@ -176,9 +198,9 @@ function deleteJobOrder(data) {
     headers: Object.assign({ Prefer: 'return=minimal' }, headers),
     payload: JSON.stringify({
       event_type: 'Record Deleted', source: 'Kiroku', action: 'Delete', module: 'Job Orders',
-      record_id: joId, user_id: data.user_id || null, user_name: data.user_name || null,
+      record_id: joId, user_id: data.user.user_id, user_name: data.user.name,
       old_value: 'JO# ' + number, description: 'Job Order JO# ' + number + ' deleted with its tasks',
-      source_sheet: 'masterlist',
+      source_sheet: 'admin',
     }),
     muteHttpExceptions: true,
   });
@@ -187,7 +209,7 @@ function deleteJobOrder(data) {
 
 // ---------------------------------------------------------------- helpers
 function masterlistJobOrders() {
-  const sheet = SpreadsheetApp.openById(MASTERLIST_ID).getSheetByName('JobOrders');
+  const sheet = SpreadsheetApp.openById(masterlistId()).getSheetByName('JobOrders');
   const values = sheet.getDataRange().getValues();
   const head = values[0].map(h => String(h).trim());
   const col = {};

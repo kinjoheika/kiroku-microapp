@@ -1,38 +1,50 @@
 /**
- * Kiroku V4 sync — copies the Google Sheets tabs into Supabase.
- * Bound to a Google Sheet (or standalone): Extensions > Apps Script > paste this file.
- *
- * Setup: see supabase/SETUP.md (V4 section).
+ * Kiroku V4 sync — five Google Sheets and Supabase, kept in step every 5 minutes.
+ *   Admin Masterlist <-> Supabase <-> 4 Doc Officer sheets, and Supabase <-> the Kiroku website.
+ * Paste this file into one Apps Script project (Extensions > Apps Script). Setup: supabase/SETUP.md.
  *
  * Secrets and sheet IDs go in Project Settings > Script Properties, never in this file:
  *   SUPABASE_URL          https://<project-ref>.supabase.co
  *   SUPABASE_SERVICE_KEY  the service_role key (server-side only; bypasses row security)
- *   SHEET_ID_1 .. SHEET_ID_4   the Doc Officer 1..4 sheet IDs (from the sheet URL)
+ *   ADMIN_SHEET_ID        the Admin Masterlist's sheet ID (from the sheet URL)
+ *   SHEET_ID_1 .. SHEET_ID_4   the Doc Officer 1..4 sheet IDs
  *
- * One owner per row, so no sheet can undo another sheet's edit:
- *   - the masterlist sends the shared tabs (Users, Kumiai, Companies, JobOrders)
- *   - each Doc Officer sheet sends only its owner's Tasks (editor_id)
- * Every Doc Officer sheet still shows every task. After the sync, the other officers'
- * task rows are refreshed from Supabase and shaded grey; edits to them are ignored.
+ * Who edits what:
+ *   - the Admin Masterlist has every tab: Users, Kumiai, Companies, JobOrders (it alone sends these)
+ *     and all Tasks, editable
+ *   - each Doc Officer sheet holds and edits only the Tasks it owns
+ *   - both directions for Tasks go through syncTasks, which also decides conflicts
+ * People see friendly columns (Job Order, Track, Task Description, Due Date, Status, Assigned Officer,
+ * Remarks). The technical columns stay in the same tab, hidden and locked; see COLUMN_FIELD.
  * Activity: Supabase activity_logs is the one list. New rows typed into a sheet's Activity tab
  * are added to it, then every Activity tab is rewritten from it (see syncActivityTabs).
- * Run syncAll() manually once, then installTrigger() to run scheduledSync() every 5 minutes.
+ * Event logs: Supabase is the real log. The Admin Masterlist's Event Log tab is a read-only copy;
+ * the Doc Officer sheets have none.
+ * Run setupFriendlySheets() once, previewTaskSync() to see what a sync would change, then syncAll(),
+ * then installTrigger() to run scheduledSync() every 5 minutes.
  */
 
 const SHARED_TABS = { Users: 'users', Kumiai: 'kumiai', Companies: 'companies', JobOrders: 'job_orders' };
-const OWN_TABS = { Tasks: 'tasks' };
 
-const MASTERLIST_ID = '1OcjPALavuFbnMdhoTTRtqppKyK94CIDCWord2Gqi6OA';
+// The old masterlist. Read only by setupAdminSheet(), to copy its data once. Nothing else uses it.
+const OLD_MASTERLIST_ID = '1OcjPALavuFbnMdhoTTRtqppKyK94CIDCWord2Gqi6OA';
+const ADMIN_USER_ID = 'u6';
 
-// The masterlist goes first: tasks point at job orders, which must already exist.
-// owner = the editor_id whose tasks (and their activity) this sheet may send.
+// The Admin Masterlist goes first: tasks point at job orders, which must already exist.
+// owner = the editor_id whose tasks this sheet may change.
 const SOURCES = [
-  { key: 'masterlist',    sheetId: MASTERLIST_ID,          tabs: SHARED_TABS },
-  { key: 'doc-officer-1', idProp: 'SHEET_ID_1', owner: 'u1', tabs: OWN_TABS },
-  { key: 'doc-officer-2', idProp: 'SHEET_ID_2', owner: 'u2', tabs: OWN_TABS },
-  { key: 'doc-officer-3', idProp: 'SHEET_ID_3', owner: 'u3', tabs: OWN_TABS },
-  { key: 'doc-officer-4', idProp: 'SHEET_ID_4', owner: 'u4', tabs: OWN_TABS },
+  { key: 'admin',         idProp: 'ADMIN_SHEET_ID', tabs: SHARED_TABS, activityUser: ADMIN_USER_ID },
+  { key: 'doc-officer-1', idProp: 'SHEET_ID_1', owner: 'u1' },
+  { key: 'doc-officer-2', idProp: 'SHEET_ID_2', owner: 'u2' },
+  { key: 'doc-officer-3', idProp: 'SHEET_ID_3', owner: 'u3' },
+  { key: 'doc-officer-4', idProp: 'SHEET_ID_4', owner: 'u4' },
 ];
+
+function masterlistId() {
+  const id = PropertiesService.getScriptProperties().getProperty('ADMIN_SHEET_ID');
+  if (!id) throw new Error('Set ADMIN_SHEET_ID in Script Properties.');
+  return id;
+}
 
 // Sheet header -> table column, where they differ.
 const RENAME = {
@@ -47,19 +59,15 @@ function syncAll() {
   const key = props.getProperty('SUPABASE_SERVICE_KEY');
   if (!url || !key) throw new Error('Set SUPABASE_URL and SUPABASE_SERVICE_KEY in Script Properties.');
 
-  SOURCES.forEach(src => {
-    const sheetId = src.sheetId || props.getProperty(src.idProp);
-    if (!sheetId || Object.keys(src.tabs).length === 0) {
-      Logger.log('skip ' + src.key + ' (no ID or no tabs configured)');
-      return;
-    }
+  masterlistId();
+  SOURCES.filter(src => src.tabs).forEach(src => {
+    const sheetId = props.getProperty(src.idProp);
     const payload = {};
     try {
       Object.entries(src.tabs).forEach(([tab, table]) => {
         payload[table] = readTab(sheetId, tab, table);
       });
-      if (src.owner) keepOwnRows(payload, src.owner, src.key);
-      else applyMasterlistFixes(payload);
+      applyMasterlistFixes(payload);
     } catch (err) {
       logSyncFailure(url, key, src.key, err);
       throw err;
@@ -77,41 +85,643 @@ function syncAll() {
       throw new Error(src.key + ' failed: ' + res.getContentText());
     }
     Logger.log(src.key + ': ' + res.getContentText());
-    writeEventLogTab(url, key, src.key, sheetId);
   });
 
-  refreshOtherOfficersRows(url, key, props);
+  syncTasks(url, key, props);
   syncActivityTabs(url, key, props);
+  writeAdminEventLog(url, key, props);
 }
 
-// Drops the rows this sheet does not own: other officers' tasks.
-function keepOwnRows(payload, owner, sourceKey) {
-  const allTasks = payload.tasks || [];
-  payload.tasks = allTasks.filter(r => String(r.editor_id) === owner);
-  Logger.log(sourceKey + ': sending ' + payload.tasks.length + ' of ' + allTasks.length + ' tasks (owner ' + owner + ')');
+// Writes nothing: logs what syncTasks would change right now, field by field.
+function previewTaskSync() {
+  const props = PropertiesService.getScriptProperties();
+  const url = props.getProperty('SUPABASE_URL');
+  const key = props.getProperty('SUPABASE_SERVICE_KEY');
+  const ownerKeys = {};
+  SOURCES.filter(src => src.owner).forEach(src => { ownerKeys[src.owner] = src.key; });
+  const ctx = readTaskContext(url, key);
+  const agreed = readAgreedTasks(url, key, ctx);
+  const baselines = readBaselines(url, key);
+  const rowsByKey = {};
+  taskSources(props).forEach(src => {
+    rowsByKey[src.key] = readTaskSheet(props.getProperty(src.idProp), ctx, src, true).rows;
+  });
+  const m = mergeTasks(agreed, baselines, rowsByKey, ownerKeys);
+  const lines = [];
+  Object.keys(m.changes).forEach(source => m.changes[source].forEach(id => {
+    const before = agreed[id] || {};
+    TASK_FIELDS.filter(f => before[f] !== m.final[id][f]).forEach(f => {
+      lines.push(source + ' ' + id + ' ' + f + ': "' + (before[f] || '') + '" -> "' + m.final[id][f] + '"');
+    });
+  }));
+  Logger.log('tasks in Supabase ' + Object.keys(agreed).length + ', after sync ' + Object.keys(m.final).length +
+             ', fields that would change ' + lines.length + ', conflicts ' + m.conflicts.length + ', rejected ' + m.rejected.length);
+  lines.slice(0, 60).forEach(l => Logger.log(l));
+}
+
+// ---------------------------------------------------------------- Tasks: two-way sync
+// A task can be edited in two sheets (the Admin Masterlist and its owner's sheet) and in Kiroku.
+// Supabase holds the agreed value. sheet_sync_state holds, per sheet, the values that sheet had
+// after the last sync, so a cell that differs from them was edited there since then, and a Supabase
+// value that differs from them was changed in Kiroku since then. That is what stops loops: a value
+// the sync itself wrote is never mistaken for someone's edit. For one field:
+//   Admin sheet edited     -> Admin's value goes everywhere
+//   Kiroku changed it, and the owner's sheet changed it too -> Kiroku's stays
+//   only the owner's sheet edited -> the owner's value goes everywhere
+//   nobody edited          -> Supabase's value goes to every sheet
+// A value that loses is kept in event_logs and noted on the cell, never dropped silently.
+// A Doc Officer's sheet can change only their own tasks, and only OWNER_FIELDS on them. This check
+// runs here, so unhiding a column or editing another officer's row changes nothing.
+// A row removed from a sheet is put back: Job Orders are deleted from the app, not by removing rows.
+const TASK_FIELDS = ['jo_id', 'track', 'task_name', 'sort_order', 'offset_days', 'editor_id', 'due_date', 'status', 'remarks'];
+const REQUIRED_TASK_FIELDS = ['jo_id', 'track', 'task_name', 'sort_order', 'offset_days', 'due_date', 'status'];
+const OWNER_FIELDS = ['task_name', 'due_date', 'status', 'remarks'];
+const TASK_STATUSES = ['Pending', 'In Progress', 'Completed'];
+const TASK_TRACKS = ['TIO', 'OTIT', 'COE'];
+const ADMIN_KEY = 'admin';
+// Filled in by the sync, for reading only: never sent to Supabase.
+const DERIVED_COLUMNS = { job_orders: ['assigned_officers'] };
+
+// What people see in the Tasks tab, and the technical columns kept hidden to the right of it.
+// The sync finds columns by these names, so their order can change but the names cannot.
+const VISIBLE_COLUMNS = ['Job Order', 'Track', 'Task Description', 'Due Date', 'Status', 'Assigned Officer', 'Remarks'];
+const HIDDEN_COLUMNS = ['task_id', 'jo_id', 'editor_id', 'order', 'offset_days', 'done', 'done_at'];
+const COLUMN_FIELD = {
+  'Track': 'track', 'Task Description': 'task_name', 'Due Date': 'due_date', 'Status': 'status', 'Remarks': 'remarks',
+  'jo_id': 'jo_id', 'editor_id': 'editor_id', 'order': 'sort_order', 'offset_days': 'offset_days',
+};
+const NOTE_PREFIX = 'Kiroku: ';
+
+// Pure, so it can be tested without Google Sheets. Every value is text (see asText).
+//   supabase  { task_id: row }                 baselines { sheetKey: { task_id: row } }
+//   sheets    { sheetKey: { task_id: row } }   ownerKeys { editor_id: sheetKey }
+// Returns final { task_id: row }, changes { sheetKey: [task_id] } (what to send to Supabase,
+// by the sheet it came from), conflicts and rejected (new rows missing a required field).
+function mergeTasks(supabase, baselines, sheets, ownerKeys) {
+  const final = {}, changes = {}, conflicts = [], rejected = [];
+  const admin = sheets[ADMIN_KEY] || {};
+  const ids = {};
+  Object.keys(supabase).forEach(id => { ids[id] = true; });
+  Object.keys(admin).forEach(id => { ids[id] = true; });
+  // An officer can add a new task only for themselves.
+  Object.keys(ownerKeys).forEach(owner => {
+    const rows = sheets[ownerKeys[owner]] || {};
+    Object.keys(rows).forEach(id => { if (supabase[id] || rows[id].editor_id === owner) ids[id] = true; });
+  });
+
+  Object.keys(ids).forEach(id => {
+    const agreed = supabase[id];
+    const a = admin[id];
+    const ownerKey = agreed ? ownerKeys[agreed.editor_id]
+      : Object.keys(ownerKeys).map(o => ownerKeys[o]).find(k => sheets[k] && sheets[k][id] &&
+          ownerKeys[sheets[k][id].editor_id] === k);
+    const o = ownerKey && sheets[ownerKey] ? sheets[ownerKey][id] : undefined;
+
+    if (!agreed) {
+      const from = a || o;
+      const row = {};
+      TASK_FIELDS.forEach(f => { row[f] = from[f] === undefined ? '' : from[f]; });
+      const key = a ? ADMIN_KEY : ownerKey;
+      if (REQUIRED_TASK_FIELDS.some(f => row[f] === '')) { rejected.push({ task_id: id, source: key }); return; }
+      final[id] = row;
+      (changes[key] = changes[key] || []).push(id);
+      return;
+    }
+
+    const before = (key, f) => {
+      const b = baselines[key] && baselines[key][id];
+      return b && f in b ? b[f] : agreed[f];
+    };
+    const row = {};
+    let fromAdmin = false, fromOwner = false;
+    TASK_FIELDS.forEach(f => {
+      row[f] = agreed[f];
+      const blankBad = v => v === '' && REQUIRED_TASK_FIELDS.indexOf(f) >= 0;
+      const ownerEdit = o && OWNER_FIELDS.indexOf(f) >= 0 && f in o && o[f] !== before(ownerKey, f) && !blankBad(o[f]);
+      const adminEdit = a && f in a && a[f] !== before(ADMIN_KEY, f) && !blankBad(a[f]);
+      // Changed in Kiroku since this sheet was last in step, and the sheet was edited too.
+      const kirokuEdit = ownerEdit && agreed[f] !== before(ownerKey, f);
+      if (adminEdit) {
+        if (ownerEdit && o[f] !== a[f]) {
+          conflicts.push({ task_id: id, field: f, kept: a[f], lost: o[f], source: ownerKey, by: 'Admin' });
+        }
+        row[f] = a[f];
+        if (row[f] !== agreed[f]) fromAdmin = true;
+      } else if (kirokuEdit) {
+        if (o[f] !== agreed[f]) {
+          conflicts.push({ task_id: id, field: f, kept: agreed[f], lost: o[f], source: ownerKey, by: 'Kiroku' });
+        }
+      } else if (ownerEdit) {
+        row[f] = o[f];
+        if (row[f] !== agreed[f]) fromOwner = true;
+      }
+    });
+    final[id] = row;
+    if (fromAdmin || fromOwner) {
+      const key = fromAdmin ? ADMIN_KEY : ownerKey;
+      (changes[key] = changes[key] || []).push(id);
+    }
+  });
+  return { final: final, changes: changes, conflicts: conflicts, rejected: rejected };
+}
+
+function supabaseHeaders(key) {
+  return { apikey: key, Authorization: 'Bearer ' + key };
+}
+
+// Every row of a table (PostgREST returns at most 1000 per request).
+function readAllRows(url, key, path) {
+  const all = [];
+  for (let offset = 0; ; offset += 1000) {
+    const res = UrlFetchApp.fetch(url + '/rest/v1/' + path + (path.indexOf('?') < 0 ? '?' : '&') + 'limit=1000&offset=' + offset, {
+      headers: supabaseHeaders(key), muteHttpExceptions: true,
+    });
+    if (res.getResponseCode() >= 300) throw new Error(res.getContentText());
+    const page = JSON.parse(res.getContentText());
+    all.push.apply(all, page);
+    if (page.length < 1000) return all;
+  }
+}
+
+function taskSources(props) {
+  return SOURCES.filter(src => (src.owner || src.key === ADMIN_KEY) && props.getProperty(src.idProp));
+}
+
+// Names and numbers people see, and the IDs behind them.
+function readTaskContext(url, key) {
+  const ctx = { numberToJo: {}, joToNumber: {}, deploy: {}, nameToId: {}, idToName: {}, officerNames: [], nextOrder: {} };
+  readAllRows(url, key, 'job_orders?select=jo_id,jo_number,target_deployment_date').forEach(j => {
+    ctx.numberToJo[j.jo_number] = j.jo_id;
+    ctx.joToNumber[j.jo_id] = j.jo_number;
+    ctx.deploy[j.jo_id] = j.target_deployment_date;
+  });
+  readAllRows(url, key, 'users?select=user_id,name,role').forEach(u => {
+    ctx.idToName[u.user_id] = u.name;
+    if (u.role === 'Doc Officer') {
+      ctx.nameToId[u.name] = u.user_id;
+      ctx.officerNames.push(u.name);
+    }
+  });
+  ctx.officerNames.sort();
+  return ctx;
+}
+
+function readAgreedTasks(url, key, ctx) {
+  const agreed = {};
+  readAllRows(url, key, 'tasks?select=*&order=task_id').forEach(t => {
+    const r = {};
+    TASK_FIELDS.forEach(f => { r[f] = asText(t[f], f); });
+    agreed[t.task_id] = r;
+    const slot = t.jo_id + '|' + t.track;
+    ctx.nextOrder[slot] = Math.max(ctx.nextOrder[slot] || 1, Number(t.sort_order) + 1);
+  });
+  return agreed;
+}
+
+function readBaselines(url, key) {
+  const baselines = {};
+  readAllRows(url, key, 'sheet_sync_state?select=*').forEach(b => {
+    (baselines[b.source] = baselines[b.source] || {})[b.task_id] = b.fields;
+  });
+  return baselines;
+}
+
+// One sheet's Tasks tab as text rows, using the IDs behind the friendly columns.
+// A value that makes no sense (an unknown Job Order, a date that is not a date) is left out and
+// noted on the row. A new row gets its permanent task_id here, written back at once, so it can
+// never be added twice. The first row of a task_id counts; a repeat is ignored.
+function readTaskSheet(sheetId, ctx, src, dryRun) {
+  const ss = SpreadsheetApp.openById(sheetId);
+  const sh = ss.getSheetByName('Tasks');
+  if (!sh) throw new Error('Tab "Tasks" not found in sheet ' + sheetId);
+  const tz = ss.getSpreadsheetTimeZone();
+  const range = sh.getDataRange();
+  const values = range.getValues();
+  const notes = range.getNotes();
+  const head = values[0].map(h => String(h).trim());
+  const col = name => head.indexOf(name);
+  if (col('Status') < 0 || col('task_id') < 0) throw new Error(src.key + ': run setupFriendlySheets first.');
+
+  const rows = {}, rowNum = {};
+  values.forEach((row, i) => {
+    if (i === 0) return;
+    if (!row.some(c => c !== '')) return;
+    const problems = [];
+    const r = {};
+    const shown = name => cellText2(row[col(name)]);
+
+    r.track = shown('Track').toUpperCase();
+    if (TASK_TRACKS.indexOf(r.track) < 0) { problems.push('Track must be TIO, OTIT or COE'); delete r.track; }
+    r.task_name = shown('Task Description');
+    r.remarks = shown('Remarks');
+    const status = TASK_STATUSES.find(s => s.toLowerCase() === shown('Status').toLowerCase());
+    if (status) r.status = status; else if (shown('Status')) problems.push('Status must be Pending, In Progress or Completed');
+    const due = asText(row[col('Due Date')], 'due_date', tz);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(due) && !isNaN(Date.parse(due))) r.due_date = due;
+    else if (due) problems.push('Due Date is not a date');
+    const jo = ctx.numberToJo[shown('Job Order')];
+    if (jo) r.jo_id = jo; else if (shown('Job Order')) problems.push('Job Order ' + shown('Job Order') + ' is not in the Masterlist');
+    if (src.owner) {
+      r.editor_id = src.owner;
+    } else {
+      const ed = ctx.nameToId[shown('Assigned Officer')];
+      if (ed) r.editor_id = ed; else problems.push('Assigned Officer must be a Doc Officer');
+    }
+
+    let id = shown('task_id');
+    if (!id) {
+      const missing = [];
+      if (!r.jo_id) missing.push('Job Order');
+      if (!r.track) missing.push('Track');
+      if (!r.task_name) missing.push('Task Description');
+      if (!r.due_date) missing.push('Due Date');
+      if (!r.editor_id) missing.push('Assigned Officer');
+      if (missing.length) {
+        problems.push('Not added yet. Fill in: ' + missing.join(', '));
+        noteRow(sh, i, notes[i][0], problems, dryRun);
+        return;
+      }
+      id = r.jo_id + '-' + r.track + '-n' + Utilities.getUuid().slice(0, 8);
+      if (!dryRun) sh.getRange(i + 1, col('task_id') + 1).setValue(id);
+    }
+    r.sort_order = shown('order');
+    r.offset_days = shown('offset_days');
+    // A new row, or one whose first sync failed: these are worked out once and kept in the row,
+    // so a retry sends exactly the same task.
+    if (!r.sort_order && r.jo_id && r.track) {
+      const slot = r.jo_id + '|' + r.track;
+      r.sort_order = String(ctx.nextOrder[slot] || 1);
+      ctx.nextOrder[slot] = Number(r.sort_order) + 1;
+      if (!dryRun) sh.getRange(i + 1, col('order') + 1).setValue(Number(r.sort_order));
+    }
+    if (!r.offset_days && r.jo_id && r.due_date) {
+      r.offset_days = String(Math.round((Date.parse(r.due_date) - Date.parse(ctx.deploy[r.jo_id])) / 86400000));
+      if (!dryRun) sh.getRange(i + 1, col('offset_days') + 1).setValue(Number(r.offset_days));
+    }
+    if (!r.status && !shown('Status')) r.status = 'Pending';
+    noteRow(sh, i, notes[i][0], problems, dryRun);
+    if (id in rows) return;
+    rows[id] = r;
+    rowNum[id] = i;
+  });
+  return { ss: ss, sh: sh, tz: tz, head: head, values: values, rows: rows, rowNum: rowNum };
+}
+
+function cellText2(v) {
+  return String(v === null || v === undefined ? '' : v).trim();
+}
+
+// Shows what is wrong with a row on its first cell, and clears that once it is fixed.
+function noteRow(sh, i, current, problems, dryRun) {
+  if (dryRun) return;
+  const text = problems.length ? NOTE_PREFIX + problems.join('. ') : '';
+  if (text === current || (!text && current.indexOf(NOTE_PREFIX) !== 0)) return;
+  const c = sh.getRange(i + 1, 1);
+  c.setNote(text);
+  c.setBackground(text ? '#FBECEB' : null);
+}
+
+function taskRowForSupabase(row, id) {
+  const out = { task_id: id };
+  TASK_FIELDS.forEach(f => { out[f] = cell(row[f], f); });
+  return out;
+}
+
+function syncTasks(url, key, props) {
+  const sources = taskSources(props);
+  const ownerKeys = {};
+  SOURCES.filter(src => src.owner).forEach(src => { ownerKeys[src.owner] = src.key; });
+
+  const ctx = readTaskContext(url, key);
+  const agreed = readAgreedTasks(url, key, ctx);
+  const baselines = readBaselines(url, key);
+
+  // Read every sheet before anything is written, so all of them are compared with the same state.
+  const read = {}, rowsByKey = {};
+  sources.forEach(src => {
+    read[src.key] = readTaskSheet(props.getProperty(src.idProp), ctx, src, false);
+    rowsByKey[src.key] = read[src.key].rows;
+  });
+
+  const merged = mergeTasks(agreed, baselines, rowsByKey, ownerKeys);
+  merged.rejected.forEach(r => Logger.log(r.source + ': task ' + r.task_id + ' is missing a required field; not added'));
+
+  // Supabase first: if this fails nothing else changes, and the next run tries again.
+  Object.keys(merged.changes).forEach(source => {
+    const res = UrlFetchApp.fetch(url + '/rest/v1/rpc/sync_import', {
+      method: 'post', contentType: 'application/json', headers: supabaseHeaders(key),
+      payload: JSON.stringify({ p_source: source, p_payload: { tasks: merged.changes[source].map(id => taskRowForSupabase(merged.final[id], id)) } }),
+      muteHttpExceptions: true,
+    });
+    if (res.getResponseCode() >= 300) {
+      logSyncFailure(url, key, source, res.getContentText());
+      throw new Error(source + ' tasks failed: ' + res.getContentText());
+    }
+    Logger.log(source + ' tasks: ' + res.getContentText());
+  });
+  merged.conflicts.forEach(c => {
+    logTaskConflict(url, key, c);
+    noteConflict(read[c.source], c);
+  });
+
+  // done and done_at are set by Supabase, so they are read after the import.
+  const doneState = {};
+  readAllRows(url, key, 'tasks?select=task_id,done,done_at').forEach(t => { doneState[t.task_id] = t; });
+
+  sources.forEach(src => {
+    // A sheet that could not be written keeps its old baseline, so the next run writes it again.
+    try {
+      writeTaskSheet(read[src.key], merged.final, doneState, ctx, src);
+      saveBaselines(url, key, src.key, src.owner ? ownRows(merged.final, src.owner) : merged.final, baselines[src.key] || {});
+    } catch (e) {
+      logSyncFailure(url, key, src.key, 'Could not write the Tasks tab: ' + e);
+      Logger.log(src.key + ': could not write the Tasks tab: ' + e);
+    }
+  });
+  writeAssignedOfficers(props, merged.final, ctx.idToName);
+}
+
+function ownRows(final, owner) {
+  const out = {};
+  Object.keys(final).forEach(id => { if (final[id].editor_id === owner) out[id] = final[id]; });
+  return out;
+}
+
+// The value of one column for one task, as it should appear in the sheet.
+function taskCellValue(h, id, row, doneState, ctx) {
+  if (h === 'task_id') return id;
+  if (h === 'Job Order') return ctx.joToNumber[row.jo_id] || '';
+  if (h === 'Assigned Officer') return ctx.idToName[row.editor_id] || row.editor_id;
+  const st = doneState[id] || {};
+  if (h === 'done') return row.status === 'Completed';
+  if (h === 'done_at') return asText(st.done_at, 'done_at');
+  const f = COLUMN_FIELD[h];
+  return f ? row[f] : undefined;
+}
+
+// A Doc Officer's sheet holds their own tasks; the Admin Masterlist holds all of them.
+// Writes only the cells that differ, adds the rows the sheet is missing, and removes rows
+// that now belong to another officer (the task itself stays in Supabase and their sheet).
+function writeTaskSheet(s, final, doneState, ctx, src) {
+  const head = s.head;
+  const wanted = src.owner ? ownRows(final, src.owner) : final;
+  let changed = 0;
+  const added = [], remove = [];
+  Object.keys(s.rowNum).forEach(id => { if (!(id in wanted) && id in final) remove.push(s.rowNum[id] + 1); });
+  Object.keys(wanted).sort().forEach(id => {
+    const row = wanted[id];
+    const i = s.rowNum[id];
+    if (i === undefined) {
+      added.push(head.map(h => {
+        const v = taskCellValue(h, id, row, doneState, ctx);
+        return v === undefined ? '' : v;
+      }));
+      return;
+    }
+    head.forEach((h, j) => {
+      if (!h || h === 'task_id') return;
+      const v = taskCellValue(h, id, row, doneState, ctx);
+      if (v === undefined) return;
+      const f = COLUMN_FIELD[h] || h;
+      if (asText(s.values[i][j], f, s.tz) !== asText(v, f)) {
+        s.sh.getRange(i + 1, j + 1).setValue(v);
+        changed++;
+      }
+    });
+  });
+  if (added.length) s.sh.getRange(s.values.length + 1, 1, added.length, head.length).setValues(added);
+  remove.sort((a, b) => b - a).forEach(r => s.sh.deleteRow(r));
+  setJobOrderDropdown(s.sh, head, ctx);
+  Logger.log(src.key + ': wrote ' + changed + ' cells, added ' + added.length + ', moved away ' + remove.length);
+}
+
+function setJobOrderDropdown(sh, head, ctx) {
+  const numbers = Object.keys(ctx.numberToJo).sort();
+  if (!numbers.length) return;
+  sh.getRange(2, head.indexOf('Job Order') + 1, sh.getMaxRows() - 1, 1).setDataValidation(
+    SpreadsheetApp.newDataValidation().requireValueInList(numbers, true).setAllowInvalid(false).build());
+}
+
+// Stores what this sheet now holds. Only rows that changed are sent.
+function saveBaselines(url, key, source, final, current) {
+  const rows = Object.keys(final)
+    .filter(id => JSON.stringify(current[id]) !== JSON.stringify(final[id]))
+    .map(id => ({ source: source, task_id: id, fields: final[id] }));
+  if (!rows.length) return;
+  const res = UrlFetchApp.fetch(url + '/rest/v1/sheet_sync_state?on_conflict=source,task_id', {
+    method: 'post', contentType: 'application/json',
+    headers: Object.assign({ Prefer: 'resolution=merge-duplicates,return=minimal' }, supabaseHeaders(key)),
+    payload: JSON.stringify(rows), muteHttpExceptions: true,
+  });
+  if (res.getResponseCode() >= 300) throw new Error(res.getContentText());
+}
+
+// The replaced value stays in event_logs, so nothing is lost silently.
+function logTaskConflict(url, key, c) {
+  try {
+    UrlFetchApp.fetch(url + '/rest/v1/event_logs', {
+      method: 'post', contentType: 'application/json',
+      headers: Object.assign({ Prefer: 'return=minimal' }, supabaseHeaders(key)),
+      payload: JSON.stringify({
+        event_type: 'Record Updated', source: 'Google Sheets', action: 'Conflict', module: 'Tasks',
+        record_id: c.task_id, field_changed: c.field, old_value: c.lost, new_value: c.kept,
+        description: c.by + ' and ' + c.source + ' both changed this field; ' + c.by + '\'s value was kept',
+        source_sheet: c.source,
+      }),
+      muteHttpExceptions: true,
+    });
+  } catch (e) {
+    Logger.log('could not log a task conflict: ' + e);
+  }
+}
+
+// Tells the officer, on the cell, that their value was replaced and what it was.
+function noteConflict(s, c) {
+  if (!s) return;
+  const i = s.rowNum[c.task_id];
+  const name = Object.keys(COLUMN_FIELD).find(h => COLUMN_FIELD[h] === c.field && VISIBLE_COLUMNS.indexOf(h) >= 0);
+  if (i === undefined || !name) return;
+  s.sh.getRange(i + 1, s.head.indexOf(name) + 1).setNote(
+    'Not saved: ' + c.by + ' changed this at the same time. Your value was: ' + c.lost);
+}
+
+// Admin Masterlist > JobOrders > assigned_officers: the officers with tasks on each Job Order.
+function writeAssignedOfficers(props, final, names) {
+  try {
+    const sh = SpreadsheetApp.openById(props.getProperty('ADMIN_SHEET_ID')).getSheetByName('JobOrders');
+    const values = sh.getDataRange().getValues();
+    const head = values[0].map(h => String(h).trim());
+    const idCol = head.indexOf('jo_id'), col = head.indexOf('assigned_officers');
+    if (idCol < 0 || col < 0) return;
+    const byJo = {};
+    Object.keys(final).forEach(id => {
+      const r = final[id];
+      (byJo[r.jo_id] = byJo[r.jo_id] || {})[names[r.editor_id] || r.editor_id] = true;
+    });
+    values.forEach((row, i) => {
+      if (i === 0) return;
+      const text = Object.keys(byJo[String(row[idCol]).trim()] || {}).sort().join(', ');
+      if (String(row[col]) !== text) sh.getRange(i + 1, col + 1).setValue(text);
+    });
+  } catch (e) {
+    Logger.log('could not write assigned_officers: ' + e);
+  }
+}
+
+// ---------------------------------------------------------------- Friendly Tasks tabs
+// Run once, before the first sync of this version, then again whenever the layout looks wrong.
+// Changes the Tasks tab of all five sheets to the friendly columns. First it copies each tab to a
+// hidden "Backup Tasks <date>" tab, so nothing can be lost. Technical columns stay, hidden and locked.
+// Unsynced edits in the sheets are kept: the first sync picks them up as usual.
+function setupFriendlySheets() {
+  const props = PropertiesService.getScriptProperties();
+  const url = props.getProperty('SUPABASE_URL');
+  const key = props.getProperty('SUPABASE_SERVICE_KEY');
+  masterlistId();
+  const lock = LockService.getScriptLock();
+  lock.waitLock(60000);
+  try {
+    const ctx = readTaskContext(url, key);
+    const agreed = readAgreedTasks(url, key, ctx);
+    taskSources(props).forEach(src => {
+      const ss = SpreadsheetApp.openById(props.getProperty(src.idProp));
+      const sh = ss.getSheetByName('Tasks') || ss.insertSheet('Tasks');
+      const legacy = sh.getLastRow() > 0 && sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0]
+        .map(h => String(h).trim()).indexOf('Status') < 0;
+      if (legacy) {
+        backupTasksTab(ss, sh);
+        convertTasksTab(ss, sh, agreed, ctx, src);
+      } else if (sh.getLastRow() === 0) {
+        sh.getRange(1, 1, 1, VISIBLE_COLUMNS.length + HIDDEN_COLUMNS.length).setValues([VISIBLE_COLUMNS.concat(HIDDEN_COLUMNS)]);
+      }
+      formatTasksTab(sh, ctx, src);
+      if (src.owner) {
+        const activity = ss.getSheetByName(ACTIVITY_TAB);
+        if (activity) activity.hideSheet();
+      }
+      Logger.log(src.key + ': Tasks tab ready' + (legacy ? ' (converted, backup kept)' : ''));
+    });
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function backupTasksTab(ss, sh) {
+  const name = 'Backup Tasks ' + Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd');
+  if (ss.getSheetByName(name)) return;
+  sh.copyTo(ss).setName(name).hideSheet();
+}
+
+function convertTasksTab(ss, sh, agreed, ctx, src) {
+  const tz = ss.getSpreadsheetTimeZone();
+  const values = sh.getDataRange().getValues();
+  const old = values[0].map(h => String(h).trim());
+  const get = (row, name) => { const c = old.indexOf(name); return c < 0 ? '' : row[c]; };
+  const head = VISIBLE_COLUMNS.concat(HIDDEN_COLUMNS);
+  const rows = [];
+  values.slice(1).forEach(row => {
+    const id = cellText2(get(row, 'task_id'));
+    if (!id) return;
+    const editor = cellText2(get(row, 'editor_id'));
+    if (src.owner && editor !== src.owner) return;
+    const done = asText(get(row, 'done'), 'done') === 'TRUE';
+    // Keep In Progress set in Kiroku: the old tab can only say done or not done.
+    const known = agreed[id];
+    const status = known && (known.status === 'Completed') === done ? known.status : (done ? 'Completed' : 'Pending');
+    const out = {
+      'Job Order': ctx.joToNumber[cellText2(get(row, 'jo_id'))] || '', 'Track': cellText2(get(row, 'track')),
+      'Task Description': cellText2(get(row, 'task_name')), 'Due Date': asText(get(row, 'due_date'), 'due_date', tz),
+      'Status': status, 'Assigned Officer': ctx.idToName[editor] || editor, 'Remarks': known ? known.remarks : '',
+      'task_id': id, 'jo_id': cellText2(get(row, 'jo_id')), 'editor_id': editor, 'order': get(row, 'order'),
+      'offset_days': get(row, 'offset_days'), 'done': done, 'done_at': asText(get(row, 'done_at'), 'done_at', tz),
+    };
+    rows.push(head.map(h => out[h]));
+  });
+  const filter = sh.getFilter();
+  if (filter) filter.remove();
+  sh.clear();
+  sh.clearNotes();
+  sh.setConditionalFormatRules([]);
+  sh.getRange(1, 1, sh.getMaxRows(), sh.getMaxColumns()).clearDataValidations();
+  if (sh.getMaxColumns() < head.length) sh.insertColumnsAfter(sh.getMaxColumns(), head.length - sh.getMaxColumns());
+  sh.getRange(1, 1, rows.length + 1, head.length).setValues([head].concat(rows));
+}
+
+function formatTasksTab(sh, ctx, src) {
+  const head = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0].map(h => String(h).trim());
+  const col = name => head.indexOf(name) + 1;
+  if (sh.getMaxRows() < 1000) sh.insertRowsAfter(sh.getMaxRows(), 1000 - sh.getMaxRows());
+  const rows = sh.getMaxRows() - 1;
+  const column = name => sh.getRange(2, col(name), rows, 1);
+
+  sh.setFrozenRows(1);
+  sh.getRange(1, 1, sh.getMaxRows(), head.length).setFontFamily('Arial').setFontSize(11).setVerticalAlignment('middle').setFontColor('#1A1D22');
+  sh.getRange(1, 1, 1, head.length).setFontWeight('bold').setBackground('#F5F5F7').setFontColor('#1A1D22');
+  sh.setRowHeight(1, 34);
+  [['Job Order', 120], ['Track', 70], ['Task Description', 300], ['Due Date', 110], ['Status', 120], ['Assigned Officer', 150], ['Remarks', 300]]
+    .forEach(w => sh.setColumnWidth(col(w[0]), w[1]));
+  column('Job Order').setNumberFormat('@');
+  column('Track').setNumberFormat('@');
+  column('Remarks').setWrap(true);
+  column('Due Date').setNumberFormat('yyyy-mm-dd').setHorizontalAlignment('left');
+
+  const dropdown = list => SpreadsheetApp.newDataValidation().requireValueInList(list, true).setAllowInvalid(false).build();
+  column('Track').setDataValidation(dropdown(TASK_TRACKS));
+  column('Status').setDataValidation(dropdown(TASK_STATUSES));
+  column('Assigned Officer').setDataValidation(dropdown(ctx.officerNames));
+  column('Due Date').setDataValidation(SpreadsheetApp.newDataValidation().requireDate().setAllowInvalid(false).build());
+  setJobOrderDropdown(sh, head, ctx);
+
+  const letter = c => sh.getRange(1, c).getA1Notation().replace(/\d+/g, '');
+  const due = letter(col('Due Date')), status = letter(col('Status'));
+  const paint = (name, text, bg, ink) => SpreadsheetApp.newConditionalFormatRule().whenTextEqualTo(text)
+    .setBackground(bg).setFontColor(ink).setRanges([column(name)]).build();
+  sh.setConditionalFormatRules([
+    paint('Status', 'Pending', '#EFEFF1', '#5D6470'),
+    paint('Status', 'In Progress', '#E3ECF8', '#1F57A0'),
+    paint('Status', 'Completed', '#E3F3E8', '#1E7B44'),
+    SpreadsheetApp.newConditionalFormatRule()
+      .whenFormulaSatisfied('=AND($' + due + '2<>"",$' + due + '2<TODAY(),$' + status + '2<>"Completed")')
+      .setBackground('#FBECEB').setFontColor('#B3261E').setBold(true).setRanges([column('Due Date')]).build(),
+  ]);
+
+  const firstHidden = col(HIDDEN_COLUMNS[0]);
+  sh.hideColumns(firstHidden, head.length - firstHidden + 1);
+
+  // Locks: the header and technical columns for everyone, Assigned Officer for Doc Officers.
+  // The sync ignores edits to these anyway; this just stops them being made by accident.
+  sh.getProtections(SpreadsheetApp.ProtectionType.RANGE).forEach(p => { if (p.getDescription() === 'Kiroku') p.remove(); });
+  const lock = range => {
+    const p = range.protect().setDescription('Kiroku');
+    p.removeEditors(p.getEditors());
+    if (p.canDomainEdit()) p.setDomainEdit(false);
+  };
+  lock(sh.getRange(1, 1, 1, head.length));
+  lock(sh.getRange(2, firstHidden, rows, head.length - firstHidden + 1));
+  if (src.owner) lock(column('Assigned Officer'));
 }
 
 // ---------------------------------------------------------------- Activity tabs
 // Each Doc Officer sheet's Activity tab is a copy of that officer's own rows in Supabase
-// activity_logs (user_id = the sheet's owner), newest first.
+// activity_logs (user_id = the sheet's owner), newest first. The Admin Masterlist's has everyone's.
 //   1. Rows typed into the tab (activity_id blank) are added to activity_logs as the sheet's
-//      owner, through import_sheet_activity() (supabase/09_merge_activity.sql).
+//      owner (or Admin), through import_sheet_activity() (supabase/09_merge_activity.sql).
 //   2. The tab is rewritten from activity_logs: every action the officer took, in the app or the sheet.
 // A typed row Supabase refuses (unknown task_id, action_type, date) is kept at the bottom in red.
 // Edits to rows that have an activity_id are overwritten: activity_logs rows are permanent.
-// Never throws, like writeEventLogTab: a failed copy must not stop the sync.
+// Never throws: a failed copy must not stop the sync.
 const ACTIVITY_TAB = 'Activity';
 const ACTIVITY_COLUMNS = ['task_id', 'action_type', 'date', 'time', 'details', 'user_name',
   'jo_id', 'previous_status', 'updated_status', 'source', 'activity_id'];
 // The kinds that can be added from a sheet (Mark Done and the rest need the app).
 const SHEET_ACTIVITY_TYPES = ['Follow Up', 'Send Message', 'Log Note', 'Upload'];
-const ACTIVITY_NOTE = 'This Doc Officer\'s actions, copied from Supabase activity_logs after every sync (every 5 minutes).\n' +
+const ACTIVITY_NOTE = 'This sheet\'s actions, copied from Supabase activity_logs after every sync (every 5 minutes).\n' +
   'To add an activity: type a new row at the bottom (task_id, action_type, date, time, details) ' +
-  'and leave activity_id blank. It is recorded as this sheet\'s Doc Officer.\n' +
+  'and leave activity_id blank. It is recorded as this sheet\'s user.\n' +
   'Rows with an activity_id cannot be changed: edits to them are put back.';
 
 function syncActivityTabs(url, key, props) {
-  const sheets = SOURCES.filter(src => src.owner && props.getProperty(src.idProp))
+  const sheets = SOURCES.filter(src => (src.owner || src.activityUser) && props.getProperty(src.idProp))
     .map(src => ({ src: src, sheetId: props.getProperty(src.idProp), keep: [] }));
 
   sheets.forEach(s => {
@@ -125,7 +735,7 @@ function syncActivityTabs(url, key, props) {
 
   // A sheet whose typed rows could not be sent is left as it is, so those rows are not lost.
   sheets.filter(s => !s.failed).forEach(s => {
-    try { writeActivityTab(s.sheetId, logs.filter(r => r.user_id === s.src.owner), s.keep); }
+    try { writeActivityTab(s.sheetId, s.src.owner ? logs.filter(r => r.user_id === s.src.owner) : logs, s.keep); }
     catch (e) { Logger.log(s.src.key + ': could not write the Activity tab: ' + e); }
   });
 }
@@ -161,7 +771,7 @@ function importTypedActivity(url, key, src, sheetId) {
     method: 'post',
     contentType: 'application/json',
     headers: { apikey: key, Authorization: 'Bearer ' + key },
-    payload: JSON.stringify({ p_source: src.key, p_user: src.owner, p_rows: typed }),
+    payload: JSON.stringify({ p_source: src.key, p_user: src.owner || src.activityUser, p_rows: typed }),
     muteHttpExceptions: true,
   });
   if (res.getResponseCode() >= 300) throw new Error(res.getContentText());
@@ -245,74 +855,19 @@ function applyMasterlistFixes(payload) {
   }
 }
 
-// In each Doc Officer sheet, rewrites the other officers' task rows with the values in
-// Supabase (and adds tasks the sheet is missing), so everyone sees the latest status.
-// The owner's own rows are never touched. Never throws, like writeEventLogTab.
-function refreshOtherOfficersRows(url, key, props) {
-  let tasks;
-  try {
-    const res = UrlFetchApp.fetch(url + '/rest/v1/tasks?select=*&order=task_id&limit=10000', {
-      headers: { apikey: key, Authorization: 'Bearer ' + key },
-      muteHttpExceptions: true,
-    });
-    if (res.getResponseCode() >= 300) throw new Error(res.getContentText());
-    tasks = JSON.parse(res.getContentText());
-  } catch (e) {
-    Logger.log('could not read tasks to refresh the sheets: ' + e);
-    return;
-  }
-
-  SOURCES.filter(src => src.owner).forEach(src => {
-    const sheetId = props.getProperty(src.idProp);
-    if (!sheetId) return;
-    try {
-      const sh = SpreadsheetApp.openById(sheetId).getSheetByName('Tasks');
-      const values = sh.getDataRange().getValues();
-      const head = values[0].map(h => String(h).trim());
-      const idCol = head.indexOf('task_id');
-      const editorCol = head.indexOf('editor_id');
-      if (idCol < 0 || editorCol < 0) throw new Error('Tasks tab needs task_id and editor_id headers');
-
-      const rowOf = {};
-      values.forEach((row, i) => { if (i > 0) rowOf[String(row[idCol]).trim()] = i; });
-
-      let changed = 0;
-      const added = [];
-      tasks.filter(t => t.editor_id !== src.owner).forEach(t => {
-        const i = rowOf[t.task_id];
-        if (i === undefined) {
-          added.push(head.map(h => sheetValue(t[RENAME_BACK[h] || h], h)));
-          return;
-        }
-        head.forEach((h, j) => {
-          const col = RENAME_BACK[h] || h;
-          if (!h || !(col in t)) return;
-          if (asText(values[i][j], h) !== asText(t[col], h)) {
-            sh.getRange(i + 1, j + 1).setValue(sheetValue(t[col], h));
-            changed++;
-          }
-        });
-      });
-      if (added.length) sh.getRange(values.length + 1, 1, added.length, head.length).setValues(added);
-
-      shadeOtherOfficersRows(sh, idCol, editorCol, src.owner);
-      Logger.log(src.key + ': refreshed ' + changed + ' cells, added ' + added.length + ' tasks of other officers');
-    } catch (e) {
-      Logger.log(src.key + ': could not refresh other officers\' rows: ' + e);
-    }
-  });
-}
-
-// Sheet header -> Supabase column for the refresh (the reverse of RENAME.tasks).
+// Sheet header -> Supabase column (the reverse of RENAME.tasks).
 const RENAME_BACK = { order: 'sort_order' };
 
 // One value as text, so a sheet cell and a Supabase value can be compared.
-function asText(v, header) {
+// tz = the time zone of the sheet the value came from: a cell date read in another zone
+// would shift, and the sync would take that for an edit.
+function asText(v, header, tz) {
   if (v === '' || v === null || v === undefined) return '';
+  if (typeof v === 'number') return String(v);
   if (v instanceof Date) {
-    if (header === 'time') return Utilities.formatDate(v, TZ, 'HH:mm');
-    const midnight = v.getHours() === 0 && v.getMinutes() === 0 && v.getSeconds() === 0;
-    return Utilities.formatDate(v, TZ, midnight ? 'yyyy-MM-dd' : 'yyyy-MM-dd HH:mm');
+    const zone = tz || TZ;
+    if (header === 'time') return Utilities.formatDate(v, zone, 'HH:mm');
+    return Utilities.formatDate(v, zone, /_at$/.test(header) ? 'yyyy-MM-dd HH:mm' : 'yyyy-MM-dd');
   }
   const s = String(v).trim();
   if (/^(true|false)$/i.test(s)) return s.toUpperCase();
@@ -323,53 +878,21 @@ function asText(v, header) {
   return s;
 }
 
-// A Supabase value as it should be written into the sheet.
-function sheetValue(v, header) {
-  if (typeof v === 'boolean') return v;
-  return asText(v, header);
-}
-
-// Grey rows that belong to other officers, so it is clear they are view-only.
-// One conditional-format rule per sheet; it follows the rows when they are sorted.
-function shadeOtherOfficersRows(sh, idCol, editorCol, owner) {
-  const letter = c => sh.getRange(1, c + 1).getA1Notation().replace(/\d+/g, '');
-  const formula = '=AND($' + letter(idCol) + '2<>"", $' + letter(editorCol) + '2<>"' + owner + '")';
-  const ours = /^=AND\(\$[A-Z]+2<>"", \$[A-Z]+2<>"u\d+"\)$/;
-  const rules = sh.getConditionalFormatRules();
-  const current = rules.filter(r => {
-    const c = r.getBooleanCondition();
-    return c && ours.test(String(c.getCriteriaValues()[0]));
-  });
-  if (current.length === 1 && current[0].getBooleanCondition().getCriteriaValues()[0] === formula) return;
-
-  const rule = SpreadsheetApp.newConditionalFormatRule()
-    .whenFormulaSatisfied(formula)
-    .setBackground('#eeeeee').setFontColor('#888888')
-    .setRanges([sh.getRange(2, 1, sh.getMaxRows() - 1, sh.getMaxColumns())])
-    .build();
-  sh.setConditionalFormatRules(rules.filter(r => current.indexOf(r) < 0).concat(rule));
-}
-
-// Read-only copy of this sheet's latest event_logs rows, in the "Event Log" tab.
+// Read-only copy of the latest event_logs rows, in the Admin Masterlist's "Event Log" tab.
 // Supabase stays the real log: the tab is rewritten after every sync and never synced back.
+// Never throws: a failed copy must not stop the sync.
 const EVENT_LOG_TAB = 'Event Log';
 const EVENT_LOG_LIMIT = 500;
 const EVENT_LOG_COLUMNS = [
-  ['event_at', 'Date & Time (PH)'], ['event_type', 'Event'], ['module', 'Module'],
+  ['event_at', 'Date & Time (PH)'], ['event_type', 'Event'], ['source_sheet', 'Sheet'], ['module', 'Module'],
   ['record_id', 'Record ID'], ['field_changed', 'Field'], ['old_value', 'Old Value'],
   ['new_value', 'New Value'], ['description', 'Description'], ['sync_status', 'Status'],
 ];
 
-// Never throws: a failed copy must not stop the other sheets from syncing.
-function writeEventLogTab(url, key, sourceKey, sheetId) {
+function writeAdminEventLog(url, key, props) {
   try {
-    const query = '?select=' + EVENT_LOG_COLUMNS.map(c => c[0]).join(',') +
-      '&source_sheet=eq.' + encodeURIComponent(sourceKey) +
-      '&order=event_at.desc&limit=' + EVENT_LOG_LIMIT;
-    const res = UrlFetchApp.fetch(url + '/rest/v1/event_logs' + query, {
-      headers: { apikey: key, Authorization: 'Bearer ' + key },
-      muteHttpExceptions: true,
-    });
+    const query = '?select=' + EVENT_LOG_COLUMNS.map(c => c[0]).join(',') + '&order=event_at.desc&limit=' + EVENT_LOG_LIMIT;
+    const res = UrlFetchApp.fetch(url + '/rest/v1/event_logs' + query, { headers: supabaseHeaders(key), muteHttpExceptions: true });
     if (res.getResponseCode() >= 300) throw new Error(res.getContentText());
 
     const rows = JSON.parse(res.getContentText()).map(e => EVENT_LOG_COLUMNS.map(([col]) => {
@@ -379,20 +902,18 @@ function writeEventLogTab(url, key, sourceKey, sheetId) {
     }));
     const values = [EVENT_LOG_COLUMNS.map(c => c[1])].concat(rows);
 
-    const ss = SpreadsheetApp.openById(sheetId);
+    const ss = SpreadsheetApp.openById(props.getProperty('ADMIN_SHEET_ID'));
     const sh = ss.getSheetByName(EVENT_LOG_TAB) || ss.insertSheet(EVENT_LOG_TAB);
     if (sh.getProtections(SpreadsheetApp.ProtectionType.SHEET).length === 0) {
-      sh.protect().setDescription('Copied from Supabase after each sync. Edits here are overwritten.')
-        .setWarningOnly(true);
+      sh.protect().setDescription('Copied from Supabase after each sync. Edits here are overwritten.').setWarningOnly(true);
     }
     sh.clearContents();
     // Plain text, so a value like "=SUM(...)" from the log is shown, not run as a formula.
-    const range = sh.getRange(1, 1, values.length, values[0].length);
-    range.setNumberFormat('@').setValues(values);
+    sh.getRange(1, 1, values.length, values[0].length).setNumberFormat('@').setValues(values);
     sh.getRange(1, 1, 1, values[0].length).setFontWeight('bold');
     sh.setFrozenRows(1);
   } catch (e) {
-    Logger.log(sourceKey + ': could not write the Event Log tab: ' + e);
+    Logger.log('could not write the Event Log tab: ' + e);
   }
 }
 
@@ -417,38 +938,35 @@ function logSyncFailure(url, key, sourceKey, message) {
 }
 
 function readTab(sheetId, tab, table) {
-  const sh = SpreadsheetApp.openById(sheetId).getSheetByName(tab);
+  const ss = SpreadsheetApp.openById(sheetId);
+  const sh = ss.getSheetByName(tab);
   if (!sh) throw new Error('Tab "' + tab + '" not found in sheet ' + sheetId);
 
+  const tz = ss.getSpreadsheetTimeZone();
   const values = sh.getDataRange().getValues();
   const head = values.shift().map(h => String(h).trim());
   const rename = RENAME[table] || {};
+  const derived = DERIVED_COLUMNS[table] || [];
 
   return values
     .filter(row => row.some(c => c !== ''))
     .map(row => {
       const obj = {};
       head.forEach((h, i) => {
-        if (h) obj[rename[h] || h] = cell(row[i], h);
+        if (h && derived.indexOf(h) < 0) obj[rename[h] || h] = cell(row[i], h, tz);
       });
-      if (table === 'activity') {
-        obj.activity_key = [obj.task_id, obj.type, obj.date, obj.time].join('|');
-        obj.activity_date = obj.date;
-        obj.activity_time = obj.time;
-        delete obj.date;
-        delete obj.time;
-      }
       return obj;
     });
 }
 
 // One sheet cell -> JSON value Supabase accepts.
-function cell(v, header) {
+function cell(v, header, tz) {
   if (v === '' || v === null) return null;
   if (v instanceof Date) {
-    if (header === 'time') return Utilities.formatDate(v, TZ, 'HH:mm');
+    const zone = tz || TZ;
+    if (header === 'time') return Utilities.formatDate(v, zone, 'HH:mm');
     const midnight = v.getHours() === 0 && v.getMinutes() === 0 && v.getSeconds() === 0;
-    return Utilities.formatDate(v, TZ, midnight ? 'yyyy-MM-dd' : "yyyy-MM-dd'T'HH:mm:ssXXX");
+    return Utilities.formatDate(v, zone, midnight ? 'yyyy-MM-dd' : "yyyy-MM-dd'T'HH:mm:ssXXX");
   }
   // text timestamps like "2026-06-11 09:00" (done_at) are Philippine time
   if (/_at$/.test(header) && /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}/.test(String(v))) {
@@ -474,10 +992,10 @@ function installTrigger() {
   ScriptApp.newTrigger('scheduledSync').timeBased().everyMinutes(5).create();
 }
 
-// One-time cleanup: each Doc Officer sheet keeps only the tabs it uses
-// (Tasks, Activity, Event Log). The shared tabs live in the masterlist.
-// Run it once by hand. Deleted tabs can be restored from File > Version history.
-const UNUSED_OFFICER_TABS = Object.keys(SHARED_TABS);
+// One-time cleanup: each Doc Officer sheet keeps only the tabs it uses (Tasks, Activity).
+// The shared tabs live in the Admin Masterlist. Run it once by hand.
+// Deleted tabs can be restored from File > Version history.
+const UNUSED_OFFICER_TABS = Object.keys(SHARED_TABS).concat(['Event Log']);
 
 function removeUnusedTabs() {
   const props = PropertiesService.getScriptProperties();
@@ -493,4 +1011,60 @@ function removeUnusedTabs() {
       }
     });
   });
+}
+
+// One-time setup: fills the Admin Masterlist from the old masterlist and Supabase, so it holds
+// every record before the sync starts using it. The old masterlist is only read, never changed.
+// Refuses to touch a tab that already has rows, so it cannot overwrite the Admin's data.
+function setupAdminSheet() {
+  const props = PropertiesService.getScriptProperties();
+  const url = props.getProperty('SUPABASE_URL');
+  const key = props.getProperty('SUPABASE_SERVICE_KEY');
+  const adminId = masterlistId();
+  if (adminId === OLD_MASTERLIST_ID) throw new Error('ADMIN_SHEET_ID is the old masterlist. Give the Admin\'s sheet.');
+
+  const admin = SpreadsheetApp.openById(adminId);
+  const old = SpreadsheetApp.openById(OLD_MASTERLIST_ID);
+  const emptyTab = name => {
+    const sh = admin.getSheetByName(name) || admin.insertSheet(name);
+    if (sh.getLastRow() > 1) throw new Error('Tab "' + name + '" in the Admin sheet already has rows. Nothing was changed there.');
+    return sh;
+  };
+  ['Users', 'Kumiai', 'Companies', 'JobOrders', 'Tasks'].forEach(name => {
+    const sh = admin.getSheetByName(name);
+    if (sh && sh.getLastRow() > 1) throw new Error('Tab "' + name + '" in the Admin sheet already has rows. Nothing was copied.');
+  });
+  admin.setSpreadsheetTimeZone(TZ);
+
+  Object.keys(SHARED_TABS).forEach(name => {
+    const values = old.getSheetByName(name).getDataRange().getValues();
+    const head = values[0].map(h => String(h).trim());
+    if (name === 'Users' && head.indexOf('email') < 0) {
+      values.forEach((row, i) => row.push(i === 0 ? 'email' : ''));
+      head.push('email');
+    }
+    if (name === 'Users' && !values.some(row => String(row[head.indexOf('user_id')]).trim() === ADMIN_USER_ID)) {
+      values.push(head.map(h => ({ user_id: ADMIN_USER_ID, name: 'Admin', role: 'Admin' }[h] || '')));
+    }
+    if (name === 'JobOrders' && head.indexOf('assigned_officers') < 0) {
+      values.forEach((row, i) => row.push(i === 0 ? 'assigned_officers' : ''));
+    }
+    emptyTab(name).getRange(1, 1, values.length, values[0].length).setValues(values);
+    admin.getSheetByName(name).getRange(1, 1, 1, values[0].length).setFontWeight('bold');
+    admin.getSheetByName(name).setFrozenRows(1);
+  });
+
+  const names = {};
+  readAllRows(url, key, 'users?select=user_id,name').forEach(u => { names[u.user_id] = u.name; });
+  const taskHead = ['task_id', 'jo_id', 'track', 'task_name', 'order', 'offset_days', 'editor_id', 'due_date', 'done', 'done_at', 'assigned_officer'];
+  const taskRows = readAllRows(url, key, 'tasks?select=*&order=task_id').map(t => taskHead.map(h => {
+    if (h === 'assigned_officer') return names[t.editor_id] || t.editor_id || '';
+    const f = RENAME_BACK[h] || h;
+    return f === 'done' ? t[f] === true : asText(t[f], f);
+  }));
+  const taskSh = emptyTab('Tasks');
+  taskSh.getRange(1, 1, taskRows.length + 1, taskHead.length).setValues([taskHead].concat(taskRows));
+  taskSh.getRange(1, 1, 1, taskHead.length).setFontWeight('bold');
+  taskSh.setFrozenRows(1);
+  Logger.log('Admin Masterlist filled: ' + taskRows.length + ' tasks. Next: run setupFriendlySheets.');
 }

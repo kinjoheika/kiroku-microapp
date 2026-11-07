@@ -63,6 +63,80 @@ That key skips every security rule.
 
 ---
 
+## V4: friendly sheets, task status and editing in Kiroku
+
+Files: `12_task_status.sql`, `apps-script/Sync.gs`, `apps-script/JobOrders.gs`, `index.html`.
+Order: run `10_admin_masterlist.sql` and `12_task_status.sql`; paste the scripts; run `setupFriendlySheets`, then
+`previewTaskSync` and read its log, then `syncAll` and `installTrigger`; then publish `index.html`. Sign-in stays off
+(`LOGIN_REQUIRED` in `index.html`) until the accounts exist; run `11_lock_down.sql` after turning it on, not before.
+
+The Tasks tab shows Job Order, Track, Task Description, Due Date, Status, Assigned Officer and Remarks. The technical
+columns stay in the tab, hidden and locked, and the sync finds every column by name (`COLUMN_FIELD` in `Sync.gs`), so
+do not rename headers. Each Doc Officer sheet holds only that officer's tasks; the Admin Masterlist holds all of them.
+
+| Change | Result |
+|---|---|
+| Status set anywhere | `tasks.status`; a trigger keeps `done` and `done_at` in step. Code that only knows `done` cannot turn In Progress into Pending |
+| New row in a sheet | Gets a permanent `task_id`, `order` and `offset_days`, written back at once, so a retry cannot add it twice |
+| Wrong or missing value in a row | Noted on the row's first cell; the row or value is not sent until it is fixed |
+| Doc Officer edits Job Order, Track, Assigned Officer or a hidden column | Ignored and put back. Only Task Description, Due Date, Status and Remarks count |
+| Admin changes Assigned Officer | The task moves from one officer's sheet to the other's |
+| Same field changed in two places | Admin sheet beats Kiroku beats the officer's sheet. The lost value goes to `event_logs` and a note on the cell |
+| Edit in Kiroku from an out-of-date screen | Refused by `update_task_fields`; the user sees a message and the latest value |
+
+Limits: a Google Sheet is protected by its sharing and by the locks `setupFriendlySheets` adds, which hold for accounts that
+do not own the sheet. Supabase only enforces who is who once sign-in is on: until then the page names its user.
+Conflict order is by source, not by time, because Google Sheets gives the sync no edit times.
+
+---
+
+## V4: Admin Masterlist and logins (do this first; it replaces the old masterlist)
+
+Five Google Sheets in total: 1 Admin Masterlist and 4 Doc Officer sheets. Everyone signs in.
+Files: `10_admin_masterlist.sql`, `11_lock_down.sql`, `apps-script/Sync.gs`, `apps-script/JobOrders.gs`.
+Do the steps in this order. The site keeps working until step 5.
+
+1. **Database:** run `10_admin_masterlist.sql` in the SQL Editor. It only adds things.
+2. **Scripts:** in the Apps Script project, add Script Property `ADMIN_SHEET_ID` = the Admin sheet's ID,
+   then paste the new `Sync.gs` and `JobOrders.gs`. The Admin sheet needs its data first: upload a prepared
+   copy, or run `setupAdminSheet` once if the script's account can read the old masterlist. It stops rather than
+   overwrite a tab that already has rows. Check the Admin sheet, then run `syncAll` and `installTrigger`.
+   Only one project may run the sync: remove the trigger from any older project before `installTrigger`. Run `removeUnusedTabs`
+   to delete the officers' Event Log tabs. The Admin sheet keeps a read-only Event Log tab, copied from Supabase.
+   If the project lives inside the old masterlist file, keep that file: deleting it deletes the scripts.
+3. **People:** in the Admin sheet's Users tab, fill in `email` for all 6 users. Wait for the next sync. In Supabase:
+   - Authentication > Providers > Email: turn off "Allow new users to sign up"
+   - Authentication > URL Configuration: Site URL = the Kiroku website address
+   - Authentication > Users > Add user: one per person, same email, "Auto Confirm User" on
+4. **Website:** in `index.html`, set `SHEET_ID` to the Admin sheet's ID, then push. Everyone signs in. Check that
+   each person sees the right pages. Doc Officers and the CEO have no Configuration tab.
+5. **Lock:** run `11_lock_down.sql`. From now on Supabase itself refuses anyone who is not signed in, and
+   only Admin can read `event_logs` and `sync_runs`.
+   The way back, if something is wrong: re-run the `grant`, `create policy` and `log_task_activity` parts of
+   `01_schema.sql`, `04_event_logs.sql`, `06_activity_logs.sql` and `08_task_files.sql`, after dropping the policies that
+   `11_lock_down.sql` created. No data changes either way.
+
+How the sheets stay in step (`syncTasks` in `Sync.gs`), every 5 minutes:
+
+| Change | Result |
+|---|---|
+| Doc Officer edits their own task | Supabase, Kiroku, the Admin Masterlist and the other officer sheets |
+| Admin edits a task | Supabase, Kiroku, the owner's sheet and the other officer sheets |
+| Both change the same field | Admin's value stays; the officer's is kept in `event_logs` (action Conflict) |
+| Doc Officer edits another officer's row | Put back, as before |
+| A row is removed from a sheet | Put back. Delete Job Orders in the app |
+| Mark Done in Kiroku | The task changes in Supabase, then in every sheet |
+
+Assigned Officer: `editor_id` on each task decides the owner, and only Admin can change it. The Admin sheet's
+`assigned_officer` (Tasks) and `assigned_officers` (JobOrders) columns show names. The sync fills them in and never reads them.
+
+Limits: Job Orders, Users, Kumiai and Companies are edited in the Admin sheet only. The Google Sheets themselves
+are protected by Google sharing, not by Kiroku: share each sheet only with its owner and Admin, and turn off
+"Anyone with the link" if you do not need the Sheet backup. Users in Configuration is a list; people
+are added in the Users tab and in Supabase Authentication, because creating logins needs a secret key the page must not hold.
+
+---
+
 ## V4: sync the Google Sheets into Supabase
 
 Files: `03_sync.sql` (the sync function), `apps-script/Sync.gs` (reads the sheets and calls it).
@@ -99,13 +173,9 @@ The old rows are kept in `event_log_old`, and their created/updated history is c
 Every Doc Officer sheet still shows every task. After the sync, the other officers' task rows are
 rewritten from Supabase and shaded grey; edits there are ignored and put back. New companies and
 job orders go in the masterlist.
-Each Doc Officer sheet needs only Tasks, Activity and Event Log: run `removeUnusedTabs` once to delete
-its Users, Kumiai, Companies and JobOrders tabs. Run `Sync.gs` from **one** Apps Script project only (for example
-the masterlist's), with one trigger: `syncAll` already loops over all five sheets.
+Each Doc Officer sheet needs only Tasks and Activity: run `removeUnusedTabs` once to delete its other tabs. Run `Sync.gs` from **one** Apps Script project only, with one trigger: `syncAll` already loops over all five sheets.
 
-After each sync, `Sync.gs` also copies that sheet's latest 500 `event_logs` rows into an **Event Log** tab
-in the same Google Sheet (created on the first run). It is a read-only copy: it is rewritten every sync,
-never synced back, and edits there show a warning. Supabase stays the real log.
+Supabase is the real event log. Only the Admin sheet has an Event Log tab, a read-only copy of it.
 
 Never put the service_role key in `index.html` or any file in the GitHub repo.
 
@@ -119,7 +189,7 @@ and are gone on the next page load.
 1. In the **same** Apps Script project as `Sync.gs`, add a file `JobOrders.gs` and paste `apps-script/JobOrders.gs`.
    Also paste the updated `Sync.gs`, then run `installTrigger` once more: the 5-minute trigger now runs
    `scheduledSync`, which waits while an app change is being saved.
-2. Script Properties: add `APP_TOKEN` = the value of `JO_WRITE_TOKEN` in `index.html`.
+2. The web app checks the signed-in user's Supabase token: only Admin and Doc Officer 1 can change Job Orders.
 3. Deploy > New deployment > type **Web app**. Execute as: **Me**. Who has access: **Anyone**. Approve the permissions.
 4. Copy the Web app URL into `JO_WRITE_URL` in `index.html`.
 5. If the old `Code.gs` (EditLog) is in this project, remove it: a project can have only one `doPost`.
@@ -140,8 +210,6 @@ Delete is refused for a Job Order that has rows in `activity_logs` (follow-ups, 
 history is append-only and kept forever. Archive it instead.
 If the sync step fails, the sheets are already changed and the 5-minute trigger brings Supabase up to date.
 
-The token is visible in the page, so anyone who reads it can change job orders. Replace it with
-Supabase Auth when writes move to Supabase.
 After changing `JobOrders.gs` or `Sync.gs`, use Deploy > Manage deployments > Edit > New version,
 or the web app keeps running the old code.
 

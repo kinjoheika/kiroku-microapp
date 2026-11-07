@@ -4,8 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Kiroku — Working Sample DB</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root{
   --black:#16181C; --darkred:#7A1F2B; --darkred-light:#F7E8E9;
@@ -19,7 +17,7 @@
   --ink:#1A1D22; --ink-soft:#5D6470; --border:#E1E3E7; --neutral-bg:#F0F1F3;
   --bg:#E7E9EB; --card:#FFFFFF;
   --r:6px;
-  --font-head:'IBM Plex Sans',system-ui,sans-serif; --font-body:'IBM Plex Sans',system-ui,sans-serif;
+  --font-head:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif; --font-body:var(--font-head);
 }
 *{box-sizing:border-box; margin:0; padding:0;}
 body{background:var(--bg); font-family:var(--font-body); color:var(--ink); padding:22px 16px 60px; font-size:14px;}
@@ -709,6 +707,72 @@ body{font-size:13.5px; line-height:1.45; font-variant-numeric:tabular-nums; -web
   .col-workers{width:250px;}
   .col-tracks{width:180px;}
 }
+
+/* ===== Task panel ===== */
+.tf{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:14px 18px; padding:2px 0 16px; margin-bottom:14px; border-bottom:1px solid var(--line-2);}
+.tf-field{display:flex; flex-direction:column; gap:5px; min-width:0;}
+.tf-field.wide{grid-column:1/-1;}
+.tf-label, .tf-label label{font-size:12px; font-weight:500; color:var(--ink-3);}
+.tf-text{font-size:14px; color:var(--ink); overflow-wrap:anywhere;}
+.tf-input{width:100%; min-height:34px; padding:6px 10px; border:1px solid var(--line); border-radius:8px; background:#fff; color:var(--ink); font-family:var(--font-body); font-size:14px; transition:border-color .15s ease, box-shadow .15s ease;}
+.tf-input:hover{border-color:#C9CDD2;}
+.tf-input:focus{outline:none; border-color:var(--blue); box-shadow:0 0 0 3px rgba(31,87,160,.15);}
+textarea.tf-input{resize:vertical; line-height:1.4;}
+.tf-title{font-size:17px; font-weight:600;}
+.is-overdue{color:var(--red); font-weight:600;}
+.st-pill{display:inline-block; padding:1px 8px; border-radius:6px; font-size:12px; font-weight:500; white-space:nowrap;}
+.st-Pending{background:#EFEFF1; color:#5D6470;}
+.st-In-Progress{background:#E3ECF8; color:#1F57A0;}
+.st-Completed{background:#E3F3E8; color:#1E7B44;}
+.tf-status{font-weight:500; border-color:transparent;}
+.tf-state{grid-column:1/-1; min-height:17px; font-size:12px; color:var(--ink-3);}
+.tf-state.saved{color:#1E7B44;}
+.tf-state.error{color:var(--red);}
+.dg-remark{max-width:320px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; display:inline-block !important;}
+.toast-undo{margin-left:14px; border:none; background:none; color:#fff; font:inherit; font-weight:600; text-decoration:underline; cursor:pointer; padding:0;}
+
+/* ===== Calmer surfaces: flat colour, no decorative gradients or glows, quick feedback ===== */
+.toast{background:#1A1D22; color:#fff; font-weight:500; border-radius:10px; box-shadow:0 6px 20px rgba(16,18,22,.18); pointer-events:none;}
+.toast.show{pointer-events:auto;}
+.cta-banner{background:var(--darkred); box-shadow:none;}
+.cta-banner:hover{transform:none; box-shadow:none; background:#6E1B26;}
+.task-hero{background:#F7F8F9; border-color:var(--line-2); box-shadow:none;}
+.task-hero .av{background:var(--darkred); box-shadow:none;}
+.task-hero .s{color:var(--ink-2);}
+.act-btn, .card, .stat-chip, .queue-item, .dual-card-row .card{box-shadow:none;}
+.act-btn.primary{background:var(--darkred); box-shadow:none;}
+.act-btn.primary:hover{background:#641923; box-shadow:none;}
+.act-btn:hover{transform:none; box-shadow:none;}
+.queue-item:hover{transform:none; box-shadow:none; border-color:#C9CDD2;}
+.act-btn, .dg-btn, .dg-trk, .dg-jo, .dg-row, .card-tab, .save-btn, .si-btn{transition:background .15s ease, border-color .15s ease, transform .25s cubic-bezier(.2,.9,.3,1.25);}
+.act-btn:active:not(.locked), .dg-btn:active, .dg-trk:active, .dg-jo:active, .dg-row:active, .card-tab:active, .si-btn:active{transform:scale(.985);}
+:focus-visible{outline:2px solid var(--blue); outline-offset:2px;}
+.tf-input:focus-visible{outline:none;}
+@media (prefers-reduced-motion:reduce){
+  *, *::before, *::after{transition-duration:.01ms !important; animation-duration:.01ms !important;}
+  .act-btn:active, .dg-btn:active, .dg-trk:active, .dg-jo:active, .dg-row:active, .card-tab:active, .si-btn:active{transform:none;}
+}
+
+/* ===== Sign-in ===== */
+#userSwitchGrp[hidden], .si[hidden], .si form[hidden], .si-alert[hidden], .si-note[hidden]{display:none;}
+.si{position:fixed; inset:0; z-index:70; overflow-y:auto; display:flex; flex-direction:column; align-items:center; gap:24px; padding:clamp(32px,10vh,96px) 16px 28px; background:var(--bg);}
+.si-logo{display:flex; flex-direction:column; align-items:center; gap:12px;}
+.si-logo h2{font-size:22px; font-weight:600;}
+.si-mark{width:44px; height:44px; border-radius:12px; display:grid; place-items:center; background:var(--darkred); color:#fff; font-size:20px; font-weight:700;}
+.si-card{width:100%; max-width:380px; padding:26px; border:1px solid var(--line); border-radius:14px; background:#fff; box-shadow:0 12px 32px -14px rgba(16,18,22,.2);}
+.si form{display:flex; flex-direction:column;}
+.si label{margin:0 0 6px; font-size:13px; font-weight:500; color:var(--ink-2);}
+.si input{height:42px; margin-bottom:14px; padding:0 12px; border:1px solid var(--line); border-radius:8px; font-family:var(--font-body); font-size:14px; color:var(--ink);}
+.si input:focus{outline:none; border-color:var(--darkred);}
+.si-btn{height:42px; border:none; border-radius:8px; background:var(--darkred); color:#fff; font-family:var(--font-body); font-size:14px; font-weight:600; cursor:pointer;}
+.si-btn:hover{background:#641923;}
+.si-btn:disabled{opacity:.6; cursor:default;}
+.si-link{margin-top:12px; border:none; background:none; color:var(--ink-2); font-family:var(--font-body); font-size:13px; cursor:pointer;}
+.si-link:hover{text-decoration:underline;}
+.si-alert{margin-bottom:14px; padding:9px 11px; border:1px solid var(--red-line); border-radius:8px; background:var(--red-soft); color:var(--red); font-size:13px;}
+.si-note{margin-bottom:14px; font-size:13px; color:var(--ink-2);}
+.signout-btn{border:1px solid #5B6470; border-radius:6px; background:none; color:#C7CBD1; padding:3px 10px; font-family:var(--font-body); font-size:12px; cursor:pointer;}
+.signout-btn:hover{background:#2E3138; color:#fff;}
 @media (max-width:820px){
   .tri > .tri-col{width:auto;}
   .dg-ck-title{min-width:0;}
@@ -723,9 +787,30 @@ body{font-size:13.5px; line-height:1.45; font-variant-numeric:tabular-nums; -web
   <p>This single file carries its own database (saved in this browser's storage). Each Doc Officer only edits the specific tasks assigned to them; the CEO and the All Due Gates page are view-only. Pass this file to another computer and it runs standalone, no install required.</p>
 </div>
 
+<div class="si" id="signin" hidden>
+  <div class="si-logo"><span class="si-mark">記</span><h2 id="siTitle">Sign in to Kiroku</h2></div>
+  <section class="si-card">
+    <div class="si-alert" id="siAlert" role="alert" hidden></div>
+    <p class="si-note" id="siNote" hidden></p>
+    <form id="siForm" onsubmit="submitSignIn(event)" hidden>
+      <label for="siEmail">Work email</label>
+      <input id="siEmail" type="email" autocomplete="username" required>
+      <label for="siPass">Password</label>
+      <input id="siPass" type="password" autocomplete="current-password" required>
+      <button class="si-btn" id="siSubmit" type="submit">Sign in</button>
+      <button class="si-link" type="button" onclick="sendPasswordReset()">Forgot password?</button>
+    </form>
+    <form id="siNewPass" onsubmit="submitNewPassword(event)" hidden>
+      <label for="siPass2">New password</label>
+      <input id="siPass2" type="password" autocomplete="new-password" minlength="8" required>
+      <button class="si-btn" type="submit">Save new password</button>
+    </form>
+  </section>
+</div>
+
 <div class="env-bar">
-  <div class="grp"><label>Logged in as</label><select id="userSwitch" onchange="onUserChange(this.value)"></select></div>
-  <div class="grp"><button onclick="resetSampleData()">↺ Reset sample data</button></div>
+  <div class="grp" id="userSwitchGrp"><label>Logged in as</label><select id="userSwitch" onchange="enterAs(this.value)"></select></div>
+  <div class="grp"><button onclick="resetSampleData()">↺ Reload data</button></div>
   <span class="tag" id="dbTag"></span>
   <span class="tag" id="logTag"></span>
 </div>
@@ -755,9 +840,9 @@ body{font-size:13.5px; line-height:1.45; font-variant-numeric:tabular-nums; -web
   <div class="app-frame" id="s5-frame"></div>
 </div>
 
-<div id="toast" class="toast"></div>
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-<!-- Only used to receive new activity_logs rows live (Supabase Realtime). The page works without it. -->
+<!-- Sign-in, and new activity_logs rows live (Supabase Realtime). -->
 <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.js"></script>
 <script>
 const TODAY = new Date('2026-07-31T00:00:00');
@@ -771,7 +856,7 @@ const STORAGE_KEY = 'kiroku_sample_db_v2';
    Every sheet must be shared "Anyone with the link: Viewer".
    index.html?sheet=<ID> reads all six tabs from one sheet instead (see Kiroku_Sample_Sheet.xlsx).
    Blank SHEET_ID = read the bundled CSVs in ./data instead. */
-const SHEET_ID = '1OcjPALavuFbnMdhoTTRtqppKyK94CIDCWord2Gqi6OA';
+const SHEET_ID = '1wn6YERoX2xh9LPlU_jn5_5C2jeBl8OGD8yAZHx5j-1Q';
 const SHEET_TABS = ['Users','Kumiai','Companies','JobOrders','Tasks','Activity'];
 const SHARED_SHEET_TABS = ['Users','Kumiai','Companies','JobOrders'];
 const OFFICER_SHEETS = {   // Doc Officer 1..4 sheet IDs (SHEET_ID_1..4 in Sync.gs)
@@ -781,8 +866,8 @@ const OFFICER_SHEETS = {   // Doc Officer 1..4 sheet IDs (SHEET_ID_1..4 in Sync.
   u4: '1edyDABJKPno_hHU73POsNI6T5cjD4PBtCZ6xUkZonTE',
 };
 /* Supabase (kiroku project). The publishable key is safe in the browser: row security
-   only allows reads. If these tables are empty or unreachable, the page falls back to
-   the Sheet / CSV above. */
+   gives it nothing until a user signs in (supabase/11_lock_down.sql). If these tables are
+   empty or unreachable, the page falls back to the Sheet / CSV above. */
 const SUPABASE_URL = 'https://epslvipdnpsqgonaxzbd.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_O4Ii-EGo57qt0fDI0LT_7A_lfs2afiq';
 // Activity comes from activity_logs (loadActivityLogs), which holds the sheets' activity too.
@@ -828,7 +913,8 @@ const PERMISSIONS = {};
 Object.keys(TASKS_CONFIG).forEach(track=>{
   TASKS_CONFIG[track].forEach(cfg=>{ PERMISSIONS[`${track}|${cfg.name}`] = cfg.editor; });
 });
-function getEditor(task){ return PERMISSIONS[`${task.track}|${task.name}`]; }
+// Who owns a task comes from the data, so it survives renaming and reassigning. New local tasks use the config.
+function getEditor(task){ return task.editorId || PERMISSIONS[`${task.track}|${task.name}`]; }
 
 function addDays(date, n){ const d=new Date(date); d.setDate(d.getDate()+n); return d; }
 function isoStr(d){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
@@ -979,7 +1065,7 @@ function getUser(id){ return DB.users.find(u=>u.id===id); }
 function getJO(id){ return DB.jobOrders.find(j=>j.id===id); }
 function getCompany(id){ return DB.companies.find(c=>c.id===id); }
 function getKumiai(id){ return DB.kumiai.find(k=>k.id===id); }
-function tasksForJO(joId){ return DB.tasks.filter(t=>t.joId===joId); }
+function tasksForJO(joId){ return DB.tasks.filter(t=>t.joId===joId).sort((a,b)=>(a.order||0)-(b.order||0)); }
 // Admin and the CEO see every active task; only Admin can act on them (canEditInContext).
 function seesAllTasks(user){ return !!user && (isAdmin(user) || isCEO(user)); }
 function tasksForUser(uid){ return seesAllTasks(getUser(uid)) ? DB.tasks.filter(t=>getJO(t.joId).active) : DB.tasks.filter(t=>getEditor(t)===uid); }
@@ -1031,14 +1117,14 @@ function joNametagHTML(joId, trackKey, taskName, opts){
   return `<div class="jo-nametag ${dark?'on-dark':''}">
     <div class="jnt-jo">JO# ${jo.jo}</div>
     <div class="jnt-org">${ku.name} · ${co.name}</div>
-    <div class="jnt-task">${trackKey} · ${taskName}</div>
+    <div class="jnt-task">${trackKey} · ${escHTML(taskName)}</div>
   </div>`;
 }
 /* B.3 variant: Task is the title, Track shown as a grey badge, JO# on line 2, Org/Company on line 3 */
 function joNametagB3HTML(joId, trackKey, taskName){
   const jo = getJO(joId), co = getCompany(jo.companyId), ku = getKumiai(co.kumiaiId);
   return `<div class="jo-nametag">
-    <div class="jnt-title">${taskName}<span class="track-badge">${trackKey}</span></div>
+    <div class="jnt-title">${escHTML(taskName)}<span class="track-badge">${trackKey}</span></div>
     <div class="jnt-jo2">JO# ${jo.jo}</div>
     <div class="jnt-org">${ku.name} · ${co.name}</div>
   </div>`;
@@ -1062,11 +1148,12 @@ function canEditInContext(task, pageContext){
 }
 function tabsFor(user){
   if(isAdmin(user)) return [{id:'s1', label:'My Tasks'}, {id:'s2', label:'My Due Gates'}, {id:'s3', label:'All Due Gates'}, {id:'s5', label:'Configuration'}];
+  // Configuration is Admin only; the data behind it is locked in Supabase too (11_lock_down.sql).
   return [{id:'s1', label:'My Tasks'}, {id:'s2', label:'My Due Gates'}, {id:'s3', label:'All Due Gates'}];
 }
 function myTracksFor(userId){
   if(seesAllTasks(getUser(userId))) return TRACK_DEFS;
-  return TRACK_DEFS.filter(td => TASKS_CONFIG[td.key].some(cfg => cfg.editor===userId));
+  return TRACK_DEFS.filter(td => DB.tasks.some(t => t.track===td.key && getEditor(t)===userId));
 }
 
 /* ---------- activity / scoring ---------- */
@@ -1111,7 +1198,7 @@ const logInFlight = new Set();
 
 async function supaFetch(path, opts={}){
   const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {...opts, cache:'no-store',
-    headers:{apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, 'Content-Type':'application/json'}});
+    headers:{apikey: SUPABASE_KEY, Authorization: `Bearer ${authBearer()}`, 'Content-Type':'application/json'}});
   if(!res.ok){
     let msg = '';
     try { msg = (await res.json()).message || ''; } catch(e){}
@@ -1192,7 +1279,7 @@ async function runLogged(key, entries, apply){
 function startActivityRealtime(){
   if(!window.supabase || ACTIVITY_LOGS===null || window._activityChannel) return;
   try {
-    window._activityChannel = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY)
+    window._activityChannel = sbClient()
       .channel('activity_logs')
       .on('postgres_changes', {event:'INSERT', schema:'public', table:'activity_logs'}, p=>{ if(ingestLogRow(p.new)) refreshActivityViews(); })
       .subscribe();
@@ -1208,9 +1295,111 @@ function toggleTask(taskId, pageContext){
     details: t.done ? 'Task reopened' : 'Task marked done', prev: statusLabel(t), next: statusLabel({...t, done:!t.done})});
   runLogged(`${taskId}|done`, [entry], ()=>{
     t.done = !t.done;
+    t.status = t.done ? 'Completed' : 'Pending';
     t.doneAt = t.done ? nowStamp() : null;
     saveDB();
-  }).then(ok=>{ if(ok) renderAllScreens(); });
+  }).then(ok=>{ if(ok){ renderAllScreens(); refreshTaskRow(taskId); } });
+}
+/* ---------- Editing a task (update_task_fields in supabase/12_task_status.sql) ----------
+   Saved straight to Supabase, which checks who may change what and logs every change. The sync
+   then copies it to the Google Sheets. If the task changed since this page read it, nothing is
+   saved and the user is told, so an old screen cannot overwrite a newer edit. */
+const TASK_STATUSES = ['Pending','In Progress','Completed'];
+const TASK_FIELD_LABEL = {task_name:'Task Description', due_date:'Due Date', status:'Status', editor_id:'Assigned Officer', remarks:'Remarks'};
+const taskFieldOf = (t, field) => ({task_name:t.name, due_date:t.due, status:t.status, editor_id:getEditor(t), remarks:t.remarks||''})[field];
+function applyTaskRow(t, row){
+  // status is missing only before supabase/12_task_status.sql has run.
+  t.name = row.task_name; t.due = row.due_date; t.status = row.status || (row.done ? 'Completed' : 'Pending'); t.remarks = row.remarks||'';
+  t.editorId = row.editor_id; t.done = !!row.done; t.updatedAt = row.updated_at;
+  if(!row.done) t.doneAt = null;
+  else if(row.done_at){ const [date, time] = supaManilaStamp(row.done_at).split(' '); t.doneAt = {date, time}; }
+}
+async function refreshTaskRow(taskId){
+  const t = getTaskById(taskId);
+  try {
+    const rows = await supaFetch(`tasks?select=*&task_id=eq.${encodeURIComponent(taskId)}`);
+    if(t && rows[0]){ applyTaskRow(t, rows[0]); saveDB(); return true; }
+  } catch(e){ console.warn('Could not reload the task:', e); }
+  return false;
+}
+function setTaskSaveState(kind, text){
+  const el = document.getElementById('tfState');
+  if(!el) return;
+  el.className = `tf-state ${kind}`;
+  el.textContent = text;
+}
+function renderKeepingFocus(){
+  const id = document.activeElement && document.activeElement.id;
+  renderAllScreens();
+  const el = id && document.getElementById(id);
+  if(el) el.focus();
+}
+const taskSaving = new Set();
+async function saveTaskField(taskId, field, value, pageContext, isUndo){
+  const t = getTaskById(taskId);
+  if(!t || !canEditInContext(t, pageContext) || taskSaving.has(taskId)) return;
+  const prev = taskFieldOf(t, field);
+  const next = value.trim();
+  if(next===prev) return;
+  if(!next && field!=='remarks'){
+    setTaskSaveState('error', `${TASK_FIELD_LABEL[field]} cannot be empty.`);
+    renderKeepingFocus();
+    setTaskSaveState('error', `${TASK_FIELD_LABEL[field]} cannot be empty.`);
+    return;
+  }
+  taskSaving.add(taskId);
+  setTaskSaveState('saving', 'Saving…');
+  let failure = null;
+  try {
+    const row = await supaFetch('rpc/update_task_fields', {method:'POST', body:JSON.stringify({
+      p_task_id:taskId, p_user_id:currentUserId, p_fields:{[field]:next}, p_expected_updated_at:t.updatedAt||null})});
+    applyTaskRow(t, Array.isArray(row) ? row[0] : row);
+    saveDB();
+    fetchActivityLogs(`&task_id=eq.${encodeURIComponent(taskId)}`)
+      .then(rows=>{ if(rows.reverse().map(ingestLogRow).some(Boolean)) refreshActivityViews(); })
+      .catch(e=>console.warn('activity_logs task load failed:', e));
+  } catch(e){
+    failure = e.message;
+    if(/changed by someone else/i.test(failure)) await refreshTaskRow(taskId);
+  }
+  taskSaving.delete(taskId);
+  renderKeepingFocus();
+  if(failure){
+    setTaskSaveState('error', `Sync Error: ${failure}`);
+    return;
+  }
+  setTaskSaveState('saved', 'Saved. Google Sheets updates within 5 minutes.');
+  if(!isUndo) showUndoToast(`${TASK_FIELD_LABEL[field]} updated`, ()=>saveTaskField(taskId, field, prev, pageContext, true));
+}
+function taskFieldsHTML(t, pageContext){
+  const editable = canEditInContext(t, pageContext);
+  const canAssign = editable && isAdmin(getUser(currentUserId));
+  const jo = getJO(t.joId), owner = getUser(getEditor(t));
+  const save = field => `onchange="saveTaskField('${t.id}','${field}',this.value,'${pageContext}')"`;
+  const overdue = computeStatus(t)==='flagged';
+  const officers = DB.users.filter(u=>u.role==='Doc Officer');
+  const field = (label, control, cls='') => `<div class="tf-field ${cls}"><span class="tf-label">${label}</span>${control}</div>`;
+  const text = v => `<span class="tf-text">${v||'—'}</span>`;
+  return `<section class="tf" aria-label="Task details">
+    ${field('<label for="tfName">Task Description</label>', editable
+      ? `<input id="tfName" class="tf-input tf-title" value="${escAttr(t.name)}" ${save('task_name')}>`
+      : `<span class="task-title" style="margin:0;">${escHTML(t.name)}</span>`, 'wide')}
+    ${field('Job Order', text(`JO# ${escHTML(jo.jo)}`))}
+    ${field('Track', text(escHTML(t.track)))}
+    ${field('<label for="tfDue">Due Date</label>', editable
+      ? `<input id="tfDue" type="date" class="tf-input ${overdue?'is-overdue':''}" value="${escAttr(t.due)}" ${save('due_date')}>`
+      : `<span class="tf-text ${overdue?'is-overdue':''}">${fmtFullDate(t.due)}</span>`)}
+    ${field('<label for="tfStatus">Status</label>', editable
+      ? `<select id="tfStatus" class="tf-input tf-status st-${t.status.replace(' ','-')}" ${save('status')}>${TASK_STATUSES.map(s=>`<option ${s===t.status?'selected':''}>${s}</option>`).join('')}</select>`
+      : `<span class="st-pill st-${t.status.replace(' ','-')}">${escHTML(t.status)}</span>`)}
+    ${field('<label for="tfOwner">Assigned Officer</label>', canAssign
+      ? `<select id="tfOwner" class="tf-input" ${save('editor_id')}>${officers.map(u=>`<option value="${u.id}" ${u.id===getEditor(t)?'selected':''}>${escHTML(u.name)}</option>`).join('')}</select>`
+      : text(owner ? escHTML(owner.name) : ''))}
+    ${field('<label for="tfRemarks">Remarks</label>', editable
+      ? `<textarea id="tfRemarks" class="tf-input" rows="2" ${save('remarks')}>${escHTML(t.remarks||'')}</textarea>`
+      : text(escHTML(t.remarks||'')), 'wide')}
+    <div id="tfState" class="tf-state" role="status" aria-live="polite"></div>
+  </section>`;
 }
 function logActivity(taskId, type, pageContext){
   const t = DB.tasks.find(x=>x.id===taskId);
@@ -1230,7 +1419,7 @@ const FILE_MAX_MB = 10;
 function taskFilePath(taskId, ref){ return `${encodeURIComponent(taskId)}/${encodeURIComponent(ref)}`; }
 async function storageFetch(path, opts={}){
   const res = await fetch(`${SUPABASE_URL}/storage/v1/object/${path}`, {...opts, cache:'no-store',
-    headers:{apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, ...(opts.headers||{})}});
+    headers:{apikey: SUPABASE_KEY, Authorization: `Bearer ${authBearer()}`, ...(opts.headers||{})}});
   if(!res.ok){
     let msg = '';
     try { msg = (await res.json()).message || ''; } catch(e){}
@@ -1298,7 +1487,7 @@ function ensureStoredFiles(taskId){
 let bucketCheck = null;
 function fileBucketExists(){
   if(!bucketCheck) bucketCheck = fetch(`${SUPABASE_URL}/storage/v1/object/authenticated/${FILE_BUCKET}/.probe`, {cache:'no-store',
-      headers:{apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`}})
+      headers:{apikey: SUPABASE_KEY, Authorization: `Bearer ${authBearer()}`}})
     .then(r=>r.text()).then(t=>!/bucket not found/i.test(t))
     .catch(()=>true);
   return bucketCheck;
@@ -1498,6 +1687,16 @@ async function saveNote(){
   renderAllScreens();
   showToast('✓ Note saved');
 }
+function showUndoToast(msg, undo){
+  showToast(msg, 6000);
+  const el = document.getElementById('toast');
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.className = 'toast-undo';
+  b.textContent = 'Undo';
+  b.onclick = ()=>{ el.classList.remove('show'); undo(); };
+  el.appendChild(b);
+}
 function showToast(msg, ms){
   const el = document.getElementById('toast');
   el.textContent = msg;
@@ -1516,7 +1715,8 @@ function manualSave(taskId, joId, pageContext){
     details: t ? 'Task data saved' : `Checklist saved for JO# ${(getJO(joId)||{}).jo || joId}`});
   runLogged(`${taskId||joId}|save`, [entry]).then(ok=>{ if(ok){ refreshActivityViews(); showToast('✓ Saved'); } });
 }
-function onUserChange(uid){
+// Opens the app as the signed-in user.
+function enterAs(uid){
   currentUserId = uid;
   const user = getUser(uid);
   s1Detail = null;
@@ -1529,10 +1729,7 @@ function onUserChange(uid){
 async function resetSampleData(){
   if(!confirm('Reload all data from the source (Google Sheet or bundled CSVs)? Local edits made in this browser will be discarded.')) return;
   await reloadFromSource();
-  currentUserId = 'u2';
-  initSelections();
-  populateUserSwitch();
-  showScreenById('s1');
+  enterAs(currentUserId);
 }
 
 /* ---------- Google Sheet / CSV loader ---------- */
@@ -1582,7 +1779,7 @@ function buildDBFromTabs(t){
       ...((type==='note' || type==='message') && text ? {text} : {}), ...(type==='upload' && text ? {fileName:text} : {})});
   });
   return {
-    users: R.Users.map(r=>({id:r.user_id, name:r.name, role:r.role, initials:''})),
+    users: R.Users.map(r=>({id:r.user_id, name:r.name, role:r.role, initials:'', email:r.email||'', linked:!!r.auth_user_id})),
     kumiai: R.Kumiai.map(r=>({id:r.kumiai_id, name:r.name})),
     companies: R.Companies.map(r=>({id:r.company_id, kumiaiId:r.kumiai_id, name:r.name})),
     jobOrders: R.JobOrders.map(r=>({id:r.jo_id, jo:r.jo_number, companyId:r.company_id, candidateName:r.worker_name,
@@ -1590,14 +1787,18 @@ function buildDBFromTabs(t){
       active:r.active.toUpperCase()==='TRUE'})),
     tasks: R.Tasks.map(r=>{
       const [dDate, dTime] = (r.done_at||'').split(' ');
-      return {id:r.task_id, joId:r.jo_id, track:r.track, name:r.task_name, done:r.done.toUpperCase()==='TRUE',
-        due:r.due_date, doneAt: dDate ? {date:dDate, time:dTime||'09:00'} : null, activity: actByTask[r.task_id]||[]};
+      // Supabase and old sheets say task_name and due_date; the friendly sheet tabs say Task Description and Due Date.
+      const done = r.done.toUpperCase()==='TRUE';
+      return {id:r.task_id, joId:r.jo_id, track:r.track||r.Track, name:r.task_name||r['Task Description'], done,
+        editorId:r.editor_id||'', status:r.status||r.Status||(done?'Completed':'Pending'), remarks:r.remarks||r.Remarks||'',
+        order:Number(r.sort_order||r.order)||0, offset:r.offset_days===''||r.offset_days===undefined?null:Number(r.offset_days), updatedAt:r.updated_at||null,
+        due:r.due_date||r['Due Date'], doneAt: dDate ? {date:dDate, time:dTime||'09:00'} : null, activity: actByTask[r.task_id]||[]};
     })
   };
 }
 async function fetchSupabaseTable(table){
   const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?select=*`, {
-    headers:{apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`}, cache:'no-store'});
+    headers:{apikey: SUPABASE_KEY, Authorization: `Bearer ${authBearer()}`}, cache:'no-store'});
   if(!res.ok) throw new Error(`${table}: HTTP ${res.status}`);
   return res.json();
 }
@@ -1622,7 +1823,7 @@ async function loadFromSupabase(){
   if(entries.some(([,objs])=>objs.length===0)) return null;   // not synced yet: use the Sheet / CSV
   const db = buildDBFromTabs(Object.fromEntries(entries.map(([tab, objs])=>[tab, supaToRows(tab, objs)])));
   SOURCE_LABEL = 'Supabase (kiroku)';
-  EVENT_LOGS = await fetchEventLogs().catch(e=>{ console.warn('event_logs load failed:', e); return null; });
+  EVENT_LOGS = !LOGIN_REQUIRED || sessionRole==='Admin' ? await fetchEventLogs().catch(e=>{ console.warn('event_logs load failed:', e); return null; }) : null;
   return db;
 }
 async function loadFromSource(){
@@ -1685,7 +1886,8 @@ function buildFreshTasksForJO(jo){
   TRACK_DEFS.forEach(trackDef=>{
     TASKS_CONFIG[trackDef.key].slice().sort((a,b)=>a.order-b.order).forEach((cfg,i)=>{
       const due = isoStr(addDays(deployDate, cfg.offset));
-      tasks.push({id:`${jo.id}-${trackDef.key}-${i}`, joId:jo.id, track:trackDef.key, name:cfg.name, done:false, due, doneAt:null});
+      tasks.push({id:`${jo.id}-${trackDef.key}-${i}`, joId:jo.id, track:trackDef.key, name:cfg.name, done:false, due, doneAt:null,
+        editorId:cfg.editor, status:'Pending', remarks:'', order:cfg.order, offset:cfg.offset, updatedAt:null});
     });
   });
   return tasks;
@@ -1711,7 +1913,6 @@ function onFormKumiaiChange(){
    The page then reloads from Supabase. Leave JO_WRITE_URL blank to keep changes in this browser
    only (old behaviour: they are gone on the next page load). */
 const JO_WRITE_URL = '';
-const JO_WRITE_TOKEN = 'kiroku-demo-token';
 let joSaving = false;
 async function joWrite(action, body, savingMsg){
   if(joSaving) return null;
@@ -1722,7 +1923,7 @@ async function joWrite(action, body, savingMsg){
   try {
     // text/plain keeps this a simple request (no CORS preflight, which Apps Script does not answer).
     const r = await fetch(JO_WRITE_URL, {method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
-      body:JSON.stringify({token:JO_WRITE_TOKEN, action, user_id:currentUserId, user_name:(getUser(currentUserId)||{}).name||'', ...body})});
+      body:JSON.stringify({access_token:authBearer(), action, ...body})});
     res = await r.json();
   } catch(e){ res = {ok:false, error:e.message}; }
   if(res.ok) await reloadFromSource();
@@ -1784,7 +1985,9 @@ async function submitEditJO(joId){
     const deployDate = new Date(f.deploy+'T00:00:00');
     tasksForJO(joId).forEach(t=>{
       const cfg = TASKS_CONFIG[t.track].find(c=>c.name===t.name);
-      const due = isoStr(addDays(deployDate, cfg.offset));
+      const offset = t.offset!==null && t.offset!==undefined ? t.offset : (cfg ? cfg.offset : null);
+      if(offset===null) return;
+      const due = isoStr(addDays(deployDate, offset));
       if(due!==t.due) dueChanges.push([t, t.due, due]);
     });
   }
@@ -2100,6 +2303,7 @@ function navHTML(activeTab){
     ${notifHTML()}
     <span class="who">${user.name===user.role ? user.name : `${user.name} (${user.role})`}</span>
     ${isCEO(user) || activeTab==='All Due Gates' ? '<span class="readonly-pill">View only</span>' : ''}
+    ${LOGIN_REQUIRED ? '<button class="signout-btn" onclick="signOut()">Sign out</button>' : ''}
   </div>`;
 }
 
@@ -2219,7 +2423,7 @@ function buildJODetail(joId, highlightTaskId, backFn, backLabel, pageContext, pa
     const editable = canEditInContext(t, pageContext);
     return `<div class="gate-row ${isCurrent?'current':''} ${st==='flagged'?'overdue':''}" onclick="openDetailFor('${t.id}','${pageContext}')">
       <span class="ball ${st} ${editable?'':'locked'}" onclick="event.stopPropagation();${editable?` toggleTask('${t.id}','${pageContext}')`:''}"></span>
-      <span class="gn">${t.name} <span style="color:var(--ink-soft); font-weight:400;">· ${t.track}</span></span>
+      <span class="gn">${escHTML(t.name)} <span style="color:var(--ink-soft); font-weight:400;">· ${t.track}</span></span>
       ${editable?'':'<span class="lock-ico" title="Locked: only the assigned officer can change this gate">🔒</span>'}
       ${dueBadgeHTML(t)}
     </div>`;
@@ -2234,9 +2438,8 @@ function buildJODetail(joId, highlightTaskId, backFn, backLabel, pageContext, pa
         <div class="av">${initialsFromName(jo.candidateName)}</div>
         <div><div class="n">JO# ${jo.jo}</div><div class="s">${heroStatusText}</div><div class="hrecv">${receivingHTML(joId)} · Target Deploy: <b>${fmtDate(jo.targetDeploymentDate)}</b></div></div>
       </div>
-      <div class="task-title">${current ? current.name : 'Job Order Gate Checklist'}</div>
+      ${current ? taskFieldsHTML(current, pageContext) : '<div class="task-title">Job Order Gate Checklist</div>'}
       <div class="meta-row">
-        ${current ? `<div><span class="m-lbl">Due</span>${fmtDate(current.due)}</div>` : ''}
         <div><span class="m-lbl">Overall status</span><span class="${worst==='flagged'?'overdue':''}">${worst==='flagged'?'Overdue items present':worst==='pending'?'Due soon':worst==='done'?'All clear':'On track'}</span></div>
       </div>
       <div class="action-label">Log Actions</div>
@@ -2424,7 +2627,7 @@ function buildJOProfile(joId, pageContext){
     const editable = canEditInContext(t, pageContext);
     return `<div class="gate-row" onclick="openDetailFor('${t.id}','${pageContext}')">
       <span class="ball ${st} ${editable?'':'locked'}" onclick="event.stopPropagation();${editable?` toggleTask('${t.id}','${pageContext}')`:''}"></span>
-      <span class="gn">${t.name} <span style="color:var(--ink-soft); font-weight:400;">· ${t.track}</span></span>
+      <span class="gn">${escHTML(t.name)} <span style="color:var(--ink-soft); font-weight:400;">· ${t.track}</span></span>
       ${editable?'':'<span class="lock-ico">🔒</span>'}
       ${dueBadgeHTML(t)}
     </div>`;
@@ -2452,7 +2655,7 @@ function buildJOProfile(joId, pageContext){
       <div class="dual-card-row">
         <div class="card">
           <div class="card-hd"><span class="t">Recently Completed</span></div>
-          ${doneList.length ? doneList.map(t=>`<div class="done-row"><span class="ck">✓</span><div class="ci-body"><div style="font-weight:700;">${t.name} · ${t.track}</div><div style="font-size:11px;color:var(--ink-soft);margin-top:1px;">${getUser(getEditor(t)).name}</div><div class="ci-badges"><span class="badge-done">Completed · ${fmtStamp(t.doneAt)}</span></div></div></div>`).join('') : '<div class="empty-note">Nothing completed yet.</div>'}
+          ${doneList.length ? doneList.map(t=>`<div class="done-row"><span class="ck">✓</span><div class="ci-body"><div style="font-weight:700;">${escHTML(t.name)} · ${t.track}</div><div style="font-size:11px;color:var(--ink-soft);margin-top:1px;">${getUser(getEditor(t)).name}</div><div class="ci-badges"><span class="badge-done">Completed · ${fmtStamp(t.doneAt)}</span></div></div></div>`).join('') : '<div class="empty-note">Nothing completed yet.</div>'}
         </div>
         <div class="card">
           <div class="card-hd"><span class="t">Recent Actions</span></div>
@@ -2508,7 +2711,7 @@ function buildJOFormPanel(formState){
   } else {
     const tasks = tasksForJO(formState).slice().sort((a,b)=> TRACK_DEFS.findIndex(t=>t.key===a.track) - TRACK_DEFS.findIndex(t=>t.key===b.track));
     previewCount = tasks.length;
-    previewHTML = `<div id="jf-preview-list">${tasks.map(t=>`<div class="gate-row"><span class="ball ${computeStatus(t)}"></span><span class="gn">${t.name} <span style="color:var(--ink-soft); font-weight:400;">· ${t.track}</span></span>${dueBadgeHTML(t)}</div>`).join('')}</div>`;
+    previewHTML = `<div id="jf-preview-list">${tasks.map(t=>`<div class="gate-row"><span class="ball ${computeStatus(t)}"></span><span class="gn">${escHTML(t.name)} <span style="color:var(--ink-soft); font-weight:400;">· ${t.track}</span></span>${dueBadgeHTML(t)}</div>`).join('')}</div>`;
   }
 
   return `<div class="jo-form-panel" style="flex:1; display:flex; flex-direction:row; min-width:0; height:100%;">
@@ -2581,6 +2784,10 @@ function closeDgLegends(){
   document.querySelectorAll('.dg-lg-pop').forEach(p=>{ p.hidden = true; p.previousElementSibling.setAttribute('aria-expanded','false'); });
 }
 document.addEventListener('click', e=>{ if(!e.target.closest('.dg-lg')) closeDgLegends(); });
+// Rows that open something also work with Enter and Space.
+document.addEventListener('keydown', e=>{
+  if((e.key==='Enter' || e.key===' ') && e.target.matches && e.target.matches('[role="button"][tabindex="0"]')){ e.preventDefault(); e.target.click(); }
+});
 
 function buildDueGatesScreen(scope){
   const isMine = scope==='mine';
@@ -2606,7 +2813,7 @@ function buildDueGatesScreen(scope){
     const joTasks = tasksForJO(j.id);
     const overdue = joTasks.filter(t=>trackList.some(x=>x.key===t.track) && computeStatus(t)==='flagged').length;
     const pills = trackList.map(td=>`<span class="dg-pill">${dgTrackInd(joTasks.filter(t=>t.track===td.key))}${td.key}</span>`).join('');
-    return `<div class="dg-jo ${j.id===selJOId?'on':''}" onclick="${isMine?'selectS2JO':'selectS3JO'}('${j.id}')" title="${ku.name} · ${co.name}">
+    return `<div class="dg-jo ${j.id===selJOId?'on':''}" role="button" tabindex="0" onclick="${isMine?'selectS2JO':'selectS3JO'}('${j.id}')" title="${ku.name} · ${co.name}">
       <div class="dg-jo-top"><a onclick="event.stopPropagation(); ${isMine?'openS2Profile':'openS3Profile'}('${j.id}')" title="Open JO profile">JO# ${j.jo}</a>${overdue?`<span class="dg-od">${overdue} overdue</span>`:''}</div>
       <div class="dg-jo-co">${co.name}</div>
       <div class="dg-pills">${pills}</div>
@@ -2672,12 +2879,14 @@ function buildDueGatesScreen(scope){
       if(fu) meta.push(`<span class="dg-fu" title="Followed up · ${fmtFullDate(fu)}"><i></i>${fus>1?fus+'× · ':''}${fmtDate(fu)}</span>`);
       if(up) meta.push(`<span title="Document uploaded · ${fmtFullDate(up)}">${dgIcon('clip')}${fmtDate(up)}</span>`);
       if(notes) meta.push(`<span title="Notes">${dgIcon('note')}${notes}</span>`);
+      if(t.status==='In Progress') meta.push('<span class="st-pill st-In-Progress">In Progress</span>');
+      if(t.remarks) meta.push(`<span class="dg-remark" title="${escAttr(t.remarks)}">${escHTML(t.remarks)}</span>`);
       const lead = !isMine ? dgInd(trackClass(computeStatus(t)))
         : editable ? `<span class="dg-cb ${t.done?'on':''}" role="checkbox" aria-checked="${t.done}" title="${t.done?'Mark open':'Mark done'}" onclick="event.stopPropagation(); toggleTask('${t.id}','${pageContext}')">${t.done?'✓':''}</span>`
         : `<span class="dg-lock" title="Assigned to ${getUser(getEditor(t)).name}. Only they can change this step.">${dgIcon('lock')}</span>`;
-      return `<div class="dg-row ${t.done?'is-done':''}" onclick="openDueGatesTaskDetail('${t.id}','${pageContext}')">
+      return `<div class="dg-row ${t.done?'is-done':''}" role="button" tabindex="0" onclick="openDueGatesTaskDetail('${t.id}','${pageContext}')">
         <span class="dg-lead">${lead}</span>
-        <div class="dg-row-body"><div class="dg-row-name">${t.name}</div>${meta.length?`<div class="dg-row-sub">${meta.join('')}</div>`:''}</div>
+        <div class="dg-row-body"><div class="dg-row-name">${escHTML(t.name)}</div>${meta.length?`<div class="dg-row-sub">${meta.join('')}</div>`:''}</div>
         ${dueBadgeHTML(t)}
       </div>`;
     };
@@ -2698,7 +2907,7 @@ function buildDueGatesScreen(scope){
           <div class="dg-final-txt"><b>${doneCount} of ${total} done</b><span>${trackKey ? trackKey+' stages' : 'All tracks'}</span></div>
         </div>
         ${isMine && !isCEO(getUser(currentUserId)) ? `<button class="dg-btn icon" onclick="manualSave(null,'${selJOId}','s2')" title="Save" aria-label="Save">${dgIcon('save')}</button>` : ''}
-        <div class="dg-sum"><span>${dgInd('done')}<b>${doneCount}</b> done</span><span>${dgInd('flagged')}<b>${overdueCount}</b> overdue</span><span>${dgInd('none')}<b>${total-doneCount-overdueCount}</b> not started</span><span>${dgInd('none',true)}<b>${followedCount}</b> followed up</span></div>
+        <div class="dg-sum"><span>${dgInd('done')}<b>${doneCount}</b> done</span><span>${dgInd('flagged')}<b>${overdueCount}</b> overdue</span><span>${dgInd('none')}<b>${tasks.filter(t=>!t.done && computeStatus(t)!=='flagged' && t.status!=='In Progress').length}</b> not started</span><span>${dgInd('none',true)}<b>${followedCount}</b> followed up</span></div>
       </div><div class="tri-body dg-rows">${items}</div>`;
   }
 
@@ -2811,7 +3020,7 @@ const cfgFilter = {q:'', module:'', action:'', status:''};
 
 async function fetchEventLogs(){
   const res = await fetch(`${SUPABASE_URL}/rest/v1/event_logs?select=*&order=event_at.desc&limit=500`, {
-    headers:{apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`}, cache:'no-store'});
+    headers:{apikey: SUPABASE_KEY, Authorization: `Bearer ${authBearer()}`}, cache:'no-store'});
   if(!res.ok) throw new Error(`event_logs: HTTP ${res.status}`);
   return res.json();
 }
@@ -2838,13 +3047,20 @@ function cfgClear(){ Object.keys(cfgFilter).forEach(k=>cfgFilter[k]=''); renderA
 let cfgTab = 'events';
 const evFilter = {q:'', type:''};
 function cfgShowTab(tab){ cfgTab = tab; renderAllScreens(); }
+function buildUsersHTML(){
+  const rows = DB.users.map(u=>`<tr><td>${escHTML(u.name)}</td><td>${escHTML(u.role)}</td><td>${escHTML(u.email)||'—'}</td>
+    <td>${u.linked ? 'Signed in before' : u.email ? 'Not signed in yet' : 'No email in the Users tab'}</td><td>${escHTML(u.id)}</td></tr>`).join('');
+  return `<div class="cfg-hd"><div><div class="cfg-title">Users</div><div class="cfg-sub">To add someone or change a role, edit the Users tab of the Admin Masterlist, then add their email under Authentication in Supabase. Changes appear within 5 minutes.</div></div></div>
+    <div class="cfg-table-wrap"><table class="cfg-table"><thead><tr><th>Name</th><th>Role</th><th>Email</th><th>Login</th><th>User ID</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+}
 function buildConfigScreen(){
   if(!isAdmin(getUser(currentUserId))) return '';
   const tabs = `<div class="cfg-tabs">
     <button class="cfg-tab ${cfgTab==='events'?'on':''}" onclick="cfgShowTab('events')">Event Logs</button>
     <button class="cfg-tab ${cfgTab==='sync'?'on':''}" onclick="cfgShowTab('sync')">Sync Logs</button>
+    <button class="cfg-tab ${cfgTab==='users'?'on':''}" onclick="cfgShowTab('users')">Users</button>
   </div>`;
-  return navHTML('Configuration') + `<div class="cfg-wrap">${tabs}${cfgTab==='events' ? buildEventLogsHTML() : buildSyncLogsHTML()}</div>`;
+  return navHTML('Configuration') + `<div class="cfg-wrap">${tabs}${cfgTab==='events' ? buildEventLogsHTML() : cfgTab==='users' ? buildUsersHTML() : buildSyncLogsHTML()}</div>`;
 }
 // The CEO and Admin see every job order's history; a Doc Officer sees the job orders they can open.
 function visibleLogRows(){
@@ -2877,7 +3093,7 @@ function buildEventLogsHTML(){
 }
 function logTaskLabel(r){
   const t = r.task_id ? getTaskById(r.task_id) : null, jo = getJO(r.jo_id);
-  return {task: t ? `${t.name} · ${t.track}` : (r.task_id || 'Job order'), jo: jo ? `JO# ${jo.jo}` : r.jo_id};
+  return {task: t ? `${escHTML(t.name)} · ${t.track}` : (r.task_id || 'Job order'), jo: jo ? `JO# ${jo.jo}` : r.jo_id};
 }
 function updateEventLogTable(){
   const body = document.getElementById('evBody');
@@ -2954,13 +3170,86 @@ function updateConfigTable(){
   }).join('') : `<tr><td colspan="7" class="empty-note">${EVENT_LOGS.length ? 'No sync records match these filters.' : 'No sync records yet. Changes appear here after the next sync.'}</td></tr>`;
 }
 
+/* ---------- init ---------- */
+/* ---------- Sign-in (Supabase Auth) ----------
+   Accounts are made by Admin in the Supabase dashboard. A login belongs to the row in users with the
+   same email (link_my_account in supabase/10_admin_masterlist.sql). Who a user is comes from Supabase,
+   not from this page, and row security decides what they can read and write. */
+// Turn this on once every user has an account (supabase/SETUP.md). Until then the "Logged in as" list stays.
+const LOGIN_REQUIRED = false;
+let sessionToken = null;
+let sessionRole = null;
+let recoveringPassword = false;
+let sbInstance = null;
+function authBearer(){ return sessionToken || SUPABASE_KEY; }
+function sbClient(){
+  if(!sbInstance && window.supabase) sbInstance = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  return sbInstance;
+}
+function showSignIn(view, alertText, noteText){
+  const box = document.getElementById('signin');
+  box.hidden = false;
+  document.getElementById('siTitle').textContent = view==='newpass' ? 'Set a new password' : 'Sign in to Kiroku';
+  document.getElementById('siForm').hidden = view!=='form';
+  document.getElementById('siNewPass').hidden = view!=='newpass';
+  const a = document.getElementById('siAlert'); a.hidden = !alertText; a.textContent = alertText||'';
+  const n = document.getElementById('siNote'); n.hidden = !noteText; n.textContent = noteText||'';
+}
+async function submitSignIn(ev){
+  ev.preventDefault();
+  const btn = document.getElementById('siSubmit');
+  btn.disabled = true; btn.textContent = 'Signing in…';
+  const {data, error} = await sbClient().auth.signInWithPassword({
+    email: document.getElementById('siEmail').value.trim(), password: document.getElementById('siPass').value});
+  btn.disabled = false; btn.textContent = 'Sign in';
+  document.getElementById('siPass').value = '';
+  if(error){ showSignIn('form', /invalid/i.test(error.message) ? 'Incorrect email or password.' : error.message); return; }
+  await startSession(data.session);
+}
+async function sendPasswordReset(){
+  const email = document.getElementById('siEmail').value.trim();
+  if(!email){ showSignIn('form', 'Enter your work email first.'); return; }
+  const {error} = await sbClient().auth.resetPasswordForEmail(email, {redirectTo: location.origin + location.pathname});
+  if(error) showSignIn('form', error.message);
+  else showSignIn('form', '', 'If that email has an account, a reset link is on its way.');
+}
+async function submitNewPassword(ev){
+  ev.preventDefault();
+  const {error} = await sbClient().auth.updateUser({password: document.getElementById('siPass2').value});
+  document.getElementById('siPass2').value = '';
+  if(error){ showSignIn('newpass', error.message); return; }
+  recoveringPassword = false;
+  const {data:{session}} = await sbClient().auth.getSession();
+  if(session) await startSession(session); else showSignIn('form', '', 'Password saved. Sign in with it.');
+}
+async function signOut(){
+  await sbClient().auth.signOut();
+  location.reload();
+}
+async function startSession(session){
+  sessionToken = session.access_token;
+  let me;
+  try { me = await supaFetch('rpc/link_my_account', {method:'POST', body:'{}'}); }
+  catch(e){ showSignIn('form', `Could not check your account: ${e.message}`); return; }
+  if(!me || !me.user_id){
+    await sbClient().auth.signOut();
+    sessionToken = null;
+    showSignIn('form', 'This email is not set up in Kiroku yet. Ask Admin to add it to the Users tab.');
+    return;
+  }
+  sessionRole = me.role;
+  currentUserId = me.user_id;
+  await reloadFromSource();
+  document.getElementById('signin').hidden = true;
+  initSelections();
+  enterAs(me.user_id);
+  startActivityRealtime();
+}
 function populateUserSwitch(){
   const sel = document.getElementById('userSwitch');
   sel.innerHTML = DB.users.map(u=>`<option value="${u.id}" ${u.id===currentUserId?'selected':''}>${u.name}${u.role===u.name?'':' ('+u.role+')'}</option>`).join('');
 }
-
-/* ---------- init ---------- */
-(async function init(){
+async function startWithoutLogin(){
   await reloadFromSource();
   initSelections();
   populateUserSwitch();
@@ -2968,7 +3257,21 @@ function populateUserSwitch(){
   renderAllScreens();
   startActivityRealtime();
   window.addEventListener('load', startActivityRealtime);   // in case supabase-js loads after init
-})();
+}
+if(!LOGIN_REQUIRED) startWithoutLogin();
+else document.getElementById('userSwitchGrp').hidden = true;
+if(LOGIN_REQUIRED) window.addEventListener('load', async ()=>{
+  if(!sbClient()){ showSignIn('none', 'Could not load the sign-in service. Check your connection and reload.'); return; }
+  sbClient().auth.onAuthStateChange((event, session)=>{
+    if(event==='PASSWORD_RECOVERY'){ recoveringPassword = true; showSignIn('newpass'); }
+    // Later tokens replace the old one; supabase-js refreshes them before they expire.
+    if(session && sessionToken) sessionToken = session.access_token;
+  });
+  const {data:{session}} = await sbClient().auth.getSession();
+  if(recoveringPassword) return;
+  if(session) await startSession(session);
+  else showSignIn('form');
+});
 </script>
 </body>
 </html>
