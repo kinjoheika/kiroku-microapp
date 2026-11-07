@@ -1840,7 +1840,7 @@ async function loadFromSupabase(){
   if(entries.some(([,objs])=>objs.length===0)) return null;   // not synced yet: use the Sheet / CSV
   const db = buildDBFromTabs(Object.fromEntries(entries.map(([tab, objs])=>[tab, supaToRows(tab, objs)])));
   SOURCE_LABEL = 'Supabase (kiroku)';
-  EVENT_LOGS = !LOGIN_REQUIRED || sessionRole==='Admin' ? await fetchEventLogs().catch(e=>{ console.warn('event_logs load failed:', e); return null; }) : null;
+  EVENT_LOGS = !SIGN_IN || sessionRole==='Admin' ? await fetchEventLogs().catch(e=>{ console.warn('event_logs load failed:', e); return null; }) : null;
   return db;
 }
 async function loadFromSource(){
@@ -2320,7 +2320,7 @@ function navHTML(activeTab){
     ${notifHTML()}
     <span class="who">${user.name===user.role ? user.name : `${user.name} (${user.role})`}</span>
     ${isCEO(user) || activeTab==='All Due Gates' ? '<span class="readonly-pill">View only</span>' : ''}
-    ${LOGIN_REQUIRED ? '<button class="signout-btn" onclick="signOut()">Sign out</button>' : ''}
+    ${SIGN_IN ? '<button class="signout-btn" onclick="signOut()">Sign out</button>' : ''}
   </div>`;
 }
 
@@ -3194,6 +3194,8 @@ function updateConfigTable(){
    not from this page, and row security decides what they can read and write. */
 // Turn this on once every user has an account (supabase/SETUP.md). Until then the "Logged in as" list stays.
 const LOGIN_REQUIRED = false;
+// Opening the page with ?login shows real sign-in without changing it for anyone else, to try accounts first.
+const SIGN_IN = LOGIN_REQUIRED || new URLSearchParams(location.search).has('login');
 let sessionToken = null;
 let sessionRole = null;
 let recoveringPassword = false;
@@ -3320,12 +3322,12 @@ async function startWithoutLogin(){
   startActivityRealtime();
   window.addEventListener('load', startActivityRealtime);   // in case supabase-js loads after init
 }
-if(!LOGIN_REQUIRED) startWithoutLogin();
+if(!SIGN_IN) startWithoutLogin();
 else {
   document.getElementById('userSwitchGrp').hidden = true;
   showSignIn('wait');   // covers the empty page until Kiroku knows whether someone is signed in
 }
-if(LOGIN_REQUIRED) window.addEventListener('load', async ()=>{
+if(SIGN_IN) window.addEventListener('load', async ()=>{
   if(!sbClient()){ showSignIn('form', 'Could not load the sign-in service. Check your connection and reload the page.'); return; }
   sbClient().auth.onAuthStateChange((event, session)=>{
     if(event==='PASSWORD_RECOVERY'){ recoveringPassword = true; showSignIn('newpass'); }
