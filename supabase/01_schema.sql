@@ -10,7 +10,7 @@
 create table public.users (
   user_id      text primary key,                 -- u1, u2 ...
   name         text not null,
-  role         text not null,                    -- 'Doc Officer', 'CEO'
+  role         text not null,                    -- 'Doc Officer', 'CEO', 'Admin'
   auth_user_id uuid unique references auth.users(id) on delete set null,
   created_at   timestamptz not null default now()
 );

@@ -874,7 +874,8 @@ function seedDB(){
     {id:'u2', name:'Doc Officer 2', role:'Doc Officer', initials:'D2'},
     {id:'u3', name:'Doc Officer 3', role:'Doc Officer', initials:'D3'},
     {id:'u4', name:'Doc Officer 4', role:'Doc Officer', initials:'D4'},
-    {id:'u5', name:'CEO', role:'CEO', initials:'CEO'}
+    {id:'u5', name:'CEO', role:'CEO', initials:'CEO'},
+    {id:'u6', name:'Admin', role:'Admin', initials:'AD'}
   ];
   const kumiai = [
     {id:'k1', name:'Fuji Cooperative Kumiai'},
@@ -979,12 +980,12 @@ function getJO(id){ return DB.jobOrders.find(j=>j.id===id); }
 function getCompany(id){ return DB.companies.find(c=>c.id===id); }
 function getKumiai(id){ return DB.kumiai.find(k=>k.id===id); }
 function tasksForJO(joId){ return DB.tasks.filter(t=>t.joId===joId); }
-function tasksForUser(uid){ return DB.tasks.filter(t=>getEditor(t)===uid); }
+function tasksForUser(uid){ return isAdmin(getUser(uid)) ? DB.tasks.filter(t=>getJO(t.joId).active) : DB.tasks.filter(t=>getEditor(t)===uid); }
 // Job orders from Supabase carry their officer's prefix (u1-j1 belongs to u1).
 // The CEO (u5) sees all; sample job orders without a prefix are shown to everyone.
 function joOwner(jo){ const m = /^(u\d)-/.exec(jo.id); return m ? m[1] : null; }
 function visibleJOs(){
-  if(currentUserId==='u5') return DB.jobOrders;
+  if(currentUserId==='u5' || isAdmin(getUser(currentUserId))) return DB.jobOrders;
   return DB.jobOrders.filter(j=>{ const o = joOwner(j); return !o || o===currentUserId; });
 }
 function activeJOsForCompany(cid){ return visibleJOs().filter(j=>j.companyId===cid && j.active); }
@@ -1048,17 +1049,22 @@ function lastActivityDate(task, type){
 
 /* ---------- permission / role helpers ---------- */
 function isCEO(user){ return user.role==='CEO'; }
+// Admin: every page and every job order, and can do what any Doc Officer can do.
+function isAdmin(user){ return !!user && user.role==='Admin'; }
 function canEditInContext(task, pageContext){
   const user = getUser(currentUserId);
   if(pageContext==='s3') return false;
   if(isCEO(user)) return false;
+  if(isAdmin(user)) return true;
   return getEditor(task) === user.id;
 }
 function tabsFor(user){
   if(isCEO(user)) return [{id:'s4', label:'CEO Page'}, {id:'s3', label:'All Due Gates'}, {id:'s5', label:'Configuration'}];
+  if(isAdmin(user)) return [{id:'s1', label:'My Tasks'}, {id:'s2', label:'My Due Gates'}, {id:'s3', label:'All Due Gates'}, {id:'s4', label:'CEO Page'}, {id:'s5', label:'Configuration'}];
   return [{id:'s1', label:'My Tasks'}, {id:'s2', label:'My Due Gates'}, {id:'s3', label:'All Due Gates'}, {id:'s5', label:'Configuration'}];
 }
 function myTracksFor(userId){
+  if(isAdmin(getUser(userId))) return TRACK_DEFS;
   return TRACK_DEFS.filter(td => TASKS_CONFIG[td.key].some(cfg => cfg.editor===userId));
 }
 
@@ -1671,7 +1677,7 @@ async function reloadFromSource(){
 }
 
 /* ---------- Job Order management (Doc Officer 1 only) ---------- */
-function canManageJOs(){ return currentUserId==='u1'; }
+function canManageJOs(){ return currentUserId==='u1' || isAdmin(getUser(currentUserId)); }
 function buildFreshTasksForJO(jo){
   const tasks = [];
   const deployDate = new Date(jo.targetDeploymentDate+'T00:00:00');
@@ -2089,7 +2095,7 @@ function navHTML(activeTab){
     ${tabs.map(t=> `<span class="tab ${t.label===activeTab?'on':''}" onclick="showScreenById('${t.id}')">${t.label}</span>`).join('')}
     <span class="spacer"></span>
     ${notifHTML()}
-    <span class="who">${user.name} (${user.role})</span>
+    <span class="who">${user.name===user.role ? user.name : `${user.name} (${user.role})`}</span>
     ${isCEO(user) || activeTab==='All Due Gates' ? '<span class="readonly-pill">View only</span>' : ''}
   </div>`;
 }
@@ -2145,7 +2151,7 @@ function buildScreen1(){
       <div class="main-col fit-col">
         <div class="greet">
           <h2>Good day, ${user.name}</h2>
-          <p>${total} task${total===1?'':'s'} assigned to you in this sample database.</p>
+          <p>${total} task${total===1?'':'s'} ${isAdmin(user)?'across all active Job Orders':'assigned to you in this sample database'}.</p>
         </div>
         <div class="hero-row">
           ${topTask ? `<div class="cta-banner" onclick="openTaskDetail('${topTask.id}')">
@@ -2659,7 +2665,7 @@ function buildDueGatesScreen(scope){
       const up = lastActivityDate(t,'upload');
       const notes = (t.activity||[]).filter(a=>a.type==='note').length;
       const meta = [];
-      if(!editable) meta.push(`<span>${getUser(getEditor(t)).name}</span>`);
+      if(!editable || isAdmin(getUser(currentUserId))) meta.push(`<span>${getUser(getEditor(t)).name}</span>`);
       if(fu) meta.push(`<span class="dg-fu" title="Followed up · ${fmtFullDate(fu)}"><i></i>${fus>1?fus+'× · ':''}${fmtDate(fu)}</span>`);
       if(up) meta.push(`<span title="Document uploaded · ${fmtFullDate(up)}">${dgIcon('clip')}${fmtDate(up)}</span>`);
       if(notes) meta.push(`<span title="Notes">${dgIcon('note')}${notes}</span>`);
@@ -2836,10 +2842,10 @@ function buildConfigScreen(){
   </div>`;
   return navHTML('Configuration') + `<div class="cfg-wrap">${tabs}${cfgTab==='events' ? buildEventLogsHTML() : buildSyncLogsHTML()}</div>`;
 }
-// The CEO sees every job order's history; a Doc Officer sees the job orders they can open.
+// The CEO and Admin see every job order's history; a Doc Officer sees the job orders they can open.
 function visibleLogRows(){
   if(!ACTIVITY_LOGS) return [];
-  if(isCEO(getUser(currentUserId))) return ACTIVITY_LOGS.slice();
+  if(isCEO(getUser(currentUserId)) || isAdmin(getUser(currentUserId))) return ACTIVITY_LOGS.slice();
   const mine = new Set(visibleJOs().map(j=>j.id));
   return ACTIVITY_LOGS.filter(r=>mine.has(r.jo_id));
 }
@@ -2946,7 +2952,7 @@ function updateConfigTable(){
 
 function populateUserSwitch(){
   const sel = document.getElementById('userSwitch');
-  sel.innerHTML = DB.users.map(u=>`<option value="${u.id}" ${u.id===currentUserId?'selected':''}>${u.name}${u.role==='CEO'?'':' ('+u.role+')'}</option>`).join('');
+  sel.innerHTML = DB.users.map(u=>`<option value="${u.id}" ${u.id===currentUserId?'selected':''}>${u.name}${u.role===u.name?'':' ('+u.role+')'}</option>`).join('');
 }
 
 /* ---------- init ---------- */
