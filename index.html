@@ -980,7 +980,9 @@ function getJO(id){ return DB.jobOrders.find(j=>j.id===id); }
 function getCompany(id){ return DB.companies.find(c=>c.id===id); }
 function getKumiai(id){ return DB.kumiai.find(k=>k.id===id); }
 function tasksForJO(joId){ return DB.tasks.filter(t=>t.joId===joId); }
-function tasksForUser(uid){ return isAdmin(getUser(uid)) ? DB.tasks.filter(t=>getJO(t.joId).active) : DB.tasks.filter(t=>getEditor(t)===uid); }
+// Admin and the CEO see every active task; only Admin can act on them (canEditInContext).
+function seesAllTasks(user){ return !!user && (isAdmin(user) || isCEO(user)); }
+function tasksForUser(uid){ return seesAllTasks(getUser(uid)) ? DB.tasks.filter(t=>getJO(t.joId).active) : DB.tasks.filter(t=>getEditor(t)===uid); }
 // Job orders from Supabase carry their officer's prefix (u1-j1 belongs to u1).
 // The CEO (u5) sees all; sample job orders without a prefix are shown to everyone.
 function joOwner(jo){ const m = /^(u\d)-/.exec(jo.id); return m ? m[1] : null; }
@@ -1059,12 +1061,11 @@ function canEditInContext(task, pageContext){
   return getEditor(task) === user.id;
 }
 function tabsFor(user){
-  if(isCEO(user)) return [{id:'s3', label:'All Due Gates'}];
-  if(isAdmin(user)) return [{id:'s1', label:'My Tasks'}, {id:'s2', label:'My Due Gates'}, {id:'s3', label:'All Due Gates'}, {id:'s4', label:'CEO Page'}, {id:'s5', label:'Configuration'}];
+  if(isAdmin(user)) return [{id:'s1', label:'My Tasks'}, {id:'s2', label:'My Due Gates'}, {id:'s3', label:'All Due Gates'}, {id:'s5', label:'Configuration'}];
   return [{id:'s1', label:'My Tasks'}, {id:'s2', label:'My Due Gates'}, {id:'s3', label:'All Due Gates'}];
 }
 function myTracksFor(userId){
-  if(isAdmin(getUser(userId))) return TRACK_DEFS;
+  if(seesAllTasks(getUser(userId))) return TRACK_DEFS;
   return TRACK_DEFS.filter(td => TASKS_CONFIG[td.key].some(cfg => cfg.editor===userId));
 }
 
@@ -1523,7 +1524,7 @@ function onUserChange(uid){
   const myTracks = myTracksFor(uid);
   s2Track = null;
   s2JO = firstJOForTrack(myTracks.length ? myTracks[0].key : null);
-  showScreenById(isCEO(user) ? 's3' : 's1');
+  showScreenById('s1');
 }
 async function resetSampleData(){
   if(!confirm('Reload all data from the source (Google Sheet or bundled CSVs)? Local edits made in this browser will be discarded.')) return;
@@ -2079,8 +2080,8 @@ function openNotif(taskId){
 document.addEventListener('click', e=>{ if(!e.target.closest('.notif-wrap')) closeNotifs(); });
 
 function showScreen(id){
-  // CEO Page and Configuration are Admin only.
-  if((id==='s4' || id==='s5') && !isAdmin(getUser(currentUserId))) id = isCEO(getUser(currentUserId)) ? 's3' : 's1';
+  // Nobody has the CEO Page; Configuration is Admin only.
+  if(id==='s4' || (id==='s5' && !isAdmin(getUser(currentUserId)))) id = 's1';
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
   document.getElementById(id).classList.add('active');
   renderAllScreens();
@@ -2153,7 +2154,7 @@ function buildScreen1(){
       <div class="main-col fit-col">
         <div class="greet">
           <h2>Good day, ${user.name}</h2>
-          <p>${total} task${total===1?'':'s'} ${isAdmin(user)?'across all active Job Orders':'assigned to you in this sample database'}.</p>
+          <p>${total} task${total===1?'':'s'} ${seesAllTasks(user)?'across all active Job Orders':'assigned to you in this sample database'}.</p>
         </div>
         <div class="hero-row">
           ${topTask ? `<div class="cta-banner" onclick="openTaskDetail('${topTask.id}')">
@@ -2696,7 +2697,7 @@ function buildDueGatesScreen(scope){
           <div class="dg-ring ${followedCount?'fu':''}" style="background:conic-gradient(var(--blue) 0 ${pct}%, var(--line-2) ${pct}% 100%)"><div class="dg-hole" style="${overdueCount?'color:var(--red)':''}">${doneCount}/${total}</div></div>
           <div class="dg-final-txt"><b>${doneCount} of ${total} done</b><span>${trackKey ? trackKey+' stages' : 'All tracks'}</span></div>
         </div>
-        ${isMine ? `<button class="dg-btn icon" onclick="manualSave(null,'${selJOId}','s2')" title="Save" aria-label="Save">${dgIcon('save')}</button>` : ''}
+        ${isMine && !isCEO(getUser(currentUserId)) ? `<button class="dg-btn icon" onclick="manualSave(null,'${selJOId}','s2')" title="Save" aria-label="Save">${dgIcon('save')}</button>` : ''}
         <div class="dg-sum"><span>${dgInd('done')}<b>${doneCount}</b> done</span><span>${dgInd('flagged')}<b>${overdueCount}</b> overdue</span><span>${dgInd('none')}<b>${total-doneCount-overdueCount}</b> not started</span><span>${dgInd('none',true)}<b>${followedCount}</b> followed up</span></div>
       </div><div class="tri-body dg-rows">${items}</div>`;
   }
