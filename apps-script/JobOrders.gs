@@ -74,7 +74,7 @@ function createJobOrder(data) {
 
   const m = masterlistJobOrders();
   const number = String(jo.jo_number).trim();
-  if (m.rows.some(r => cellText(r[m.col.jo_number]) === number)) {
+  if (m.rows.some(r => cellText(r[m.col['Job Order No.']]) === number)) {
     return { ok: false, error: 'JO# ' + number + ' already exists.' };
   }
 
@@ -87,10 +87,10 @@ function createJobOrder(data) {
   const joId = 'j' + n;
 
   const joRow = {
-    jo_id: joId, jo_number: number, company_id: jo.company_id,
-    // worker_name is required in Supabase; the app's form does not ask for it yet.
-    worker_name: jo.worker_name || 'TBA',
-    target_deployment_date: jo.target_deployment_date,
+    jo_id: joId, 'Job Order No.': number, company_id: jo.company_id,
+    // A worker name is required in Supabase; the app's form does not ask for it yet.
+    'Worker Name': jo.worker_name || 'TBA',
+    'Target Deployment Date': jo.target_deployment_date,
     work_category: jo.work_category || '', program_type: jo.program_type || '', active: true,
   };
   m.sheet.appendRow(m.head.map(h => (h in joRow ? joRow[h] : '')));
@@ -99,7 +99,7 @@ function createJobOrder(data) {
   const byOwner = {};
   tasks.forEach(t => {
     (byOwner[t.editor_id] = byOwner[t.editor_id] || []).push({
-      'Job Order': number, 'Track': t.track, 'Task Description': t.task_name, 'Due Date': t.due_date, 'Status': 'Pending',
+      'Job Order No.': number, 'Track': t.track, 'Task Description': t.task_name, 'Due Date': t.due_date, 'Status': 'Pending',
       'task_id': joId + '-' + t.track + '-' + t.index, 'jo_id': joId, 'editor_id': t.editor_id,
       'order': t.order, 'offset_days': t.offset_days, 'done': false,
     });
@@ -122,12 +122,12 @@ function editJobOrder(data) {
   const i = m.rows.findIndex(r => cellText(r[m.col.jo_id]) === jo.jo_id);
   if (i < 0) return { ok: false, error: 'Job Order ' + jo.jo_id + ' is not in the Admin Masterlist.' };
   const number = String(jo.jo_number).trim();
-  if (m.rows.some((r, j) => j !== i && cellText(r[m.col.jo_number]) === number)) {
+  if (m.rows.some((r, j) => j !== i && cellText(r[m.col['Job Order No.']]) === number)) {
     return { ok: false, error: 'JO# ' + number + ' already exists.' };
   }
   setCells(m.sheet, m.head, i + 2, {
-    jo_number: number, company_id: jo.company_id, target_deployment_date: jo.target_deployment_date,
-    work_category: jo.work_category || '', program_type: jo.program_type || '',
+    'Job Order No.': number, 'Company': '', company_id: jo.company_id, 'Target Deployment Date': jo.target_deployment_date,
+    'Work Category': jo.work_category || '', 'Program Type': jo.program_type || '',
   });
 
   // New due dates, written in each task owner's sheet (the others are refreshed by the sync).
@@ -151,7 +151,7 @@ function setJobOrderActive(data, active) {
   const m = masterlistJobOrders();
   const i = m.rows.findIndex(r => cellText(r[m.col.jo_id]) === data.jo_id);
   if (i < 0) return { ok: false, error: 'Job Order ' + data.jo_id + ' is not in the Admin Masterlist.' };
-  setCells(m.sheet, m.head, i + 2, { active: active });
+  setCells(m.sheet, m.head, i + 2, { 'Active': active });
   return { ok: true, jo_id: data.jo_id };
 }
 
@@ -171,7 +171,7 @@ function deleteJobOrder(data) {
 
   const m = masterlistJobOrders();
   const i = m.rows.findIndex(r => cellText(r[m.col.jo_id]) === joId);
-  const number = i >= 0 ? cellText(m.rows[i][m.col.jo_number]) : joId;
+  const number = i >= 0 ? cellText(m.rows[i][m.col['Job Order No.']]) : joId;
   if (i >= 0) m.sheet.deleteRow(i + 2);
 
   // Every sheet shows every task, so the rows go from all of them, and their sync state with them.
@@ -214,7 +214,7 @@ function masterlistJobOrders() {
   const head = values[0].map(h => String(h).trim());
   const col = {};
   head.forEach((h, i) => { col[h] = i; });
-  if (!('jo_id' in col) || !('jo_number' in col)) throw new Error('JobOrders tab needs jo_id and jo_number headers');
+  if (!('jo_id' in col) || !('Job Order No.' in col)) throw new Error('JobOrders tab needs jo_id and Job Order No. headers');
   return { sheet: sheet, head: head, col: col, rows: values.slice(1) };
 }
 

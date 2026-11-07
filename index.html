@@ -1384,7 +1384,8 @@ function taskFieldsHTML(t, pageContext){
     ${field('<label for="tfName">Task Description</label>', editable
       ? `<input id="tfName" class="tf-input tf-title" value="${escAttr(t.name)}" ${save('task_name')}>`
       : `<span class="task-title" style="margin:0;">${escHTML(t.name)}</span>`, 'wide')}
-    ${field('Job Order', text(`JO# ${escHTML(jo.jo)}`))}
+    ${field('Job Order No.', text(escHTML(jo.jo)))}
+    ${field('Worker Name', text(escHTML(jo.candidateName||'')))}
     ${field('Track', text(escHTML(t.track)))}
     ${field('<label for="tfDue">Due Date</label>', editable
       ? `<input id="tfDue" type="date" class="tf-input ${overdue?'is-overdue':''}" value="${escAttr(t.due)}" ${save('due_date')}>`
@@ -1779,12 +1780,13 @@ function buildDBFromTabs(t){
       ...((type==='note' || type==='message') && text ? {text} : {}), ...(type==='upload' && text ? {fileName:text} : {})});
   });
   return {
-    users: R.Users.map(r=>({id:r.user_id, name:r.name, role:r.role, initials:'', email:r.email||'', linked:!!r.auth_user_id})),
-    kumiai: R.Kumiai.map(r=>({id:r.kumiai_id, name:r.name})),
-    companies: R.Companies.map(r=>({id:r.company_id, kumiaiId:r.kumiai_id, name:r.name})),
-    jobOrders: R.JobOrders.map(r=>({id:r.jo_id, jo:r.jo_number, companyId:r.company_id, candidateName:r.worker_name,
-      targetDeploymentDate:r.target_deployment_date, workCategory:r.work_category, programType:r.program_type,
-      active:r.active.toUpperCase()==='TRUE'})),
+    // Supabase and old sheets use the field names; the Admin sheet's tabs use everyday headers.
+    users: R.Users.map(r=>({id:r.user_id, name:r.name||r.Name, role:r.role||r.Role, initials:'', email:r.email||r.Email||'', linked:!!r.auth_user_id})),
+    kumiai: R.Kumiai.map(r=>({id:r.kumiai_id, name:r.name||r.Kumiai})),
+    companies: R.Companies.map(r=>({id:r.company_id, kumiaiId:r.kumiai_id, name:r.name||r.Company})),
+    jobOrders: R.JobOrders.map(r=>({id:r.jo_id, jo:r.jo_number||r['Job Order No.'], companyId:r.company_id, candidateName:r.worker_name||r['Worker Name'],
+      targetDeploymentDate:r.target_deployment_date||r['Target Deployment Date'], workCategory:r.work_category||r['Work Category'], programType:r.program_type||r['Program Type'],
+      active:(r.active||r.Active||'').toUpperCase()==='TRUE'})),
     tasks: R.Tasks.map(r=>{
       const [dDate, dTime] = (r.done_at||'').split(' ');
       // Supabase and old sheets say task_name and due_date; the friendly sheet tabs say Task Description and Due Date.

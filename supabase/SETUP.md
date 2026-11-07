@@ -70,9 +70,10 @@ Order: run `10_admin_masterlist.sql` and `12_task_status.sql`; paste the scripts
 `previewTaskSync` and read its log, then `syncAll` and `installTrigger`; then publish `index.html`. Sign-in stays off
 (`LOGIN_REQUIRED` in `index.html`) until the accounts exist; run `11_lock_down.sql` after turning it on, not before.
 
-The Tasks tab shows Job Order, Track, Task Description, Due Date, Status, Assigned Officer and Remarks. The technical
-columns stay in the tab, hidden and locked, and the sync finds every column by name (`COLUMN_FIELD` in `Sync.gs`), so
-do not rename headers. Each Doc Officer sheet holds only that officer's tasks; the Admin Masterlist holds all of them.
+The Tasks tab shows Job Order No., Worker Name, Track, Task Description, Due Date, Status and Remarks, plus Assigned Officer on
+the Admin sheet. The Admin sheet's Users, Kumiai, Companies and JobOrders tabs use everyday headers too. Technical columns stay
+in each tab, hidden and locked, and the sync finds every column by name (`COLUMN_FIELD` and `SHARED_COLUMNS` in `Sync.gs`), so
+do not rename headers. Each Doc Officer sheet holds only that officer's tasks; the Admin Masterlist holds all of them. The CEO has no sheet.
 
 | Change | Result |
 |---|---|
@@ -83,6 +84,9 @@ do not rename headers. Each Doc Officer sheet holds only that officer's tasks; t
 | Admin changes Assigned Officer | The task moves from one officer's sheet to the other's |
 | Same field changed in two places | Admin sheet beats Kiroku beats the officer's sheet. The lost value goes to `event_logs` and a note on the cell |
 | Edit in Kiroku from an out-of-date screen | Refused by `update_task_fields`; the user sees a message and the latest value |
+
+Filter arrows work for everyone. Sorting is refused for accounts that do not own the sheet, because the hidden columns in
+each row are locked; filtering is not affected.
 
 Limits: a Google Sheet is protected by its sharing and by the locks `setupFriendlySheets` adds, which hold for accounts that
 do not own the sheet. Supabase only enforces who is who once sign-in is on: until then the page names its user.

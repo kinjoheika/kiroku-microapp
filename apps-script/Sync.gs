@@ -14,8 +14,9 @@
  *     and all Tasks, editable
  *   - each Doc Officer sheet holds and edits only the Tasks it owns
  *   - both directions for Tasks go through syncTasks, which also decides conflicts
- * People see friendly columns (Job Order, Track, Task Description, Due Date, Status, Assigned Officer,
- * Remarks). The technical columns stay in the same tab, hidden and locked; see COLUMN_FIELD.
+ * People see everyday columns (Job Order No., Worker Name, Track, Task Description, Due Date, Status, Remarks,
+ * and Assigned Officer on the Admin sheet). Technical columns stay in the same tab, hidden and locked; see
+ * COLUMN_FIELD and SHARED_COLUMNS. The CEO has no sheet.
  * Activity: Supabase activity_logs is the one list. New rows typed into a sheet's Activity tab
  * are added to it, then every Activity tab is rewritten from it (see syncActivityTabs).
  * Event logs: Supabase is the real log. The Admin Masterlist's Event Log tab is a read-only copy;
@@ -67,6 +68,7 @@ function syncAll() {
       Object.entries(src.tabs).forEach(([tab, table]) => {
         payload[table] = readTab(sheetId, tab, table);
       });
+      resolveSharedRows(sheetId, payload);
       applyMasterlistFixes(payload);
     } catch (err) {
       logSyncFailure(url, key, src.key, err);
@@ -140,17 +142,32 @@ const TASK_STATUSES = ['Pending', 'In Progress', 'Completed'];
 const TASK_TRACKS = ['TIO', 'OTIT', 'COE'];
 const ADMIN_KEY = 'admin';
 // Filled in by the sync, for reading only: never sent to Supabase.
-const DERIVED_COLUMNS = { job_orders: ['assigned_officers'] };
+const DERIVED_COLUMNS = { job_orders: ['assigned_officers', 'Assigned Officers'] };
 
 // What people see in the Tasks tab, and the technical columns kept hidden to the right of it.
 // The sync finds columns by these names, so their order can change but the names cannot.
-const VISIBLE_COLUMNS = ['Job Order', 'Track', 'Task Description', 'Due Date', 'Status', 'Assigned Officer', 'Remarks'];
+const VISIBLE_COLUMNS = ['Job Order No.', 'Worker Name', 'Track', 'Task Description', 'Due Date', 'Status', 'Assigned Officer', 'Remarks'];
 const HIDDEN_COLUMNS = ['task_id', 'jo_id', 'editor_id', 'order', 'offset_days', 'done', 'done_at'];
 const COLUMN_FIELD = {
   'Track': 'track', 'Task Description': 'task_name', 'Due Date': 'due_date', 'Status': 'status', 'Remarks': 'remarks',
   'jo_id': 'jo_id', 'editor_id': 'editor_id', 'order': 'sort_order', 'offset_days': 'offset_days',
 };
 const NOTE_PREFIX = 'Kiroku: ';
+
+// The Admin Masterlist's other tabs, in everyday words. [what people see, the field behind it]
+// company_name and kumiai_name are looked up to company_id and kumiai_id; '' is filled in by the sync.
+const SHARED_COLUMNS = {
+  Users: { table: 'users', idField: 'user_id', idPrefix: 'u', columns: [['Name', 'name'], ['Role', 'role'], ['Email', 'email']], hidden: ['user_id'] },
+  Kumiai: { table: 'kumiai', idField: 'kumiai_id', idPrefix: 'k', columns: [['Kumiai', 'name']], hidden: ['kumiai_id'] },
+  Companies: { table: 'companies', idField: 'company_id', idPrefix: 'c', columns: [['Company', 'name'], ['Kumiai', 'kumiai_name']], hidden: ['company_id', 'kumiai_id'] },
+  JobOrders: { table: 'job_orders', idField: 'jo_id', idPrefix: 'j',
+    columns: [['Job Order No.', 'jo_number'], ['Worker Name', 'worker_name'], ['Company', 'company_name'], ['Target Deployment Date', 'target_deployment_date'],
+              ['Work Category', 'work_category'], ['Program Type', 'program_type'], ['Active', 'active'], ['Assigned Officers', '']],
+    hidden: ['jo_id', 'company_id'] },
+};
+const ROLES = ['Doc Officer', 'CEO', 'Admin'];
+const WORK_CATEGORIES = ['Construction', 'Caregiving', 'Manufacturing', 'Agriculture', 'Food Service'];
+const PROGRAM_TYPES = ['SSW1', 'SSW2', 'TITP1', 'TITP2', 'TITP3'];
 
 // Pure, so it can be tested without Google Sheets. Every value is text (see asText).
 //   supabase  { task_id: row }                 baselines { sheetKey: { task_id: row } }
@@ -249,10 +266,11 @@ function taskSources(props) {
 
 // Names and numbers people see, and the IDs behind them.
 function readTaskContext(url, key) {
-  const ctx = { numberToJo: {}, joToNumber: {}, deploy: {}, nameToId: {}, idToName: {}, officerNames: [], nextOrder: {} };
-  readAllRows(url, key, 'job_orders?select=jo_id,jo_number,target_deployment_date').forEach(j => {
+  const ctx = { numberToJo: {}, joToNumber: {}, joToWorker: {}, deploy: {}, nameToId: {}, idToName: {}, officerNames: [], nextOrder: {} };
+  readAllRows(url, key, 'job_orders?select=jo_id,jo_number,worker_name,target_deployment_date').forEach(j => {
     ctx.numberToJo[j.jo_number] = j.jo_id;
     ctx.joToNumber[j.jo_id] = j.jo_number;
+    ctx.joToWorker[j.jo_id] = j.worker_name;
     ctx.deploy[j.jo_id] = j.target_deployment_date;
   });
   readAllRows(url, key, 'users?select=user_id,name,role').forEach(u => {
@@ -319,8 +337,8 @@ function readTaskSheet(sheetId, ctx, src, dryRun) {
     const due = asText(row[col('Due Date')], 'due_date', tz);
     if (/^\d{4}-\d{2}-\d{2}$/.test(due) && !isNaN(Date.parse(due))) r.due_date = due;
     else if (due) problems.push('Due Date is not a date');
-    const jo = ctx.numberToJo[shown('Job Order')];
-    if (jo) r.jo_id = jo; else if (shown('Job Order')) problems.push('Job Order ' + shown('Job Order') + ' is not in the Masterlist');
+    const jo = ctx.numberToJo[shown('Job Order No.')];
+    if (jo) r.jo_id = jo; else if (shown('Job Order No.')) problems.push('Job Order No. ' + shown('Job Order No.') + ' is not in the Masterlist');
     if (src.owner) {
       r.editor_id = src.owner;
     } else {
@@ -331,7 +349,7 @@ function readTaskSheet(sheetId, ctx, src, dryRun) {
     let id = shown('task_id');
     if (!id) {
       const missing = [];
-      if (!r.jo_id) missing.push('Job Order');
+      if (!r.jo_id) missing.push('Job Order No.');
       if (!r.track) missing.push('Track');
       if (!r.task_name) missing.push('Task Description');
       if (!r.due_date) missing.push('Due Date');
@@ -450,7 +468,8 @@ function ownRows(final, owner) {
 // The value of one column for one task, as it should appear in the sheet.
 function taskCellValue(h, id, row, doneState, ctx) {
   if (h === 'task_id') return id;
-  if (h === 'Job Order') return ctx.joToNumber[row.jo_id] || '';
+  if (h === 'Job Order No.') return ctx.joToNumber[row.jo_id] || '';
+  if (h === 'Worker Name') return ctx.joToWorker[row.jo_id] || '';
   if (h === 'Assigned Officer') return ctx.idToName[row.editor_id] || row.editor_id;
   const st = doneState[id] || {};
   if (h === 'done') return row.status === 'Completed';
@@ -498,7 +517,7 @@ function writeTaskSheet(s, final, doneState, ctx, src) {
 function setJobOrderDropdown(sh, head, ctx) {
   const numbers = Object.keys(ctx.numberToJo).sort();
   if (!numbers.length) return;
-  sh.getRange(2, head.indexOf('Job Order') + 1, sh.getMaxRows() - 1, 1).setDataValidation(
+  sh.getRange(2, head.indexOf('Job Order No.') + 1, sh.getMaxRows() - 1, 1).setDataValidation(
     SpreadsheetApp.newDataValidation().requireValueInList(numbers, true).setAllowInvalid(false).build());
 }
 
@@ -551,7 +570,7 @@ function writeAssignedOfficers(props, final, names) {
     const sh = SpreadsheetApp.openById(props.getProperty('ADMIN_SHEET_ID')).getSheetByName('JobOrders');
     const values = sh.getDataRange().getValues();
     const head = values[0].map(h => String(h).trim());
-    const idCol = head.indexOf('jo_id'), col = head.indexOf('assigned_officers');
+    const idCol = head.indexOf('jo_id'), col = head.indexOf('Assigned Officers');
     if (idCol < 0 || col < 0) return;
     const byJo = {};
     Object.keys(final).forEach(id => {
@@ -566,6 +585,80 @@ function writeAssignedOfficers(props, final, names) {
   } catch (e) {
     Logger.log('could not write assigned_officers: ' + e);
   }
+}
+
+// Turns the names people use into the IDs behind them, gives new rows a permanent ID (written back at
+// once, so a retry cannot add them twice), and fills in names when only the ID is known. A row that
+// cannot be sent yet is noted on the row and left out, so one unfinished row never stops the sync.
+function resolveSharedRows(sheetId, payload) {
+  const ss = SpreadsheetApp.openById(sheetId);
+  const tabOf = { users: 'Users', kumiai: 'Kumiai', companies: 'Companies', job_orders: 'JobOrders' };
+  const nextId = (rows, layout) => {
+    const top = rows.reduce((max, r) => {
+      const m = new RegExp('^' + layout.idPrefix + '(\\d+)$').exec(String(r[layout.idField] || ''));
+      return m ? Math.max(max, Number(m[1])) : max;
+    }, 0) + 1;
+    // j9 is skipped: applyMasterlistFixes() drops it from every sync.
+    return layout.idPrefix + (layout.idPrefix === 'j' && top === 9 ? 10 : top);
+  };
+  const byName = (rows, idField) => {
+    const out = { id: {}, name: {} };
+    rows.forEach(r => { if (r.name) { out.id[r.name] = r[idField]; out.name[r[idField]] = r.name; } });
+    return out;
+  };
+
+  Object.keys(tabOf).forEach(table => {
+    const tab = tabOf[table], layout = SHARED_COLUMNS[tab], rows = payload[table];
+    const sh = ss.getSheetByName(tab);
+    const head = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0].map(h => String(h).trim());
+    const put = (row, name, value) => sh.getRange(row, head.indexOf(name) + 1).setValue(value);
+    const kumiai = byName(payload.kumiai || [], 'kumiai_id'), companies = byName(payload.companies || [], 'company_id');
+    const seen = {};
+
+    payload[table] = rows.filter(r => {
+      const problems = [];
+      const link = (nameField, idField, list, label, shownAs) => {
+        if (r[nameField]) {
+          if (list.id[r[nameField]]) r[idField] = list.id[r[nameField]];
+          else problems.push(label + ' ' + r[nameField] + ' is not on the ' + label + ' list');
+        } else if (r[idField] && list.name[r[idField]]) {
+          put(r._row, shownAs, list.name[r[idField]]);
+        } else if (!r[idField]) {
+          problems.push('Choose a ' + label);
+        }
+        delete r[nameField];
+      };
+      if (table === 'companies') link('kumiai_name', 'kumiai_id', kumiai, 'Kumiai', 'Kumiai');
+      if (table === 'job_orders') {
+        link('company_name', 'company_id', companies, 'Company', 'Company');
+        if (!r.jo_number) problems.push('Fill in the Job Order No.');
+        if (!r.worker_name) problems.push('Fill in the Worker Name');
+        if (!r.target_deployment_date) problems.push('Fill in the Target Deployment Date');
+        if (r.jo_number) {
+          if (seen[r.jo_number]) problems.push('Job Order No. ' + r.jo_number + ' is already on this tab');
+          seen[r.jo_number] = true;
+        }
+        if (r.active === null || r.active === undefined) r.active = true;
+      } else if (!r.name) {
+        problems.push('Fill in the name');
+      }
+      if (table === 'users' && !r.role) problems.push('Choose a Role');
+
+      const first = sh.getRange(r._row, 1);
+      const note = problems.length ? NOTE_PREFIX + 'Not saved yet. ' + problems.join('. ') : '';
+      if (first.getNote() !== note && (note || first.getNote().indexOf(NOTE_PREFIX) === 0)) {
+        first.setNote(note);
+        first.setBackground(note ? '#FBECEB' : null);
+      }
+      if (problems.length) return false;
+      if (!r[layout.idField]) {
+        r[layout.idField] = nextId(rows, layout);
+        put(r._row, layout.idField, r[layout.idField]);
+      }
+      return true;
+    });
+    payload[table].forEach(r => { delete r._row; });
+  });
 }
 
 // ---------------------------------------------------------------- Friendly Tasks tabs
@@ -583,6 +676,7 @@ function setupFriendlySheets() {
   try {
     const ctx = readTaskContext(url, key);
     const agreed = readAgreedTasks(url, key, ctx);
+    setupSharedTabs(SpreadsheetApp.openById(masterlistId()));
     taskSources(props).forEach(src => {
       const ss = SpreadsheetApp.openById(props.getProperty(src.idProp));
       const sh = ss.getSheetByName('Tasks') || ss.insertSheet('Tasks');
@@ -606,8 +700,99 @@ function setupFriendlySheets() {
   }
 }
 
-function backupTasksTab(ss, sh) {
-  const name = 'Backup Tasks ' + Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd');
+// Users, Kumiai, Companies and JobOrders in everyday words. IDs stay, hidden and locked.
+function setupSharedTabs(ss) {
+  const rowsOf = tab => {
+    const sh = ss.getSheetByName(tab);
+    const values = sh.getDataRange().getValues();
+    const head = values[0].map(h => String(h).trim());
+    return values.slice(1).map(v => { const o = {}; head.forEach((h, i) => { if (h) o[h] = v[i]; }); return o; });
+  };
+  const names = {};
+  ['Kumiai', 'Companies'].forEach(tab => {
+    const idField = SHARED_COLUMNS[tab].idField;
+    names[tab] = {};
+    rowsOf(tab).forEach(r => { if (r[idField] !== undefined) names[tab][cellText2(r[idField])] = cellText2(r.name !== undefined ? r.name : r[tab === 'Kumiai' ? 'Kumiai' : 'Company']); });
+  });
+  Object.keys(SHARED_COLUMNS).forEach(tab => {
+    const layout = SHARED_COLUMNS[tab];
+    const sh = ss.getSheetByName(tab);
+    const values = sh.getDataRange().getValues();
+    const old = values[0].map(h => String(h).trim());
+    const shown = layout.columns.map(c => c[0]);
+    if (old.indexOf(shown[0]) < 0) {
+      backupTasksTab(ss, sh, 'Backup ' + tab);
+      // Any other column is kept, hidden, so nothing is lost.
+      const extras = old.filter(h => h && h !== 'assigned_officers' && layout.columns.every(c => c[1] !== h) && layout.hidden.indexOf(h) < 0);
+      const head = shown.concat(layout.hidden, extras);
+      const rows = values.slice(1).filter(v => v.some(c => c !== '')).map(v => {
+        const get = name => { const i = old.indexOf(name); return i < 0 ? '' : v[i]; };
+        return head.map(h => {
+          const c = layout.columns.find(x => x[0] === h);
+          const f = c ? c[1] : h;
+          if (f === 'kumiai_name') return names.Kumiai[cellText2(get('kumiai_id'))] || '';
+          if (f === 'company_name') return names.Companies[cellText2(get('company_id'))] || '';
+          if (h === 'Assigned Officers') return get('assigned_officers');
+          return get(f);
+        });
+      });
+      const filter = sh.getFilter();
+      if (filter) filter.remove();
+      sh.clear();
+      sh.getRange(1, 1, rows.length + 1, head.length).setValues([head].concat(rows));
+    }
+    formatSharedTab(ss, sh, tab);
+  });
+}
+
+function formatSharedTab(ss, sh, tab) {
+  const layout = SHARED_COLUMNS[tab];
+  const head = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0].map(h => String(h).trim());
+  const col = name => head.indexOf(name) + 1;
+  if (sh.getMaxRows() < 300) sh.insertRowsAfter(sh.getMaxRows(), 300 - sh.getMaxRows());
+  const rows = sh.getMaxRows() - 1;
+  const column = name => sh.getRange(2, col(name), rows, 1);
+  const dropdown = list => SpreadsheetApp.newDataValidation().requireValueInList(list, true).setAllowInvalid(false).build();
+
+  sh.setFrozenRows(1);
+  sh.getRange(1, 1, sh.getMaxRows(), head.length).setFontFamily('Arial').setFontSize(11).setVerticalAlignment('middle').setFontColor('#1A1D22');
+  sh.getRange(1, 1, 1, head.length).setFontWeight('bold').setBackground('#F5F5F7');
+  sh.setRowHeight(1, 34);
+  layout.columns.forEach(c => sh.setColumnWidth(col(c[0]), c[0] === 'Assigned Officers' ? 280 : 170));
+
+  const listOf = (other, field) => {
+    const s = ss.getSheetByName(other);
+    const v = s.getDataRange().getValues();
+    const i = v[0].map(h => String(h).trim()).indexOf(field);
+    return v.slice(1).map(r => cellText2(r[i])).filter(Boolean);
+  };
+  if (tab === 'Users') column('Role').setDataValidation(dropdown(ROLES));
+  if (tab === 'Companies') column('Kumiai').setDataValidation(dropdown(listOf('Kumiai', 'Kumiai')));
+  if (tab === 'JobOrders') {
+    column('Job Order No.').setNumberFormat('@');
+    column('Company').setDataValidation(dropdown(listOf('Companies', 'Company')));
+    column('Target Deployment Date').setNumberFormat('yyyy-mm-dd').setHorizontalAlignment('left');
+    column('Work Category').setDataValidation(dropdown(WORK_CATEGORIES));
+    column('Program Type').setDataValidation(dropdown(PROGRAM_TYPES));
+    column('Active').setDataValidation(SpreadsheetApp.newDataValidation().requireCheckbox().build());
+  }
+  if (!sh.getFilter()) sh.getRange(1, 1, sh.getMaxRows(), head.length).createFilter();
+
+  const firstHidden = col(layout.hidden[0]);
+  sh.hideColumns(firstHidden, head.length - firstHidden + 1);
+  sh.getProtections(SpreadsheetApp.ProtectionType.RANGE).forEach(p => { if (p.getDescription() === 'Kiroku') p.remove(); });
+  const lock = range => {
+    const p = range.protect().setDescription('Kiroku');
+    p.removeEditors(p.getEditors());
+    if (p.canDomainEdit()) p.setDomainEdit(false);
+  };
+  lock(sh.getRange(1, 1, 1, head.length));
+  lock(sh.getRange(2, firstHidden, rows, head.length - firstHidden + 1));
+  if (tab === 'JobOrders') lock(column('Assigned Officers'));
+}
+
+function backupTasksTab(ss, sh, prefix) {
+  const name = (prefix || 'Backup Tasks') + ' ' + Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd');
   if (ss.getSheetByName(name)) return;
   sh.copyTo(ss).setName(name).hideSheet();
 }
@@ -629,7 +814,8 @@ function convertTasksTab(ss, sh, agreed, ctx, src) {
     const known = agreed[id];
     const status = known && (known.status === 'Completed') === done ? known.status : (done ? 'Completed' : 'Pending');
     const out = {
-      'Job Order': ctx.joToNumber[cellText2(get(row, 'jo_id'))] || '', 'Track': cellText2(get(row, 'track')),
+      'Job Order No.': ctx.joToNumber[cellText2(get(row, 'jo_id'))] || '', 'Worker Name': ctx.joToWorker[cellText2(get(row, 'jo_id'))] || '',
+      'Track': cellText2(get(row, 'track')),
       'Task Description': cellText2(get(row, 'task_name')), 'Due Date': asText(get(row, 'due_date'), 'due_date', tz),
       'Status': status, 'Assigned Officer': ctx.idToName[editor] || editor, 'Remarks': known ? known.remarks : '',
       'task_id': id, 'jo_id': cellText2(get(row, 'jo_id')), 'editor_id': editor, 'order': get(row, 'order'),
@@ -658,9 +844,9 @@ function formatTasksTab(sh, ctx, src) {
   sh.getRange(1, 1, sh.getMaxRows(), head.length).setFontFamily('Arial').setFontSize(11).setVerticalAlignment('middle').setFontColor('#1A1D22');
   sh.getRange(1, 1, 1, head.length).setFontWeight('bold').setBackground('#F5F5F7').setFontColor('#1A1D22');
   sh.setRowHeight(1, 34);
-  [['Job Order', 120], ['Track', 70], ['Task Description', 300], ['Due Date', 110], ['Status', 120], ['Assigned Officer', 150], ['Remarks', 300]]
+  [['Job Order No.', 120], ['Worker Name', 170], ['Track', 70], ['Task Description', 280], ['Due Date', 110], ['Status', 120], ['Assigned Officer', 150], ['Remarks', 280]]
     .forEach(w => sh.setColumnWidth(col(w[0]), w[1]));
-  column('Job Order').setNumberFormat('@');
+  column('Job Order No.').setNumberFormat('@');
   column('Track').setNumberFormat('@');
   column('Remarks').setWrap(true);
   column('Due Date').setNumberFormat('yyyy-mm-dd').setHorizontalAlignment('left');
@@ -685,10 +871,15 @@ function formatTasksTab(sh, ctx, src) {
       .setBackground('#FBECEB').setFontColor('#B3261E').setBold(true).setRanges([column('Due Date')]).build(),
   ]);
 
+  // Filter arrows on every column, hidden ones too, so a row always stays together.
+  if (!sh.getFilter()) sh.getRange(1, 1, sh.getMaxRows(), head.length).createFilter();
+
   const firstHidden = col(HIDDEN_COLUMNS[0]);
   sh.hideColumns(firstHidden, head.length - firstHidden + 1);
+  // Everything on an officer's own sheet is theirs, so Assigned Officer would only repeat their name.
+  if (src.owner) sh.hideColumns(col('Assigned Officer'), 1);
 
-  // Locks: the header and technical columns for everyone, Assigned Officer for Doc Officers.
+  // Locks: the header, technical columns and Worker Name for everyone, Assigned Officer for Doc Officers.
   // The sync ignores edits to these anyway; this just stops them being made by accident.
   sh.getProtections(SpreadsheetApp.ProtectionType.RANGE).forEach(p => { if (p.getDescription() === 'Kiroku') p.remove(); });
   const lock = range => {
@@ -698,6 +889,7 @@ function formatTasksTab(sh, ctx, src) {
   };
   lock(sh.getRange(1, 1, 1, head.length));
   lock(sh.getRange(2, firstHidden, rows, head.length - firstHidden + 1));
+  lock(column('Worker Name'));
   if (src.owner) lock(column('Assigned Officer'));
 }
 
@@ -945,13 +1137,16 @@ function readTab(sheetId, tab, table) {
   const tz = ss.getSpreadsheetTimeZone();
   const values = sh.getDataRange().getValues();
   const head = values.shift().map(h => String(h).trim());
-  const rename = RENAME[table] || {};
+  const rename = Object.assign({}, RENAME[table]);
+  (SHARED_COLUMNS[tab] ? SHARED_COLUMNS[tab].columns : []).forEach(c => { if (c[1]) rename[c[0]] = c[1]; });
   const derived = DERIVED_COLUMNS[table] || [];
 
   return values
-    .filter(row => row.some(c => c !== ''))
-    .map(row => {
-      const obj = {};
+    .map((row, i) => [row, i + 2])
+    .filter(pair => pair[0].some(c => c !== ''))
+    .map(pair => {
+      const row = pair[0];
+      const obj = { _row: pair[1] };
       head.forEach((h, i) => {
         if (h && derived.indexOf(h) < 0) obj[rename[h] || h] = cell(row[i], h, tz);
       });
