@@ -938,6 +938,16 @@ main#main{display:flex; flex-direction:column; flex:1 1 auto; min-height:0; widt
 .screen.active .tri-col{min-height:0; height:100%; display:flex; flex-direction:column;}
 .screen.active .tri-body{flex:1 1 auto; min-height:0; max-height:none;}
 .screen.active .gate-list-scroll{flex:1 1 auto; min-height:0; max-height:none; overflow-y:auto;}
+
+/* ---- Header nav: one line. Tabs scroll sideways only on a very narrow window. ---- */
+.app-nav{flex-wrap:nowrap; gap:18px;}
+.app-nav .brand{white-space:nowrap; flex-shrink:0;}
+.app-nav .app-tabs{flex-wrap:nowrap; white-space:nowrap; overflow-x:auto; min-width:0; flex:0 1 auto; scrollbar-width:none;}
+.app-nav .app-tabs::-webkit-scrollbar{display:none;}
+.app-nav button.tab{flex-shrink:0; white-space:nowrap;}
+.app-nav .who{white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:200px; min-width:0;}
+.app-nav .readonly-pill, .app-nav .signout-btn, .app-nav .notif-wrap{flex-shrink:0; white-space:nowrap;}
+
 </style>
 </head>
 <body>
@@ -2588,6 +2598,7 @@ async function withLoader(text, work, minMs){
 function navHTML(activeTab){
   const user = getUser(currentUserId);
   const tabs = tabsFor(user);
+  const whoText = user.name===user.role ? user.name : `${user.name} (${user.role})`;
   return `<div class="app-nav">
     <span class="brand">${svgIcon('menu')} Kiroku · Completeness Gate</span>
     <nav class="app-tabs" role="tablist" aria-label="Screens">
@@ -2595,7 +2606,7 @@ function navHTML(activeTab){
     </nav>
     <span class="spacer"></span>
     ${notifHTML()}
-    <span class="who">${escHTML(user.name===user.role ? user.name : `${user.name} (${user.role})`)}</span>
+    <span class="who" title="${escAttr(whoText)}">${escHTML(whoText)}</span>
     ${isCEO(user) || activeTab==='All Due Gates' ? '<span class="readonly-pill">View only</span>' : ''}
     <button class="signout-btn" onclick="openPasswordModal()">Change password</button> <button class="signout-btn" onclick="signOut()">Sign out</button>
   </div>`;
