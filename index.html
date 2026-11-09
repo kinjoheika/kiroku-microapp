@@ -824,6 +824,94 @@ textarea.tf-input{resize:vertical; line-height:1.4;}
 .more-panel{position:absolute; left:0; top:calc(100% + 6px); z-index:30; min-width:220px; background:var(--card); border:1px solid var(--border); border-radius:var(--r); box-shadow:0 6px 18px rgba(0,0,0,.18); padding:6px; display:flex; flex-direction:column; gap:4px;}
 .more-panel .act-btn{justify-content:flex-start; width:100%;}
 .link-btn{background:none; border:0; padding:0 4px; min-height:44px; color:var(--blue); font:inherit; font-weight:700; text-decoration:underline; cursor:pointer;}
+
+/* ===== Buttons: one system =====
+   Raised buttons (act-btn, dg-btn, save, pager, sign-in …): soft shadow, 1px lift on hover, press-down on click.
+   Quiet buttons (tabs, links, icons, list rows): colour change and a light press, no lift.
+   Every button: the same focus ring, a spinner while its save runs (aria-busy), a short green ✓ when it succeeds
+   (is-done). Locked, logged and disabled buttons stay flat and still. */
+:root{
+  --btn-ease:cubic-bezier(.25,.1,.25,1);
+  --btn-shadow:0 1px 2px rgba(16,24,40,.06), 0 1px 3px rgba(16,24,40,.05);
+  --btn-shadow-hover:0 4px 12px rgba(16,24,40,.10), 0 2px 4px rgba(16,24,40,.06);
+  --btn-shadow-press:0 1px 1px rgba(16,24,40,.08);
+  --btn-shadow-brand:0 1px 2px rgba(122,31,43,.20), 0 2px 6px rgba(122,31,43,.14);
+  --btn-shadow-brand-hover:0 6px 16px rgba(122,31,43,.24), 0 2px 4px rgba(122,31,43,.14);
+  --btn-brand-hover:#641923; --btn-on-brand:#fff; --btn-done-ring:rgba(30,123,52,.14);
+  --focus:#2563C9;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){ --btn-shadow:0 1px 2px rgba(0,0,0,.45); --btn-shadow-hover:0 6px 16px rgba(0,0,0,.5), 0 2px 4px rgba(0,0,0,.35); --btn-shadow-press:0 1px 1px rgba(0,0,0,.5); --btn-shadow-brand:0 1px 2px rgba(0,0,0,.45), 0 2px 8px rgba(240,163,173,.12); --btn-shadow-brand-hover:0 6px 18px rgba(0,0,0,.5), 0 2px 10px rgba(240,163,173,.18); --btn-brand-hover:#F5B8C0; --btn-on-brand:#2A0E13; --btn-done-ring:rgba(108,198,138,.18); --focus:#8FB6EA; }
+}
+:root[data-theme="dark"]{ --btn-shadow:0 1px 2px rgba(0,0,0,.45); --btn-shadow-hover:0 6px 16px rgba(0,0,0,.5), 0 2px 4px rgba(0,0,0,.35); --btn-shadow-press:0 1px 1px rgba(0,0,0,.5); --btn-shadow-brand:0 1px 2px rgba(0,0,0,.45), 0 2px 8px rgba(240,163,173,.12); --btn-shadow-brand-hover:0 6px 18px rgba(0,0,0,.5), 0 2px 10px rgba(240,163,173,.18); --btn-brand-hover:#F5B8C0; --btn-on-brand:#2A0E13; --btn-done-ring:rgba(108,198,138,.18); --focus:#8FB6EA; }
+
+/* raised */
+.act-btn, .dg-btn, .save-btn, .pager-btn, .cfg-clear, .file-dl, .si-btn, .newjo-btn, .si-switch, .env-bar button, .signout-btn{
+  position:relative; box-shadow:var(--btn-shadow); -webkit-tap-highlight-color:transparent;
+  transition:background-color .2s var(--btn-ease), color .2s var(--btn-ease), border-color .2s var(--btn-ease), box-shadow .2s var(--btn-ease), transform .2s var(--btn-ease), opacity .2s var(--btn-ease);
+}
+.act-btn, .save-btn{border-color:var(--line);}
+.env-bar button, .signout-btn{box-shadow:none;}
+.act-btn.primary, .dg-btn.primary, .si-btn, .newjo-btn{background:var(--darkred); color:var(--btn-on-brand); box-shadow:var(--btn-shadow-brand);}
+.card-tab.on, .card-tab.on .tab-n{color:var(--btn-on-brand);}
+.act-btn.locked, .act-btn.logged-today, .act-btn.primary.locked, .pager-btn:disabled, .si-btn:disabled, button.act-btn:disabled{box-shadow:none; transform:none;}
+@media (hover:hover){
+  .act-btn:not(:disabled):not(.locked):not(.logged-today):hover, .dg-btn:not(:disabled):hover, .save-btn:not(:disabled):hover,
+  .pager-btn:not(:disabled):hover, .cfg-clear:not(:disabled):hover, .file-dl:not(:disabled):hover, .si-switch:hover{
+    transform:translateY(-1px); box-shadow:var(--btn-shadow-hover);
+  }
+  .act-btn.primary:not(:disabled):not(.locked):hover, .dg-btn.primary:not(:disabled):hover, .si-btn:not(:disabled):hover, .newjo-btn:hover{
+    transform:translateY(-1px); background:var(--btn-brand-hover); box-shadow:var(--btn-shadow-brand-hover);
+  }
+  .env-bar button:hover, .signout-btn:hover{transform:translateY(-1px);}
+}
+.act-btn:not(:disabled):not(.locked):not(.logged-today):active, .dg-btn:not(:disabled):active, .save-btn:not(:disabled):active,
+.pager-btn:not(:disabled):active, .cfg-clear:not(:disabled):active, .file-dl:not(:disabled):active, .si-btn:not(:disabled):active,
+.newjo-btn:active, .si-switch:active, .env-bar button:active, .signout-btn:active{
+  transform:translateY(0) scale(.97); box-shadow:var(--btn-shadow-press); transition-duration:.08s;
+}
+
+/* quiet */
+.card-tab, .cfg-tab, .dg-trk, .dg-tag, .dg-lg-btn, .notif-markall, .notif-dot, .si-eye, .si-link, .link-btn, .msg-x, .msg-opt, .si-user, .bell, .toast-undo{
+  -webkit-tap-highlight-color:transparent;
+  transition:background-color .18s var(--btn-ease), color .18s var(--btn-ease), border-color .18s var(--btn-ease), transform .18s var(--btn-ease);
+}
+.card-tab:active, .cfg-tab:active, .dg-tag:active, .dg-lg-btn:active, .notif-markall:active, .notif-dot:active, .si-eye:active,
+.si-link:active, .link-btn:active, .msg-x:active, .bell:active, .toast-undo:active{transform:scale(.96); transition-duration:.08s;}
+.dg-trk:active, .msg-opt:active, .si-user:active{transform:scale(.985); transition-duration:.08s;}
+
+/* focus: keyboard only, same ring everywhere; lighter on the dark bars */
+button:focus-visible, summary:focus-visible, [role="button"]:focus-visible{outline:2px solid var(--focus); outline-offset:2px;}
+.app-nav button:focus-visible, .env-bar button:focus-visible, .toast button:focus-visible{outline-color:#9CC0F0;}
+.si-user:focus-visible, .msg-opt:focus-visible{outline:none; box-shadow:inset 0 0 0 2px var(--focus);}
+
+/* busy: spinner after the label (or in place of an icon-only button's icon) while its save runs */
+@keyframes btn-spin{to{transform:rotate(360deg);}}
+button[aria-busy="true"]{cursor:progress; pointer-events:none;}
+button[aria-busy="true"]::after, .si-btn:disabled::after{
+  content:""; display:inline-block; flex:none; width:.85em; height:.85em; margin-left:7px; vertical-align:-.12em;
+  border:2px solid currentColor; border-right-color:transparent; border-radius:50%; opacity:.85; animation:btn-spin .7s linear infinite;
+}
+.save-btn[aria-busy="true"], .pager-btn[aria-busy="true"]{font-size:0;}
+.save-btn[aria-busy="true"]::after, .pager-btn[aria-busy="true"]::after{font-size:0.9375rem; margin:0;}
+
+/* done: brief green confirmation on the button that was pressed */
+@keyframes btn-done{0%{transform:scale(.97);} 55%{transform:scale(1.03);} 100%{transform:scale(1);}}
+button.is-done{background:var(--green-light) !important; border-color:var(--green) !important; color:var(--green) !important;
+  box-shadow:0 0 0 3px var(--btn-done-ring) !important; animation:btn-done .36s var(--btn-ease);}
+.act-btn.primary.is-done, .dg-btn.primary.is-done, .si-btn.is-done, .newjo-btn.is-done{background:var(--green) !important; color:var(--btn-on-brand) !important;}
+button.is-done .ico{font-size:0;}
+button.is-done .ico > *{display:none;}
+button.is-done .ico::before{content:"✓"; font-size:0.875rem; font-weight:800;}
+.save-btn.is-done{font-size:0;}
+.save-btn.is-done::before{content:"✓"; font-size:0.9375rem; font-weight:800;}
+
+@media (prefers-reduced-motion:reduce){
+  /* no lift or bounce; the spinner keeps turning slowly because it shows work in progress */
+  .act-btn, .dg-btn, .save-btn, .pager-btn, .cfg-clear, .file-dl, .si-btn, .newjo-btn, .si-switch, .env-bar button, .signout-btn,
+  .card-tab, .cfg-tab, .dg-trk, .dg-tag, .dg-lg-btn, .notif-markall, .notif-dot, .si-eye, .si-link, .link-btn, .msg-x, .msg-opt, .si-user, .bell, .toast-undo{transform:none !important;}
+  button[aria-busy="true"]::after, .si-btn:disabled::after{animation:btn-spin 1.4s linear infinite !important;}
+}
 .card-list{flex:1 1 auto; min-height:0; overflow:visible;}
 /* Fixed-height app shell: the page never scrolls; only the sections inside it do. */
 main#main{display:flex; flex-direction:column; flex:1 1 auto; min-height:0; width:100%;}
@@ -1833,6 +1921,40 @@ function showToast(msg, ms){
   el.classList.add('show');
   clearTimeout(window._toastTimer);
   window._toastTimer = setTimeout(()=> el.classList.remove('show'), ms || 1600);
+  if(/^✓/.test(msg)) flashPressedDone();
+  else if(/^[⚠✗]/.test(msg)) pressedBtn = null;
+}
+/* ---------- Button feedback ----------
+   The button last pressed shows a spinner while a save runs (body.logging) and a short green ✓ when its
+   success toast appears. Handlers are untouched: a re-rendered button is found again by its id or onclick. */
+let pressedBtn = null;
+document.addEventListener('click', e=>{
+  const b = e.target.closest('button');
+  if(b) pressedBtn = {el:b, sig: b.id ? '#'+b.id : b.getAttribute('onclick'), at:Date.now()};
+}, true);
+function findPressedBtn(){
+  // 2 minutes covers choosing a file in the Upload dialog.
+  if(!pressedBtn || Date.now()-pressedBtn.at > 120000) return null;
+  if(pressedBtn.el.isConnected) return pressedBtn.el;
+  const s = pressedBtn.sig;
+  if(!s) return null;
+  if(s[0]==='#') return document.getElementById(s.slice(1));
+  return [...document.querySelectorAll('button[onclick]')].find(b=>b.getAttribute('onclick')===s && b.offsetParent) || null;
+}
+new MutationObserver(()=>{
+  if(document.body.classList.contains('logging')){ const b = findPressedBtn(); if(b) b.setAttribute('aria-busy','true'); }
+  else document.querySelectorAll('button[aria-busy="true"]').forEach(b=>b.removeAttribute('aria-busy'));
+}).observe(document.body, {attributes:true, attributeFilter:['class']});
+function flashPressedDone(){
+  // After the caller's re-render, which runs right after the toast.
+  setTimeout(()=>{
+    const b = findPressedBtn();
+    pressedBtn = null;
+    if(!b) return;
+    b.classList.remove('is-done'); void b.offsetWidth;
+    b.classList.add('is-done');
+    setTimeout(()=>b.classList.remove('is-done'), 1400);
+  }, 30);
 }
 // 💾 on a task (taskId) or on a job order's checklist (joId). Only the assigned officer's
 // saves are recorded; for everyone else it saves locally as before.
