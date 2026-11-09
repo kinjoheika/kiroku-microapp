@@ -938,6 +938,90 @@ main#main{display:flex; flex-direction:column; flex:1 1 auto; min-height:0; widt
 .screen.active .tri-col{min-height:0; height:100%; display:flex; flex-direction:column;}
 .screen.active .tri-body{flex:1 1 auto; min-height:0; max-height:none;}
 .screen.active .gate-list-scroll{flex:1 1 auto; min-height:0; max-height:none; overflow-y:auto;}
+/* ---- My Entries (one page per user) ---- */
+.screen.active .app-frame > .sheet-wrap{flex:1 1 auto; min-height:0; overflow:auto; padding:0 18px 16px; overscroll-behavior:contain;}
+.sheet-bar{display:flex; align-items:center; gap:12px; flex-wrap:wrap; padding:10px 18px; border-bottom:1px solid var(--divider); background:var(--surface-subtle);}
+.sheet-bar .gp-title{font-family:var(--font-head); font-weight:800; font-size:0.9375rem; color:var(--ink);}
+.sheet-bar .gp-count{font-size:0.75rem; color:var(--ink-2);}
+.sheet-bar .tf-state{margin-left:auto;}
+.sheet-mode{display:inline-flex; border:1px solid var(--line-2); border-radius:8px; overflow:hidden;}
+.sheet-mode-btn{background:none; border:0; padding:6px 12px; min-height:32px; font:inherit; font-size:0.75rem; font-weight:600; color:var(--ink-2); cursor:pointer;}
+.sheet-mode-btn + .sheet-mode-btn{border-left:1px solid var(--line-2);}
+.sheet-mode-btn.on{background:var(--ink); color:var(--card);}
+.sheet-mode-btn:focus-visible{outline:2px solid var(--blue); outline-offset:-2px;}
+table.sheet{width:100%; border-collapse:collapse; font-size:0.8125rem; margin-top:10px;}
+table.sheet th{position:sticky; top:0; z-index:1; background:var(--surface-subtle); text-align:left; font-weight:800; color:var(--ink-2); padding:8px 10px; border-bottom:2px solid var(--line-2); white-space:nowrap;}
+table.sheet td{padding:0; border-bottom:1px solid var(--line-2); vertical-align:middle;}
+table.sheet tbody tr:hover{background:var(--hover);}
+table.sheet td input, table.sheet td select{width:100%; min-height:36px; border:1px solid transparent; border-radius:0; background:transparent; padding:6px 10px; font:inherit; color:var(--ink);}
+table.sheet td input:hover, table.sheet td select:hover{border-color:var(--line);}
+table.sheet td input:focus, table.sheet td select:focus{outline:2px solid var(--blue); outline-offset:-2px; background:var(--card);}
+table.sheet td.ro{padding:8px 10px; color:var(--ink-2); white-space:nowrap;}
+
+/* ---- Discuss ---- */
+.dc-jo{border:1px solid var(--line); border-radius:12px; background:var(--card); margin:12px 0; overflow:hidden;}
+.dc-jo-hd{display:flex; flex-wrap:wrap; gap:4px 14px; align-items:baseline; padding:10px 14px; background:var(--surface-subtle); border-bottom:1px solid var(--divider); font-size:0.8125rem; color:var(--ink-2);}
+.dc-jo-hd b{font-family:var(--font-head); font-size:0.9375rem; color:var(--ink);}
+.dc-jo-hd .dc-counts{margin-left:auto; font-size:0.75rem;}
+.dc-list{list-style:none; margin:0; padding:0;}
+.dc-item{display:grid; gap:4px; padding:9px 14px; border-bottom:1px solid var(--divider);}
+.dc-item:last-child{border-bottom:0;}
+.dc-meta{display:flex; flex-wrap:wrap; align-items:center; gap:4px 10px; font-size:0.75rem; color:var(--ink-2);}
+.dc-kind{display:inline-flex; align-items:center; gap:4px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; color:var(--ink);}
+.dc-note .dc-kind{color:var(--blue);}
+.dc-message .dc-kind{color:var(--gold-ink);}
+.dc-upload .dc-kind{color:var(--ink-2);}
+.dc-text{font-size:0.8125rem; color:var(--ink); white-space:pre-wrap; overflow-wrap:anywhere;}
+
+/* ---- My Entries + Configuration: stages and masterlist ---- */
+.me-new{margin:14px 18px 0; border:1px solid var(--line); border-radius:12px; background:var(--card); padding:12px 14px;}
+.me-new-hd{display:flex; flex-wrap:wrap; gap:4px 12px; align-items:baseline; margin-bottom:10px; font-size:0.8125rem; color:var(--ink-2);}
+.me-new-hd b{font-family:var(--font-head); font-size:0.9375rem; color:var(--ink);}
+.me-form{display:grid; grid-template-columns:repeat(auto-fit, minmax(170px, 1fr)); gap:10px 12px; align-items:end;}
+.me-f{display:flex; flex-direction:column; gap:4px; font-size:0.75rem; font-weight:600; color:var(--ink-2); min-width:0;}
+.me-f .cfg-input{width:100%;}
+.me-go{flex-direction:row; align-items:center; gap:10px; flex-wrap:wrap;}
+.cfg-row{display:flex; flex-wrap:wrap; gap:8px; align-items:center; padding:6px 0; border-bottom:1px solid var(--divider);}
+.cfg-row .cl-name{flex:1 1 220px;}
+.cfg-row .cl-ag{flex:0 1 220px;}
+.cfg-section{margin-top:16px;}
+.cfg-block{margin-bottom:14px;}
+.cfg-subhd{font-family:var(--font-head); font-weight:800; font-size:0.875rem; color:var(--ink); margin:8px 0 4px;}
+.st-row .st-no{width:22px; text-align:right;}
+.st-row .st-name{flex:1 1 220px;}
+.st-row .st-ed{flex:0 1 180px;}
+.st-off-lbl{display:flex; align-items:center; gap:6px;}
+.st-off{width:90px;}
+
+.stage-badge{display:inline-flex; align-items:center; gap:4px; max-width:100%; font-size:0.6562rem; font-weight:800; text-transform:uppercase; letter-spacing:.03em; padding:1px 7px; border-radius:var(--r); background:var(--neutral-bg); color:var(--ink-2); border:1px solid var(--border); white-space:nowrap;}
+.stage-badge .sb-stage{overflow:hidden; text-overflow:ellipsis; min-width:0;}
+
+/* ---- Discuss: filters and two columns ---- */
+.dc-bar{flex-wrap:wrap;}
+.dc-search{display:inline-flex; gap:6px; align-items:center;}
+.dc-search input{min-height:32px; min-width:240px; padding:6px 10px; border:1px solid var(--line-2); border-radius:8px; background:var(--card); color:var(--ink); font:inherit; font-size:0.8125rem;}
+.dc-search input:focus{outline:2px solid var(--blue); outline-offset:-1px;}
+.dc-filters{display:flex; flex-direction:column; gap:8px;}
+.dc-filter{display:flex; flex-direction:column; align-items:stretch; gap:3px; font-size:0.7188rem; font-weight:600; color:var(--ink-3);}
+.dc-filter select{height:32px; width:100%; padding:0 8px; border:1px solid var(--line); border-radius:6px; background:var(--card); color:var(--ink); font-family:var(--font-body); font-size:0.8125rem;}
+.dg-jo-no{font-size:0.8438rem; font-weight:600; color:var(--ink);}
+.dg-jo-deploy{font-size:0.6875rem; color:var(--ink-3);}
+.dc-cols{display:grid; grid-template-columns:minmax(240px, 300px) minmax(0, 1fr); gap:14px; align-items:start; padding:12px 18px 16px;}
+.dc-index{display:flex; flex-direction:column; gap:6px; border:1px solid var(--line); border-radius:12px; background:var(--card); padding:6px;}
+.dc-jo-row{display:grid; gap:2px; text-align:left; background:none; border:1px solid transparent; border-radius:10px; padding:8px 10px; font:inherit; color:var(--ink); cursor:pointer;}
+.dc-jo-row:hover{background:var(--hover);}
+.dc-jo-row.on{background:var(--surface-subtle); border-color:var(--line-2);}
+.dc-jo-row:focus-visible{outline:2px solid var(--blue); outline-offset:1px;}
+.dc-jo-no{font-family:var(--font-head); font-weight:800; font-size:0.875rem;}
+.dc-jo-sub{font-size:0.75rem; color:var(--ink-2);}
+.dc-content{border:1px solid var(--line); border-radius:12px; background:var(--card); overflow:hidden; min-width:0;}
+.dc-content-hd{display:flex; flex-wrap:wrap; gap:4px 14px; align-items:baseline; padding:10px 14px; background:var(--surface-subtle); border-bottom:1px solid var(--divider); font-size:0.8125rem; color:var(--ink-2);}
+.dc-content-hd b{font-family:var(--font-head); font-size:0.9375rem; color:var(--ink);}
+.dc-content-hd .dc-counts{margin-left:auto; font-size:0.75rem;}
+@media (max-width:820px){ .dc-cols{grid-template-columns:1fr;} .dc-search input{min-width:0; width:100%;} }
+
+
+
 
 /* ---- Header nav: one line. Tabs scroll sideways only on a very narrow window. ---- */
 .app-nav{flex-wrap:nowrap; gap:18px;}
@@ -947,6 +1031,47 @@ main#main{display:flex; flex-direction:column; flex:1 1 auto; min-height:0; widt
 .app-nav button.tab{flex-shrink:0; white-space:nowrap;}
 .app-nav .who{white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:200px; min-width:0;}
 .app-nav .readonly-pill, .app-nav .signout-btn, .app-nav .notif-wrap{flex-shrink:0; white-space:nowrap;}
+
+/* ---- JO detail: fits the screen with no page scroll ---- */
+.screen.active .app-frame > .jd-page{flex:1 1 auto; min-height:0; display:flex; flex-direction:column; gap:10px; padding:4px 18px 14px; overflow:hidden; box-sizing:border-box;}
+.jd-hero{margin:0; padding:10px 16px; flex-shrink:0; justify-content:space-between; flex-wrap:wrap;}
+.jd-hero-txt{min-width:0; flex:1 1 260px;}
+.jd-actions{display:flex; align-items:center; gap:14px; flex-wrap:wrap; justify-content:flex-end; margin-left:auto;}
+.jd-actions .meta-row, .jd-actions .action-row{margin:0;}
+.jd-actions .meta-row > div{background:none; border:0; padding:0; text-align:right;}
+.jd-actions .meta-row .m-lbl{margin-bottom:1px;}
+.jd-bottom{flex:1 1 auto; min-height:0; display:grid; grid-template-columns:minmax(0,1.4fr) minmax(0,1fr); gap:14px;}
+.jd-form{min-height:0; overflow-y:auto; overscroll-behavior:contain;}
+.jd-sum{display:grid; grid-template-columns:1fr 1fr; gap:12px 14px;}
+.jd-sum .jd-wide{grid-column:1/-1;}
+.jd-field{display:flex; flex-direction:column; gap:4px; min-width:0;}
+.jd-sum .tf-label{font-size:0.75rem; font-weight:500; color:var(--ink-3);}
+.jd-stage{font-weight:600;}
+.jd-notes{display:flex; flex-direction:column; min-height:0; margin:0;}
+.jd-notes > .card-body{flex:1 1 auto; min-height:0; overflow-y:auto; overscroll-behavior:contain;}
+
+/* ---- JO detail v2: left column fits the screen; the 18 stages scroll on the right ---- */
+.screen.active .app-frame > .jd-page{flex-direction:row; align-items:stretch; gap:14px;}
+.jd-main{flex:1 1 auto; min-width:0; min-height:0; display:flex; flex-direction:column; gap:10px;}
+.jd-main > .jd-notes{flex:1 1 0; min-height:0;}
+.jd-mainbtns{margin:0; flex-shrink:0;}
+.jd-side{width:320px; flex-shrink:0; min-height:0; display:flex; flex-direction:column; overflow:hidden; background:var(--card); border:1px solid var(--line); border-radius:12px;}
+.jd-side .gate-ring-wrap{flex-shrink:0; border-bottom:1px solid var(--divider);}
+.jd-side .gate-list-scroll{flex:1 1 auto; min-height:0; overflow-y:auto; overscroll-behavior:contain;}
+@media (max-width:820px){
+  .screen.active .app-frame > .jd-page{flex-direction:column; overflow-y:auto;}
+  .jd-main{flex:none;}
+  .jd-main > .jd-notes{flex:none; min-height:340px;}
+  .jd-side{width:auto; flex:none; max-height:55dvh;}
+}
+
+
+@media (max-width:820px){
+  .screen.active .app-frame > .jd-page{overflow-y:auto;}
+  .jd-bottom{grid-template-columns:1fr;}
+  .jd-form{overflow:visible;}
+  .jd-notes > .card-body{max-height:50dvh;}
+}
 
 </style>
 </head>
@@ -1015,6 +1140,16 @@ main#main{display:flex; flex-direction:column; flex:1 1 auto; min-height:0; widt
   <div class="app-frame" id="s4-frame"></div>
 </div>
 
+<!-- SCREEN 6: My Entries (one page per user, entered in the app) -->
+<div id="s6" class="screen">
+  <div class="app-frame" id="s6-frame"></div>
+</div>
+
+<!-- SCREEN 7: Discuss (every note, message and upload, per Job Order) -->
+<div id="s7" class="screen">
+  <div class="app-frame" id="s7-frame"></div>
+</div>
+
 <!-- SCREEN 5: Configuration (Sync Logs) -->
 <div id="s5" class="screen">
   <div class="app-frame" id="s5-frame"></div>
@@ -1031,25 +1166,7 @@ const TODAY = new Date(`${new Intl.DateTimeFormat('en-CA', {timeZone:'Asia/Manil
 const STORAGE_KEY = 'kiroku_sample_db_v2';
 
 /* ---------- Data source ----------
-   Backup when Supabase is unreachable, split the same way as apps-script/Sync.gs:
-   the masterlist (SHEET_ID) gives Users, Kumiai, Companies, JobOrders, and each
-   Doc Officer sheet gives only its owner's Tasks (editor_id) and their Activity
-   (each Activity tab is a copy of activity_logs, so only the owner's tasks are kept).
-   Every sheet must be shared "Anyone with the link: Viewer".
-   index.html?sheet=<ID> reads all six tabs from one sheet instead (see Kiroku_Sample_Sheet.xlsx).
-   Blank SHEET_ID = read the bundled CSVs in ./data instead. */
-const SHEET_ID = '1wn6YERoX2xh9LPlU_jn5_5C2jeBl8OGD8yAZHx5j-1Q';
-const SHEET_TABS = ['Users','Kumiai','Companies','JobOrders','Tasks','Activity'];
-const SHARED_SHEET_TABS = ['Users','Kumiai','Companies','JobOrders'];
-const OFFICER_SHEETS = {   // Doc Officer 1..4 sheet IDs (SHEET_ID_1..4 in Sync.gs)
-  u1: '14W4LtspvWhmp6dIwtkoWicLy98MO7nmaT5e_nRpXbgs',
-  u2: '1mBsENuWFOYi45mILo7Za_5HIqFvwNzsR9eidq7gsAno',
-  u3: '12k81jEyzBj1osoxxQ9XfSe2PZoDQr-b5qPU2sNeyX7M',
-  u4: '1edyDABJKPno_hHU73POsNI6T5cjD4PBtCZ6xUkZonTE',
-};
-/* Supabase (kiroku project). The publishable key is safe in the browser: row security
-   gives it nothing until a user signs in (supabase/11_lock_down.sql). If these tables are
-   empty or unreachable, the page falls back to the Sheet / CSV above. */
+   Supabase is the only data source. The built-in sample is used only when Supabase is unreachable or empty. */
 const SUPABASE_URL = 'https://epslvipdnpsqgonaxzbd.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_O4Ii-EGo57qt0fDI0LT_7A_lfs2afiq';
 // Activity comes from activity_logs (loadActivityLogs), which holds the sheets' activity too.
@@ -1320,13 +1437,17 @@ function receivingPlainHTML(joId){
   return `<b>${escHTML(ku.name)}</b> · <b>${escHTML(co.name)}</b>`;
 }
 /* JO Nametag: JO#, Receiving Org, Receiving Company, Track, Task — the standard 5-field identity block for any task reference */
+/* Track and stage shown as one badge, styled like the MESSAGE label. */
+function stageBadgeHTML(track, stage){
+  return `<span class="stage-badge"><span class="sb-track">${escHTML(track)}</span><span aria-hidden="true">·</span><span class="sb-stage">${escHTML(stage)}</span></span>`;
+}
 function joNametagHTML(joId, trackKey, taskName, opts){
   const jo = getJO(joId), co = getCompany(jo.companyId), ku = getKumiai(co.kumiaiId);
   const dark = opts && opts.dark;
   return `<div class="jo-nametag ${dark?'on-dark':''}">
     <div class="jnt-jo">JO# ${escHTML(jo.jo)}</div>
     <div class="jnt-org">${escHTML(ku.name)} · ${escHTML(co.name)}</div>
-    <div class="jnt-task">${trackKey} · ${escHTML(taskName)}</div>
+    <div class="jnt-task">${stageBadgeHTML(trackKey, taskName)}</div>
   </div>`;
 }
 /* B.3 variant: Task is the title, Track shown as a grey badge, JO# on line 2, Org/Company on line 3 */
@@ -1356,9 +1477,10 @@ function canEditInContext(task, pageContext){
   return getEditor(task) === user.id;
 }
 function tabsFor(user){
-  if(isAdmin(user)) return [{id:'s1', label:'My Tasks'}, {id:'s2', label:'My Due Gates'}, {id:'s3', label:'All Due Gates'}, {id:'s5', label:'Configuration'}];
+  if(isAdmin(user)) return [{id:'s1', label:'My Tasks'}, {id:'s2', label:'My Due Gates'}, {id:'s3', label:'All Due Gates'}, {id:'s6', label:'My Entries'}, {id:'s7', label:'Discuss'}, {id:'s5', label:'Configuration'}];
   // Configuration is Admin only; the data behind it is locked in Supabase too (11_lock_down.sql).
-  return [{id:'s1', label:'My Tasks'}, {id:'s2', label:'My Due Gates'}, {id:'s3', label:'All Due Gates'}];
+  if(isCEO(user)) return [{id:'s1', label:'My Tasks'}, {id:'s2', label:'My Due Gates'}, {id:'s3', label:'All Due Gates'}, {id:'s7', label:'Discuss'}];
+  return [{id:'s1', label:'My Tasks'}, {id:'s2', label:'My Due Gates'}, {id:'s3', label:'All Due Gates'}, {id:'s6', label:'My Entries'}, {id:'s7', label:'Discuss'}];
 }
 function myTracksFor(userId){
   if(seesAllTasks(getUser(userId))) return TRACK_DEFS;
@@ -1579,7 +1701,7 @@ async function saveTaskField(taskId, field, value, pageContext, isUndo){
     setTaskSaveState('error', `Sync Error: ${failure}`);
     return;
   }
-  setTaskSaveState('saved', 'Saved. Google Sheets updates within 5 minutes.');
+  setTaskSaveState('saved', 'Saved.');
   if(!isUndo) showUndoToast(`${TASK_FIELD_LABEL[field]} updated`, ()=>saveTaskField(taskId, field, prev, pageContext, true));
 }
 function taskFieldsHTML(t, pageContext){
@@ -1999,7 +2121,7 @@ function enterAs(uid){
   showScreen('s1');   // callers that sign someone in already show the loading screen
 }
 async function resetSampleData(){
-  if(!confirm('Reload all data from the source (Google Sheet or bundled CSVs)? Local edits made in this browser will be discarded.')) return;
+  if(!confirm('Reload all data from Supabase? Local edits made in this browser will be discarded.')) return;
   await reloadFromSource();
   enterAs(currentUserId);
 }
@@ -2019,19 +2141,6 @@ function parseCSV(text){
     else if(c!=='\r') cell+=c;
   }
   if(cell.length || row.length){ row.push(cell); rows.push(row); }
-  return rows;
-}
-function sheetIdFromPage(){
-  return new URLSearchParams(location.search).get('sheet') || SHEET_ID;
-}
-async function fetchTab(tab, sheetId){
-  const url = sheetId
-    ? `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(tab)}`
-    : `data/${tab}.csv`;
-  const res = await fetch(url, {cache:'no-store'});
-  if(!res.ok) throw new Error(`${tab}: HTTP ${res.status}`);
-  const rows = parseCSV(await res.text());
-  if(!rows.length) throw new Error(`${tab}: empty tab`);
   return rows;
 }
 function tabToObjects(rows){
@@ -2105,32 +2214,6 @@ async function loadFromSource(){
   const db = await loadFromSupabase();
   if(!db) throw new Error('Kiroku has no data yet, or this account may not read it.');
   return db;
-}
-async function loadFromOfficerSheets(){
-  const owners = Object.entries(OFFICER_SHEETS);
-  if(owners.some(([,id])=>!id)) throw new Error('OFFICER_SHEETS is missing a Doc Officer sheet ID');
-  const [shared, parts] = await Promise.all([
-    Promise.all(SHARED_SHEET_TABS.map(async tab=>[tab, await fetchTab(tab, SHEET_ID)])),
-    Promise.all(owners.map(async ([owner, id])=>[owner, await fetchTab('Tasks', id), await fetchTab('Activity', id)])),
-  ]);
-  const tasks = [], activity = [], seenAct = new Set();
-  parts.forEach(([owner, taskRows, actRows])=>{
-    const own = tabToObjects(taskRows).filter(t=>t.editor_id===owner);
-    const ids = new Set(own.map(t=>t.task_id));
-    tasks.push(...own);
-    // Activity tabs copied from activity_logs (activity_id set) hold the owner's own actions, on any task.
-    // Older tabs held every task's activity, so only the owner's tasks are taken from them.
-    activity.push(...tabToObjects(actRows).filter(a=>a.activity_id ? !seenAct.has(a.activity_id) && seenAct.add(a.activity_id) : ids.has(a.task_id)));
-  });
-  const db = buildDBFromTabs({...Object.fromEntries(shared),
-    Tasks: objectsToRows(tasks, parts[0][1][0]), Activity: objectsToRows(activity, parts[0][2][0])});
-  SOURCE_LABEL = 'Google Sheets (masterlist + Doc Officer sheets)';
-  return db;
-}
-function objectsToRows(objs, emptyHeader){
-  // Back to the [header, ...rows] shape buildDBFromTabs takes; columns matched by name.
-  const hdr = objs.length ? Object.keys(objs[0]) : emptyHeader.map(h=>h.trim());
-  return [hdr, ...objs.map(o=>hdr.map(h=>o[h] ?? ''))];
 }
 async function reloadFromSource(){
   // Never shows sample or cached data instead of the real data.
@@ -2557,6 +2640,7 @@ function showScreen(id){
   document.getElementById(id).classList.add('active');
   renderAllScreens();
   // Configuration reloads the history, so actions sent since the last load appear without a refresh.
+  if(id==='s7') loadDiscuss();
   if(id==='s5') loadActivityLogs().then(()=>{ if(document.getElementById('s5').classList.contains('active')) renderAllScreens(); });
 }
 // Tabs and page links: the same page change, behind the loading screen.
@@ -2721,6 +2805,7 @@ function buildJODetail(joId, highlightTaskId, backFn, backLabel, pageContext, pa
     ? `${current.track} — ${computeStatus(current)==='flagged' ? Math.abs(diffDays(current.due))+' days overdue' : (computeStatus(current)==='pending' ? 'due soon' : (current.done ? 'done' : 'upcoming'))}`
     : `${doneCount} of ${total} gates cleared`;
 
+  const actionTarget = current || tasks[0];
   const gateRows = tasks.map(t=>{
     const st = computeStatus(t);
     const isCurrent = current && t.id===current.id;
@@ -2732,21 +2817,14 @@ function buildJODetail(joId, highlightTaskId, backFn, backLabel, pageContext, pa
       ${dueBadgeHTML(t)}
     </div>`;
   }).join('');
-
-  const actionTarget = current || tasks[0];
-
   return `<div class="detail-top"><span class="back-link" role="button" tabindex="0" data-key-activate onclick="${backFn}">${backLabel}</span>${pagerHTML||''}</div>
-  <div class="body-row">
-    <div class="main-col" style="padding-top:15px;">
-      <div class="task-hero">
+  <div class="jd-page">
+    <div class="jd-main">
+      <div class="task-hero jd-hero">
         <div class="av">${escHTML(initialsFromName(jo.candidateName))}</div>
-        <div><div class="n">JO# ${escHTML(jo.jo)}</div><div class="s">${heroStatusText}</div><div class="hrecv">${receivingHTML(joId)} · Target Deploy: <b>${fmtDate(jo.targetDeploymentDate)}</b></div></div>
+        <div class="jd-hero-txt"><div class="n">JO# ${escHTML(jo.jo)}</div><div class="s">${heroStatusText}</div><div class="hrecv">${receivingHTML(joId)} · Target Deploy: <b>${fmtDate(jo.targetDeploymentDate)}</b></div></div>
       </div>
-      ${current ? taskFieldsHTML(current, pageContext) : '<div class="task-title">Job Order Gate Checklist</div>'}
-      <div class="meta-row">
-        <div><span class="m-lbl">Overall status</span><span class="${worst==='flagged'?'overdue':''}">${worst==='flagged'?'Overdue items present':worst==='pending'?'Due soon':worst==='done'?'All clear':'On track'}</span></div>
-      </div>
-      <div class="action-row primary-row">
+      <div class="action-row primary-row jd-mainbtns">
         ${markDoneButtonHTML(actionTarget, pageContext)}
         <div class="more-menu"><details>
           <summary class="act-btn" aria-label="More actions">${svgIcon('more')} More</summary>
@@ -2756,20 +2834,19 @@ function buildJODetail(joId, highlightTaskId, backFn, backLabel, pageContext, pa
             ${actionButtonHTML('message','mail','Send Message', actionTarget, pageContext)}
             ${actionButtonHTML('note','filetext','Log Note', actionTarget, pageContext)}
             ${actionButtonHTML('upload','upload','Upload', actionTarget, pageContext)}
-              </div>
+          </div>
         </details></div>
       </div>
-      <div class="card" data-notes-task="${actionTarget.id}">${notesCardHTML(actionTarget)}</div>
+      <div class="card jd-notes" data-notes-task="${actionTarget.id}">${notesCardHTML(actionTarget)}</div>
     </div>
-    <div class="side-col">
+    <aside class="jd-side" aria-label="Job order gates">
       <div class="gate-ring-wrap">
         <div class="gate-ring" style="background:conic-gradient(var(--blue) 0% ${pct}%, var(--track) ${pct}% 100%)"><div class="hole">${doneCount}/${total}</div></div>
-        <div><div style="font-size:0.7188rem;font-weight:800;color:var(--ink-soft);letter-spacing:.05em;">TO DO</div><div style="font-size:0.8125rem;font-weight:700;">Job Order Gates</div></div>
+        <div><div style="font-size:0.7188rem;font-weight:800;color:var(--ink-soft);letter-spacing:.05em;">TO DO</div><div style="font-size:0.8125rem;font-weight:700;">Job Order Gates · ${total} stages</div></div>
       </div>
       <div class="gate-list-scroll">${gateRows}</div>
-    </div>
-  </div>
-  `;
+    </aside>
+  </div>`;
 }
 
 /* Notes, Messages and Files share one card on the task detail; the tab chooses which one shows. */
@@ -2969,7 +3046,7 @@ function buildJOProfile(joId, pageContext){
           <div class="card-hd"><span class="t">Recent Actions</span></div>
           ${activityList.length ? activityList.map(a=>{
             const meta = ACTION_META[a.type];
-            return `<div class="done-row"><span class="ck" style="color:var(--ink-soft);">${svgIcon(meta.icon)}</span><div class="ci-body"><div style="font-weight:700;">${escHTML(a.task.name)} · ${a.task.track}</div><div style="font-size:0.6875rem;color:var(--ink-soft);margin-top:1px;">${escHTML(getUser(getEditor(a.task)).name)}</div><div class="ci-badges"><span class="badge-followup">${meta.label} · ${fmtStamp(a)}</span></div></div></div>`;
+            return `<div class="done-row"><span class="ck" style="color:var(--ink-soft);">${svgIcon(meta.icon)}</span><div class="ci-body"><div>${stageBadgeHTML(a.task.track, a.task.name)}</div><div style="font-size:0.6875rem;color:var(--ink-soft);margin-top:1px;">${escHTML(getUser(getEditor(a.task)).name)}</div><div class="ci-badges"><span class="badge-followup">${meta.label} · ${fmtStamp(a)}</span></div></div></div>`;
           }).join('') : '<div class="empty-note">No actions logged yet.</div>'}
         </div>
       </div>
@@ -3303,10 +3380,363 @@ function buildScreen4(){
     <div class="bottom-bar">${visibleJOs().filter(j=>j.active).length} active Job Orders across ${DB.companies.length} companies</div>`;
 }
 
+/* ---------- My Entries: enter a job order (it creates its 3 tracks and 18 stages), then the stages you own ----------
+   Stage setup (days from Target Deploy, stage names, default officer) and the Agency / Client masterlist
+   are edited on the Configuration page. */
+let STAGE_CFG = null, TRACK_CFG = null, stageLoadError = '', stageLoading = false;
+let entryForm = {jo:'', worker:'', kumiai:'', company:'', target:''};
+
+async function loadStageConfig(){
+  try {
+    const [tracks, stages] = await Promise.all([supaFetch('track_config?select=*'), supaFetch('stage_config?select=*')]);
+    TRACK_CFG = tracks.map(t => ({...t, sort_order: Number(t.sort_order)}));
+    STAGE_CFG = stages.map(s => ({...s, stage_id: Number(s.stage_id), sort_order: Number(s.sort_order), offset_days: Number(s.offset_days)}));
+    stageLoadError = '';
+  } catch(e){
+    console.warn('stage setup load failed:', e);
+    STAGE_CFG = STAGE_CFG || [];
+    TRACK_CFG = TRACK_CFG || [];
+    stageLoadError = e.message;
+  }
+}
+// Stage names of one track, in order: from the Configuration page when loaded, else the built-in list.
+function stagesOf(track){
+  if(STAGE_CFG && STAGE_CFG.length) return STAGE_CFG.filter(s => s.track === track).sort((a, b) => a.sort_order - b.sort_order);
+  return (TASKS_CONFIG[track] || []).map(c => ({stage_name: c.name, track}));
+}
+
+function sheetSelectHTML(options, current, onchangeJs, label){
+  const list = (current && !options.includes(current)) ? [current, ...options] : options;
+  return `<select aria-label="${escAttr(label)}" onchange="${onchangeJs}">${list.map(o =>
+    `<option value="${escAttr(o)}" ${o===current ? 'selected' : ''}>${escHTML(o || '—')}</option>`).join('')}</select>`;
+}
+// ---- New job order form (top of My Entries)
+function entryField(key, value){ entryForm[key] = value; }
+function entrySetAgency(id){ entryForm.kumiai = id; entryForm.company = ''; renderKeepingFocus(); }
+async function submitNewJO(ev){
+  ev.preventDefault();
+  const f = entryForm;
+  const msg = document.getElementById('entryMsg');
+  if(!f.jo.trim() || !f.worker.trim() || !f.company || !f.target){
+    msg.textContent = 'Fill in JO number, worker name, agency, client and target deploy date.';
+    return;
+  }
+  msg.textContent = 'Creating…';
+  try {
+    await supaFetch('rpc/create_job_order', {method:'POST', body: JSON.stringify({p_user_id: currentUserId,
+      p_jo_number: f.jo.trim(), p_company_id: f.company, p_worker_name: f.worker.trim(), p_target: f.target})});
+    entryForm = {jo:'', worker:'', kumiai:'', company:'', target:''};
+    await reloadFromSource();
+    renderAllScreens();
+    const n = (STAGE_CFG && STAGE_CFG.length) || 0;
+    showToast(`JO# ${f.jo.trim()} created: 3 tracks, ${n} stages.`, 5000);
+  } catch(e){
+    msg.textContent = `Not created: ${e.message}`;
+  }
+}
+function buildEntryFormHTML(){
+  const kumiai = DB.kumiai.slice().sort((a, b) => a.name.localeCompare(b.name));
+  const clients = DB.companies.filter(c => c.kumiaiId === entryForm.kumiai).sort((a, b) => a.name.localeCompare(b.name));
+  const agencyOpts = `<option value="">Choose agency…</option>` + kumiai.map(k =>
+    `<option value="${escAttr(k.id)}" ${k.id===entryForm.kumiai ? 'selected' : ''}>${escHTML(k.name)}</option>`).join('');
+  const clientOpts = `<option value="">${entryForm.kumiai ? 'Choose client…' : 'Choose an agency first'}</option>` + clients.map(c =>
+    `<option value="${escAttr(c.id)}" ${c.id===entryForm.company ? 'selected' : ''}>${escHTML(c.name)}</option>`).join('');
+  return `<section class="me-new" aria-label="New job order">
+    <div class="me-new-hd"><b>New job order</b><span>Creates its 3 tracks and every stage, with due dates from Target Deploy.</span></div>
+    <form class="me-form" onsubmit="submitNewJO(event)">
+      <label class="me-f"><span>JO number</span><input class="cfg-input" value="${escAttr(entryForm.jo)}" oninput="entryField('jo', this.value)" placeholder="e.g. 2026-0200" required></label>
+      <label class="me-f"><span>Workers</span><input class="cfg-input" value="${escAttr(entryForm.worker)}" oninput="entryField('worker', this.value)" placeholder="Names, separated by commas" required></label>
+      <label class="me-f"><span>Agency</span><select class="cfg-input" id="meAgency" onchange="entrySetAgency(this.value)">${agencyOpts}</select></label>
+      <label class="me-f"><span>Client</span><select class="cfg-input" onchange="entryField('company', this.value)" ${entryForm.kumiai ? '' : 'disabled'} required>${clientOpts}</select></label>
+      <label class="me-f"><span>Target deploy</span><input type="date" class="cfg-input" value="${escAttr(entryForm.target)}" oninput="entryField('target', this.value)" required></label>
+      <div class="me-f me-go"><button type="submit" class="act-btn primary">Create job order</button><span id="entryMsg" class="tf-state" role="status" aria-live="polite"></span></div>
+    </form>
+  </section>`;
+}
+
+// ---- My Entries page: new job order form, then the Job Orders list (each row editable with its tick and Save)
+let joEdit = {id: null, draft: {}, msg: ''};
+function startJoEdit(id){
+  const jo = getJO(id);
+  const co = getCompany(jo.companyId);
+  joEdit = {id, msg: '', draft: {jo: jo.jo, worker: jo.candidateName || '', kumiai: co ? co.kumiaiId : '', company: jo.companyId, target: jo.targetDeploymentDate}};
+  renderAllScreens();
+}
+function cancelJoEdit(){ joEdit = {id: null, draft: {}, msg: ''}; renderAllScreens(); }
+function setJoDraft(key, value){ joEdit.draft[key] = value; }
+function setJoDraftAgency(id){ joEdit.draft.kumiai = id; joEdit.draft.company = ''; renderKeepingFocus(); }
+async function saveJoEdit(id){
+  const d = joEdit.draft;
+  if(!d.jo || !d.jo.trim() || !d.worker || !d.worker.trim() || !d.company || !d.target){
+    joEdit.msg = 'Fill in JO number, worker name, client and target deploy date.';
+    renderAllScreens();
+    return;
+  }
+  joEdit.msg = 'Saving…';
+  renderAllScreens();
+  try {
+    await supaFetch('rpc/update_job_order', {method:'POST', body: JSON.stringify({p_user_id: currentUserId, p_jo_id: id,
+      p_jo_number: d.jo.trim(), p_company_id: d.company, p_worker_name: d.worker.trim(), p_target: d.target})});
+    joEdit = {id: null, draft: {}, msg: ''};
+    await reloadFromSource();
+    showToast('Job order saved.');
+  } catch(e){
+    joEdit.msg = `Not saved: ${e.message}`;
+  }
+  renderAllScreens();
+}
+function buildJobOrderRows(canEdit){
+  const kumiai = DB.kumiai.slice().sort((a, b) => a.name.localeCompare(b.name));
+  const jobs = DB.jobOrders.filter(j => j.active).slice().sort((a, b) => a.jo.localeCompare(b.jo));
+  return jobs.map(jo => {
+    const co = getCompany(jo.companyId);
+    const ku = co ? getKumiai(co.kumiaiId) : null;
+    if(joEdit.id === jo.id){
+      const d = joEdit.draft;
+      const clients = DB.companies.filter(c => c.kumiaiId === d.kumiai).sort((a, b) => a.name.localeCompare(b.name));
+      return `<tr class="jo-editing">
+        <td><input class="cfg-input" aria-label="JO number" value="${escAttr(d.jo)}" oninput="setJoDraft('jo', this.value)"></td>
+        <td><input class="cfg-input" aria-label="Workers" value="${escAttr(d.worker)}" placeholder="Names, separated by commas" oninput="setJoDraft('worker', this.value)"></td>
+        <td><select class="cfg-input" aria-label="Agency" onchange="setJoDraftAgency(this.value)">${kumiai.map(k =>
+          `<option value="${escAttr(k.id)}" ${k.id===d.kumiai ? 'selected' : ''}>${escHTML(k.name)}</option>`).join('')}</select></td>
+        <td><select class="cfg-input" aria-label="Client" onchange="setJoDraft('company', this.value)">${
+          `<option value="">${d.kumiai ? 'Choose client…' : 'Choose an agency first'}</option>` + clients.map(c =>
+          `<option value="${escAttr(c.id)}" ${c.id===d.company ? 'selected' : ''}>${escHTML(c.name)}</option>`).join('')}</select></td>
+        <td><input type="date" class="cfg-input" aria-label="Target deploy" value="${escAttr(d.target)}" onchange="setJoDraft('target', this.value)"></td>
+        <td class="jo-acts"><button type="button" class="act-btn primary" onclick="saveJoEdit('${escAttr(jo.id)}')">Save</button>
+          <button type="button" class="act-btn" onclick="cancelJoEdit()">Cancel</button>
+          <div class="tf-state" role="status" aria-live="polite">${escHTML(joEdit.msg)}</div></td>
+      </tr>`;
+    }
+    return `<tr>
+      <td class="ro">${escHTML(jo.jo)}</td>
+      <td>${escHTML(jo.candidateName || '')}</td>
+      <td>${escHTML(ku ? ku.name : '')}</td>
+      <td>${escHTML(co ? co.name : '')}</td>
+      <td>${fmtFullDate(jo.targetDeploymentDate)}</td>
+      <td class="jo-acts">${canEdit ? `<button type="button" class="jo-tick" aria-label="Edit JO# ${escAttr(jo.jo)}" title="Edit" ${joEdit.id ? 'disabled' : ''} onclick="startJoEdit('${escAttr(jo.id)}')">${svgIcon('check')}</button>` : ''}</td>
+    </tr>`;
+  }).join('');
+}
+function buildMySheetScreen(){
+  const user = getUser(currentUserId);
+  const canEdit = !isCEO(user);
+  const rows = buildJobOrderRows(canEdit);
+  const count = DB.jobOrders.filter(j => j.active).length;
+  return navHTML('My Entries') + `
+    ${buildEntryFormHTML()}
+    <div class="sheet-bar">
+      <span class="gp-title">Job Orders</span>
+      <span class="gp-count">${count} job order${count===1 ? '' : 's'}</span>
+    </div>
+    <div class="sheet-wrap">${count
+      ? `<table class="sheet"><thead><tr><th>JO #</th><th>Workers</th><th>Agency</th><th>Client</th><th>Target deploy</th><th></th></tr></thead><tbody>${rows}</tbody></table>`
+      : '<div class="empty-note">No job orders yet. Create one above.</div>'}</div>`;
+}
+
+// ---- Configuration: Stages & Masterlist (Admin only)
+async function cfgRpc(fn, body){
+  try {
+    await supaFetch(`rpc/${fn}`, {method:'POST', body: JSON.stringify({p_user_id: currentUserId, ...body})});
+    showToast('Saved.');
+  } catch(e){
+    showToast(`Not saved: ${e.message}`, 6000);
+  }
+  await Promise.all([loadStageConfig(), reloadFromSource()]);
+  renderAllScreens();
+}
+function cfgSaveAgency(id, el){ cfgRpc('admin_save_kumiai', {p_kumiai_id: id, p_name: el.value}); }
+function cfgAddAgency(form){ cfgRpc('admin_save_kumiai', {p_kumiai_id: null, p_name: form.nm.value}); }
+function cfgSaveClient(id, el){
+  const row = el.closest('.cfg-row');
+  cfgRpc('admin_save_company', {p_company_id: id, p_kumiai_id: row.querySelector('.cl-ag').value, p_name: row.querySelector('.cl-name').value});
+}
+function cfgAddClient(form){ cfgRpc('admin_save_company', {p_company_id: null, p_kumiai_id: form.ag.value, p_name: form.nm.value}); }
+function cfgSaveStage(id){
+  const row = document.querySelector(`[data-stage="${id}"]`);
+  cfgRpc('admin_save_stage', {p_stage_id: id, p_track: row.dataset.track, p_sort: Number(row.dataset.sort),
+    p_name: row.querySelector('.st-name').value, p_offset: Number(row.querySelector('.st-off').value),
+    p_editor: row.querySelector('.st-ed').value || null});
+}
+function cfgAddStage(track){
+  const list = STAGE_CFG.filter(s => s.track === track);
+  const next = list.length ? Math.max(...list.map(s => s.sort_order)) + 1 : 1;
+  cfgRpc('admin_save_stage', {p_stage_id: null, p_track: track, p_sort: next, p_name: 'New stage', p_offset: 0, p_editor: null});
+}
+function cfgDeleteStage(id){
+  if(!confirm('Remove this stage from new job orders? Existing job orders keep their stages.')) return;
+  cfgRpc('admin_delete_stage', {p_stage_id: id});
+}
+function buildSetupHTML(){
+  if(STAGE_CFG === null){
+    if(!stageLoading){ stageLoading = true; loadStageConfig().then(() => { stageLoading = false; renderAllScreens(); }); }
+    return '<div class="empty-note">Loading stages…</div>';
+  }
+  if(stageLoadError) return `<div class="empty-note">Stage setup is not available: ${escHTML(stageLoadError)}. Run supabase/15_entries_stages.sql in Supabase, then reload.</div>`;
+  const kumiai = DB.kumiai.slice().sort((a, b) => a.name.localeCompare(b.name));
+  const companies = DB.companies.slice().sort((a, b) => a.name.localeCompare(b.name));
+  const agencyOpts = sel => kumiai.map(k => `<option value="${escAttr(k.id)}" ${k.id===sel ? 'selected' : ''}>${escHTML(k.name)}</option>`).join('');
+  const officerOpts = sel => `<option value="">No officer</option>` + DB.users.filter(u => u.role === 'Doc Officer')
+    .map(u => `<option value="${escAttr(u.id)}" ${u.id===sel ? 'selected' : ''}>${escHTML(u.name)}</option>`).join('');
+
+  const agencies = kumiai.map(k => `<div class="cfg-row">
+      <input class="cfg-input" value="${escAttr(k.name)}" aria-label="Agency name" onchange="cfgSaveAgency('${escAttr(k.id)}', this)">
+      <span class="cfg-sub">${companies.filter(c => c.kumiaiId === k.id).length} clients</span></div>`).join('')
+    + `<form class="cfg-row" onsubmit="cfgAddAgency(this); return false;"><input name="nm" class="cfg-input" placeholder="New agency name" required><button class="act-btn small" type="submit">Add agency</button></form>`;
+
+  const clients = companies.map(c => `<div class="cfg-row">
+      <input class="cfg-input cl-name" value="${escAttr(c.name)}" aria-label="Client name" onchange="cfgSaveClient('${escAttr(c.id)}', this)">
+      <select class="cfg-input cl-ag" aria-label="Agency" onchange="cfgSaveClient('${escAttr(c.id)}', this)">${agencyOpts(c.kumiaiId)}</select></div>`).join('')
+    + `<form class="cfg-row" onsubmit="cfgAddClient(this); return false;"><input name="nm" class="cfg-input" placeholder="New client name" required>
+        <select name="ag" class="cfg-input" aria-label="Agency for the new client" required>${agencyOpts('')}</select><button class="act-btn small" type="submit">Add client</button></form>`;
+
+  const stageBlocks = (TRACK_CFG || []).slice().sort((a, b) => a.sort_order - b.sort_order).map(tr => {
+    const list = stagesOf(tr.track);
+    const rows = list.map(s => `<div class="cfg-row st-row" data-stage="${s.stage_id}" data-track="${escAttr(tr.track)}" data-sort="${s.sort_order}">
+        <span class="cfg-sub st-no">${s.sort_order}</span>
+        <input class="cfg-input st-name" value="${escAttr(s.stage_name)}" aria-label="Stage name" onchange="cfgSaveStage(${s.stage_id})">
+        <label class="st-off-lbl"><span class="cfg-sub">Days from target deploy</span>
+          <input type="number" class="cfg-input st-off" value="${s.offset_days}" aria-label="Days from target deploy" onchange="cfgSaveStage(${s.stage_id})"></label>
+        <select class="cfg-input st-ed" aria-label="Default officer" onchange="cfgSaveStage(${s.stage_id})">${officerOpts(s.editor_id)}</select>
+        <button class="cfg-clear" type="button" onclick="cfgDeleteStage(${s.stage_id})">Remove</button>
+      </div>`).join('');
+    return `<div class="cfg-block"><div class="cfg-subhd">${escHTML(tr.name)} · ${list.length} stage${list.length===1 ? '' : 's'}</div>
+      ${rows || '<div class="cfg-sub">No stages yet.</div>'}
+      <button class="act-btn small" type="button" onclick="cfgAddStage('${escAttr(tr.track)}')">Add stage to ${escHTML(tr.name)}</button></div>`;
+  }).join('');
+
+  return `<div class="cfg-hd"><div><div class="cfg-title">Stages &amp; Masterlist</div>
+      <div class="cfg-sub">Stages: days from Target Deploy (negative = before), the track each stage belongs to, and its default officer. Changes apply to job orders created from now on. Negative days are before Target Deploy.</div></div></div>
+    <div class="cfg-section"><div class="cfg-subhd">Agencies</div>${agencies}</div>
+    <div class="cfg-section"><div class="cfg-subhd">Clients</div>${clients}</div>
+    <div class="cfg-section"><div class="cfg-subhd">Stages by track</div>${stageBlocks}</div>`;
+}
+
+/* ---------- Discuss: every note, message and upload, two columns: Job Orders (left), contents (right) ---------- */
+const DISCUSS_TYPES = ['Log Note', 'Send Message', 'Upload'];   // activity_logs.action_type values
+const KIND_LABEL = {note:'Note', message:'Message', upload:'Upload'};
+let discussFilter = 'all', discussDate = 'all', discussDeploy = 'all', discussQuery = '', discussJo = null;
+let discussRows = null, discussLoading = false;
+function setDiscussFilter(kind){ discussFilter = kind; renderAllScreens(); }
+function setDiscussDate(v){ discussDate = v; renderAllScreens(); }
+function setDiscussDeploy(v){ discussDeploy = v; discussJo = null; renderAllScreens(); }
+function setDiscussQuery(q){ discussQuery = (q || '').trim(); renderKeepingFocus(); }
+function setDiscussJo(id){ discussJo = id; renderAllScreens(); }
+// Reads every note, message and upload from activity_logs (not only the first page the app caches).
+async function loadDiscuss(){
+  if(discussLoading) return;
+  discussLoading = true;
+  try {
+    const list = DISCUSS_TYPES.map(t => `"${t}"`).join(',');
+    discussRows = await supaFetch(`activity_logs?select=*&action_type=in.(${encodeURIComponent(list)})&task_id=not.is.null&order=created_at.desc&limit=5000`);
+  } catch(e){
+    console.warn('discuss load failed:', e);
+    discussRows = null;
+  }
+  discussLoading = false;
+  if(document.getElementById('s7').classList.contains('active')) renderAllScreens();
+}
+function deployMonth(jo){ return (jo.targetDeploymentDate || '').slice(0, 7); }
+function deployLabel(ym){
+  if(!ym) return '—';
+  const [y, m] = ym.split('-');
+  return new Date(+y, +m - 1, 1).toLocaleDateString('en-US', {month:'short', year:'numeric'});
+}
+// Agency = the JO's Kumiai (the receiving organization); Client = the company it is deployed to.
+function agencyOf(jo){ const co = getCompany(jo.companyId); const ku = co ? getKumiai(co.kumiaiId) : null; return ku ? ku.name : ''; }
+function clientOf(jo){ const co = getCompany(jo.companyId); return co ? co.name : ''; }
+function discussCutoff(){
+  if(discussDate === 'all') return null;
+  return isoStr(addDays(new Date(manilaToday() + 'T00:00:00'), -Number(discussDate)));
+}
+function dcSelect(label, options, value, handler){
+  return `<label class="dc-filter"><span>${label}</span><select onchange="${handler}(this.value)">${options.map(([v, l]) =>
+    `<option value="${escAttr(v)}" ${v===value ? 'selected' : ''}>${escHTML(l)}</option>`).join('')}</select></label>`;
+}
+function buildDiscussScreen(){
+  // Same layout as All Due Gates: Job Orders column (search and filters on top), contents on the right.
+  // Falls back to the rows the app already holds if the full load failed.
+  const source = discussRows || (ACTIVITY_LOGS||[]).filter(r => DISCUSS_TYPES.includes(r.action_type) && r.task_id);
+  const items = source.map(r => {
+    const task = getTaskById(r.task_id);
+    if(!task) return null;
+    const s = supaManilaStamp(r.created_at);
+    return {kind: KIND_FOR_LOG[r.action_type], userName: (getUser(r.user_id)||{}).name || r.user_id || 'Unknown',
+      date: s.slice(0,10), time: s.slice(11,16), text: r.action_details || '', task, joId: task.joId};
+  }).filter(Boolean);
+
+  const cutoff = discussCutoff();
+  const q = discussQuery.toLowerCase();
+  const jobOrders = DB.jobOrders.filter(jo => {
+    if(discussDeploy !== 'all' && deployMonth(jo) !== discussDeploy) return false;
+    if(!q) return true;
+    return [jo.jo, agencyOf(jo), clientOf(jo)].some(s => String(s).toLowerCase().includes(q));
+  }).sort((a, b) => a.jo.localeCompare(b.jo));
+  const entriesFor = jo => items.filter(i => i.joId === jo.id
+    && (discussFilter === 'all' || i.kind === discussFilter)
+    && (!cutoff || i.date >= cutoff));
+  const sel = jobOrders.find(j => j.id === discussJo) || jobOrders[0] || null;
+
+  const joRows = jobOrders.map(jo => {
+    const on = !!sel && sel.id === jo.id;
+    const all = items.filter(i => i.joId === jo.id && (!cutoff || i.date >= cutoff));
+    const n = kind => all.filter(i => i.kind === kind).length;
+    return `<div class="dg-jo ${on ? 'on' : ''}" role="button" tabindex="0" aria-pressed="${on}" onclick="setDiscussJo('${jo.id}')" title="${escAttr(agencyOf(jo))} · ${escAttr(clientOf(jo))}">
+      <div class="dg-jo-top"><span class="dg-jo-no">JO# ${escHTML(jo.jo)}</span><span class="dg-jo-deploy">${deployLabel(deployMonth(jo))}</span></div>
+      <div class="dg-jo-co">${escHTML(agencyOf(jo))} · ${escHTML(clientOf(jo))}</div>
+      <div class="dg-pills"><span class="dg-pill">Notes ${n('note')}</span><span class="dg-pill">Messages ${n('message')}</span><span class="dg-pill">Uploads ${n('upload')}</span></div>
+    </div>`;
+  }).join('') || `<div class="empty-note" style="padding:15px;">${discussQuery ? 'No Job Orders match your search.' : 'No Job Orders for this deploy month.'}</div>`;
+
+  let contents;
+  if(!sel){
+    contents = '<div class="empty-note" style="padding:20px;">No job orders match these filters.</div>';
+  } else {
+    const list = entriesFor(sel).sort((a, b) => (b.date+' '+b.time).localeCompare(a.date+' '+a.time));
+    contents = `<div class="dc-content-hd">
+        <b>JO# ${escHTML(sel.jo)}</b><span>${escHTML(sel.candidateName || '')}</span>
+        <span>Agency: ${escHTML(agencyOf(sel))}</span><span>Client: ${escHTML(clientOf(sel))}</span>
+        <span>Target deploy: ${fmtFullDate(sel.targetDeploymentDate)}</span>
+      </div>
+      ${list.length ? `<ol class="dc-list">${list.map(i => `<li class="dc-item dc-${i.kind}">
+        <div class="dc-meta"><span class="dc-kind">${i.kind==='upload' ? svgIcon('upload') : ''}${KIND_LABEL[i.kind]}</span>
+          <span>${escHTML(i.userName)}</span><span>${fmtStamp({date:i.date, time:i.time})}</span>
+          ${stageBadgeHTML(i.task.track, i.task.name)}</div>
+        <div class="dc-text">${escHTML(i.text || (i.kind==='upload' ? '(no file name)' : '(empty)'))}</div>
+      </li>`).join('')}</ol>` : `<div class="empty-note" style="padding:20px;">${discussRows === null && discussLoading ? 'Loading notes, messages and uploads…' : 'No entries match these filters for this job order.'}</div>`}`;
+  }
+
+  const deployMonths = [...new Set(DB.jobOrders.map(deployMonth).filter(Boolean))].sort();
+  const loading = discussLoading && discussRows === null;
+  const shown = sel ? entriesFor(sel).length : 0;
+
+  const filters = `<div class="dc-filters">
+      ${dcSelect('Activity type', [['all','All types'], ['note','Notes'], ['message','Messages'], ['upload','Uploads']], discussFilter, 'setDiscussFilter')}
+      ${dcSelect('Date', [['all','Any time'], ['7','Last 7 days'], ['30','Last 30 days'], ['90','Last 90 days']], discussDate, 'setDiscussDate')}
+      ${dcSelect('Target deploy', [['all','All months'], ...deployMonths.map(m => [m, deployLabel(m)])], discussDeploy, 'setDiscussDeploy')}
+    </div>`;
+
+  return navHTML('Discuss') + `
+    <div class="tri">
+      <div class="tri-col col-workers">
+        <div class="tri-hd dg-hd"><span>Job Orders</span><span class="dg-n">${jobOrders.length}</span></div>
+        <div class="dg-tools">
+          <label class="dg-search">${dgIcon('search')}<input type="text" id="search-s7" placeholder="Search JO #, agency or client" value="${escAttr(discussQuery)}" oninput="setDiscussQuery(this.value)" aria-label="Search JO, agency or client"></label>
+          ${filters}
+        </div>
+        <div class="tri-body">${joRows}</div>
+      </div>
+      <div class="tri-col col-checklist">
+        <div class="tri-hd dg-hd"><span>Discuss${sel ? ' · JO# ' + escHTML(sel.jo) : ''}</span><span class="dg-n">${shown}</span></div>
+        <div class="tri-body">${contents}${loading ? '<div class="tf-state" role="status" style="padding:8px 14px;">Loading full history…</div>' : ''}${discussRows === null && !loading ? '<div class="tf-state" role="status" style="padding:8px 14px;">Could not load the full history. Showing what is already loaded.</div>' : ''}</div>
+      </div>
+    </div>`;
+}
+
 /* ---------- master render ---------- */
 const SCREEN_RENDERERS = {
   s1: ()=>buildScreen1(), s2: ()=>buildDueGatesScreen('mine'), s3: ()=>buildDueGatesScreen('all'),
-  s4: ()=>buildScreen4(), s5: ()=>buildConfigScreen()
+  s4: ()=>buildScreen4(), s5: ()=>buildConfigScreen(), s6: ()=>buildMySheetScreen(), s7: ()=>buildDiscussScreen()
 };
 /* Only the screen on view is rebuilt. Other screens rebuild the next time showScreen() shows them. */
 function renderAllScreens(){
@@ -3368,8 +3798,9 @@ function buildConfigScreen(){
     <button class="cfg-tab ${cfgTab==='events'?'on':''}" onclick="cfgShowTab('events')">Event Logs</button>
     <button class="cfg-tab ${cfgTab==='sync'?'on':''}" onclick="cfgShowTab('sync')">Sync Logs</button>
     <button class="cfg-tab ${cfgTab==='users'?'on':''}" onclick="cfgShowTab('users')">Users</button>
+    <button class="cfg-tab ${cfgTab==='setup'?'on':''}" onclick="cfgShowTab('setup')">Stages &amp; Masterlist</button>
   </div>`;
-  return navHTML('Configuration') + `<div class="cfg-wrap">${tabs}${cfgTab==='events' ? buildEventLogsHTML() : cfgTab==='users' ? buildUsersHTML() : buildSyncLogsHTML()}</div>`;
+  return navHTML('Configuration') + `<div class="cfg-wrap">${tabs}${cfgTab==='events' ? buildEventLogsHTML() : cfgTab==='users' ? buildUsersHTML() : cfgTab==='setup' ? buildSetupHTML() : buildSyncLogsHTML()}</div>`;
 }
 // The CEO and Admin see every job order's history; a Doc Officer sees the job orders they can open.
 function visibleLogRows(){
@@ -3441,7 +3872,7 @@ function buildSyncLogsHTML(){
   const f = cfgFilter;
   return `
     <div class="cfg-hd">
-      <div><div class="cfg-title">Sync Logs</div><div class="cfg-sub">Google Sheets to Supabase sync: records created and changed, newest first. Times are Philippine time.</div></div>
+      <div><div class="cfg-title">Sync Logs</div><div class="cfg-sub">Records created and changed, newest first. Times are Philippine time.</div></div>
       <div class="cfg-count" id="cfgCount"></div>
     </div>
     <div class="cfg-filters">
