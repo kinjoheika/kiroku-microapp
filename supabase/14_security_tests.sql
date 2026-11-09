@@ -23,9 +23,13 @@ declare
   v_jo     text;
   v_claims text;
   v_role   text;
+  v_has15  boolean := to_regclass('public.stage_config') is not null;   -- 15_entries_stages.sql installed?
+  v_co     text;
+  v_jo_not_mine text;
 begin
   select task_id into v_any from public.tasks order by task_id limit 1;
   select jo_id   into v_jo  from public.tasks where task_id = v_any;
+  select company_id into v_co from public.companies order by company_id limit 1;
 
   for p in
     select 'anon (not signed in)' as who, 'anon' as db_role, null::uuid as uid, null::text as user_id, 'anon' as role
@@ -39,6 +43,9 @@ begin
     v_other := (select task_id from public.tasks where editor_id is not null and editor_id is distinct from p.user_id
                  order by task_id limit 1);
     v_claims := json_build_object('role', p.db_role, 'sub', p.uid)::text;
+    v_jo_not_mine := (select j.jo_id from public.job_orders j
+                       where not exists (select 1 from public.tasks t2 where t2.jo_id = j.jo_id and t2.editor_id = p.user_id)
+                       order by j.jo_id limit 1);
 
     for t in
       -- label, sql, expected: 'rows>0' | 'rows=0' | 'allowed' | 'refused'
@@ -94,7 +101,27 @@ begin
            format('insert into storage.objects (bucket_id, name) values (%L, %L)', 'task-files', v_other || '/security-test'),
            case when p.role = 'Admin' then 'allowed' else 'refused' end),
         ('read task files',       'select count(*) from storage.objects where bucket_id = ''task-files''',
-           case when p.role in ('Admin','CEO','Doc Officer') then 'allowed|rows=0|rows>0' else 'refused|rows=0' end)
+           case when p.role in ('Admin','CEO','Doc Officer') then 'allowed|rows=0|rows>0' else 'refused|rows=0' end),
+        -- 15_entries_stages.sql (skipped until it is installed)
+        ('read stage setup',
+           case when v_has15 then 'select count(*) from public.stage_config' end,
+           case when p.role in ('Admin','CEO','Doc Officer') then 'rows>0' else 'refused|rows=0' end),
+        ('change the stages, claiming to be u6',
+           case when v_has15 then 'select public.admin_save_stage(''u6'', null, ''TIO'', 99, ''security test'', -1, null)' end,
+           case when p.role = 'Admin' then 'allowed' else 'refused' end),
+        ('add an agency to the masterlist, claiming to be u6',
+           case when v_has15 then 'select public.admin_save_kumiai(''u6'', null, ''security test agency'')' end,
+           case when p.role = 'Admin' then 'allowed' else 'refused' end),
+        ('create a job order, claiming to be u6',
+           case when v_has15 then format('select public.create_job_order(%L, %L, %L, %L, current_date + 60)',
+                                         'u6', 'SECTEST-1', v_co, 'Security Test') end,
+           case when p.role in ('Admin','Doc Officer') then 'allowed' else 'refused' end),
+        ('edit a job order I have no task on, claiming to be u6',
+           case when v_has15 and v_jo_not_mine is not null
+                then (select format('select public.update_job_order(%L, %L, %L, %L, %L, %L::date)',
+                            'u6', j.jo_id, j.jo_number, j.company_id, j.worker_name, j.target_deployment_date + 1)
+                        from public.job_orders j where j.jo_id = v_jo_not_mine) end,
+           case when p.role = 'Admin' then 'allowed' else 'refused' end)
       ) as x(label, sql, expected)
     loop
       continue when t.sql is null;

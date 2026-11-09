@@ -367,6 +367,23 @@ grant  execute on function public.update_task_fields(text, text, jsonb, timestam
 -- the sync key keeps what it had
 grant  execute on all functions in schema public to service_role;
 
+-- 15_entries_stages.sql (My Entries, stages, masterlist): keep it working when this file is run again after it.
+-- Its functions check the signed-in user and role themselves; anon still gets nothing.
+do $$
+begin
+  if to_regclass('public.stage_config') is not null then
+    grant select on public.track_config, public.stage_config to authenticated;
+  end if;
+  if to_regprocedure('public.create_job_order(text, text, text, text, date)') is not null then
+    grant execute on function public.admin_save_kumiai(text, text, text)                       to authenticated;
+    grant execute on function public.admin_save_company(text, text, text, text)                to authenticated;
+    grant execute on function public.admin_save_stage(text, int, text, int, text, int, text)  to authenticated;
+    grant execute on function public.admin_delete_stage(text, int)                             to authenticated;
+    grant execute on function public.create_job_order(text, text, text, text, date)          to authenticated;
+    grant execute on function public.update_job_order(text, text, text, text, text, date)    to authenticated;
+  end if;
+end $$;
+
 -- pinned search_path on the three that had none
 alter function public.touch_updated_at()          set search_path = '';
 alter function public.activity_logs_append_only() set search_path = '';
