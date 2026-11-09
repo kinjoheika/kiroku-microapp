@@ -1,7 +1,13 @@
-1. Remove G-sheet in each user change it to my entries
-2. G-sheet contain it configuration in list of agency, JO
-3. list of agency and client put in one 1 tab
-4.  G-sheet must only shown in admin
+1. Replace Google Sheets with My Entries for each user.
+2. Google Sheets should contain configuration lists, including Agencies and Job Orders (JO).
+3. Combine the Agency and Client Lists into one tab.
+4. Google Sheets should only be accessible to Admin accounts.
+
+**Kiroku Accounts:**
+- **Data Master Config** – Main masterlist.
+- **Admin 1** – Client-side IT management.
+- **Admin 2** – Our IT team for system maintenance.
+- **Audit Logs** – Tracks user activities and workflows.
 
 
 
