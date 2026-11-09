@@ -3454,9 +3454,9 @@ async function startWithMockLogin(){
   initSelections();
   let saved = null;
   try { saved = localStorage.getItem(MOCK_USER_KEY); } catch(e){}
-  // Sign-in screen skipped: open the program as the default demo user (u2) unless a user was saved.
+  // Signed out (no saved user): show the sign-in page.
   if(saved && getUser(saved)) enterMock(saved);
-  else enterMock('u2');
+  else showSignIn('form');
   startActivityRealtime();
   window.addEventListener('load', startActivityRealtime);   // in case supabase-js loads after init
 }
