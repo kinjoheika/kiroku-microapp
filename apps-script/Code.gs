@@ -14,7 +14,14 @@ const TOKEN = 'kiroku-demo-token';
 const LOG_TAB = 'EditLog';
 const HEADERS = ['logged_at', 'user', 'entity', 'entity_id', 'field', 'old_value', 'new_value', 'source'];
 
+// RETIRED (security audit 2026-11-09). Its token was public in index.html, so anyone could write rows into the
+// sheet. Kiroku no longer uses it: activity_logs and event_logs in Supabase replace the EditLog tab.
+// Also archive its deployment: Deploy > Manage deployments > Archive. The EditLog tab is kept as it is.
 function doPost(e) {
+  return json({ ok: false, error: 'This logger is retired.' });
+}
+
+function doPostRetired_(e) {
   try {
     const data = JSON.parse(e.postData.contents);
     if (data.token !== TOKEN) return json({ ok: false, error: 'bad token' });

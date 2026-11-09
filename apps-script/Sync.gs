@@ -385,6 +385,14 @@ function readTaskSheet(sheetId, ctx, src, dryRun) {
   return { ss: ss, sh: sh, tz: tz, head: head, values: values, rows: rows, rowNum: rowNum };
 }
 
+// Text that starts with = + - or @ would run as a formula in Google Sheets (IMPORTDATA, for example, can send the
+// sheet's data to another website). Such text is written with a leading apostrophe, which Sheets shows as plain text;
+// reading the cell back gives the text without the apostrophe, so the sync sees no change.
+function sheetSafe(v) {
+  return typeof v === 'string' && /^[=+\-@]/.test(v) && !/^[-+]?\d+(\.\d+)?$/.test(v) && v !== '-' ? "'" + v : v;
+}
+function sheetSafeRows(rows) { return rows.map(r => r.map(sheetSafe)); }
+
 function cellText2(v) {
   return String(v === null || v === undefined ? '' : v).trim();
 }
@@ -503,12 +511,12 @@ function writeTaskSheet(s, final, doneState, ctx, src) {
       if (v === undefined) return;
       const f = COLUMN_FIELD[h] || h;
       if (asText(s.values[i][j], f, s.tz) !== asText(v, f)) {
-        s.sh.getRange(i + 1, j + 1).setValue(v);
+        s.sh.getRange(i + 1, j + 1).setValue(sheetSafe(v));
         changed++;
       }
     });
   });
-  if (added.length) s.sh.getRange(s.values.length + 1, 1, added.length, head.length).setValues(added);
+  if (added.length) s.sh.getRange(s.values.length + 1, 1, added.length, head.length).setValues(sheetSafeRows(added));
   remove.sort((a, b) => b - a).forEach(r => s.sh.deleteRow(r));
   setJobOrderDropdown(s.sh, head, ctx);
   Logger.log(src.key + ': wrote ' + changed + ' cells, added ' + added.length + ', moved away ' + remove.length);
@@ -580,7 +588,7 @@ function writeAssignedOfficers(props, final, names) {
     values.forEach((row, i) => {
       if (i === 0) return;
       const text = Object.keys(byJo[String(row[idCol]).trim()] || {}).sort().join(', ');
-      if (String(row[col]) !== text) sh.getRange(i + 1, col + 1).setValue(text);
+      if (String(row[col]) !== text) sh.getRange(i + 1, col + 1).setValue(sheetSafe(text));
     });
   } catch (e) {
     Logger.log('could not write assigned_officers: ' + e);
@@ -643,6 +651,8 @@ function resolveSharedRows(sheetId, payload) {
         problems.push('Fill in the name');
       }
       if (table === 'users' && !r.role) problems.push('Choose a Role');
+      if (table === 'users' && r.role && ROLES.indexOf(String(r.role).trim()) < 0) problems.push('Role must be ' + ROLES.join(', '));
+      if (table === 'users' && r.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(r.email).trim())) problems.push('Email ' + r.email + ' is not an email address');
 
       const first = sh.getRange(r._row, 1);
       const note = problems.length ? NOTE_PREFIX + 'Not saved yet. ' + problems.join('. ') : '';
@@ -1189,6 +1199,10 @@ function readTab(sheetId, tab, table) {
   const rename = Object.assign({}, RENAME[table]);
   (SHARED_COLUMNS[tab] ? SHARED_COLUMNS[tab].columns : []).forEach(c => { if (c[1]) rename[c[0]] = c[1]; });
   const derived = DERIVED_COLUMNS[table] || [];
+  // Only the columns this tab is meant to have. A column added by hand (for example "auth_user_id", "role" on
+  // another tab, or "created_at") is never sent. Supabase checks the same list again (sync_entity, 13_security_hardening.sql).
+  const layout = SHARED_COLUMNS[tab];
+  const allowed = layout ? layout.hidden.concat(layout.columns.map(c => c[1]).filter(Boolean)) : null;
 
   return values
     .map((row, i) => [row, i + 2])
@@ -1197,7 +1211,8 @@ function readTab(sheetId, tab, table) {
       const row = pair[0];
       const obj = { _row: pair[1] };
       head.forEach((h, i) => {
-        if (h && derived.indexOf(h) < 0) obj[rename[h] || h] = cell(row[i], h, tz);
+        const field = rename[h] || h;
+        if (h && derived.indexOf(h) < 0 && (!allowed || allowed.indexOf(field) >= 0)) obj[field] = cell(row[i], h, tz);
       });
       return obj;
     });

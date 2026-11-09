@@ -847,7 +847,7 @@ textarea.tf-input{resize:vertical; line-height:1.4;}
 
 /* raised */
 .act-btn, .dg-btn, .save-btn, .pager-btn, .cfg-clear, .file-dl, .si-btn, .newjo-btn, .si-switch, .env-bar button, .signout-btn{
-  position:relative; box-shadow:var(--btn-shadow); -webkit-tap-highlight-color:transparent;
+  box-shadow:var(--btn-shadow); -webkit-tap-highlight-color:transparent;
   transition:background-color .2s var(--btn-ease), color .2s var(--btn-ease), border-color .2s var(--btn-ease), box-shadow .2s var(--btn-ease), transform .2s var(--btn-ease), opacity .2s var(--btn-ease);
 }
 .act-btn, .save-btn{border-color:var(--line);}
@@ -906,7 +906,18 @@ button.is-done .ico::before{content:"✓"; font-size:0.875rem; font-weight:800;}
 .save-btn.is-done{font-size:0;}
 .save-btn.is-done::before{content:"✓"; font-size:0.9375rem; font-weight:800;}
 
+/* ===== Loading screen: signing in or out, and moving to another page ===== */
+.pl{position:fixed; inset:0; z-index:90; display:grid; place-items:center; background:var(--bg); background:color-mix(in srgb, var(--bg) 82%, transparent);
+  -webkit-backdrop-filter:blur(6px); backdrop-filter:blur(6px); opacity:0; transition:opacity .18s var(--btn-ease);}
+.pl.show{opacity:1;}
+.pl[hidden]{display:none;}
+.pl-box{display:flex; flex-direction:column; align-items:center; gap:14px; min-width:220px; padding:26px 34px; border:1px solid var(--line); border-radius:14px; background:var(--card); box-shadow:0 12px 32px rgba(16,24,40,.12);}
+.pl-mark{width:42px; height:42px; display:grid; place-items:center; border-radius:11px; background:var(--darkred); color:var(--btn-on-brand); font-size:1.25rem; font-weight:700;}
+.pl-spin{width:22px; height:22px; border:2.5px solid var(--line); border-top-color:var(--darkred); border-radius:50%; animation:btn-spin .75s linear infinite;}
+.pl-text{font-size:0.8125rem; font-weight:600; color:var(--ink-2);}
+
 @media (prefers-reduced-motion:reduce){
+  .pl-spin{animation:btn-spin 1.4s linear infinite !important;}
   /* no lift or bounce; the spinner keeps turning slowly because it shows work in progress */
   .act-btn, .dg-btn, .save-btn, .pager-btn, .cfg-clear, .file-dl, .si-btn, .newjo-btn, .si-switch, .env-bar button, .signout-btn,
   .card-tab, .cfg-tab, .dg-trk, .dg-tag, .dg-lg-btn, .notif-markall, .notif-dot, .si-eye, .si-link, .link-btn, .msg-x, .msg-opt, .si-user, .bell, .toast-undo{transform:none !important;}
@@ -941,13 +952,12 @@ body{background:transparent !important; padding-left:20vw !important; padding-ri
   <p>This single file carries its own database (saved in this browser's storage). Each Doc Officer only edits the specific tasks assigned to them; the CEO and the All Due Gates page are view-only. Pass this file to another computer and it runs standalone, no install required.</p>
 </div>
 
+<div class="pl" id="pageLoader" role="status" aria-live="polite" hidden>
+  <div class="pl-box"><span class="pl-mark" aria-hidden="true">記</span><span class="pl-spin" aria-hidden="true"></span><span class="pl-text" id="plText">Loading…</span></div>
+</div>
 <div class="si" id="signin" hidden>
   <div class="si-logo"><span class="si-mark" aria-hidden="true">記</span><h1 id="siTitle">Sign in to Kiroku</h1><p class="si-sub" id="siSub">Completeness Gate</p></div>
   <section class="si-card" id="siCard" hidden>
-    <button class="si-switch" id="siSwitch" type="button" title="Choose a user" aria-label="Choose a user" aria-haspopup="menu" aria-expanded="false" onclick="toggleUserPicker()" hidden>
-      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6"/><path d="M16 4.8a3.5 3.5 0 0 1 0 6.4M18 14.4c2.1.7 3.5 2.7 3.5 5.6"/></svg>
-    </button>
-    <div class="si-picker" id="siPicker" role="menu" aria-label="Choose a user" hidden></div>
     <div class="si-alert" id="siAlert" role="alert" tabindex="-1" hidden></div>
     <p class="si-note" id="siNote" role="status" hidden></p>
     <form id="siForm" onsubmit="submitSignIn(event)" novalidate hidden>
@@ -973,7 +983,6 @@ body{background:transparent !important; padding-left:20vw !important; padding-ri
 </div>
 
 <div class="env-bar">
-  <div class="grp" id="userSwitchGrp"><label>Logged in as</label><select id="userSwitch" onchange="enterAs(this.value)"></select></div>
   <div class="grp"><button onclick="resetSampleData()">↺ Reload data</button></div>
   <span class="tag" id="dbTag"></span>
   <span class="tag" id="logTag"></span>
@@ -1190,7 +1199,7 @@ const WORK_CATEGORIES = ['Construction','Caregiving','Manufacturing','Agricultur
 const PROGRAM_TYPES = ['SSW1','SSW2','TITP1','TITP2','TITP3'];
 
 function saveDB(){
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(DB));
+  // The data is no longer copied into localStorage: it stayed on shared PCs after sign-out.
   const after = JSON.parse(JSON.stringify(DB));
   const changes = lastSnapshot ? diffForLog(lastSnapshot, after) : [];
   lastSnapshot = after;
@@ -1203,7 +1212,6 @@ function saveDB(){
    touching each handler. Sent to the Apps Script web app in apps-script/Code.gs.
    Leave LOG_URL blank to turn logging off. */
 const LOG_URL = '';
-const LOG_TOKEN = 'kiroku-demo-token';
 let lastSnapshot = null;
 const LOG_COLLECTIONS = {Task:'tasks', JobOrder:'jobOrders', Company:'companies', Kumiai:'kumiai', User:'users'};
 function labelFor(x){
@@ -1237,7 +1245,7 @@ async function sendLog(changes){
   setLogStatus(`logging ${changes.length}…`);
   try{
     const res = await fetch(LOG_URL, {method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
-      body: JSON.stringify({token: LOG_TOKEN, changes})});
+      body: JSON.stringify({changes})});
     const j = await res.json();
     if(!j.ok) throw new Error(j.error || 'rejected');
     setLogStatus(`✓ logged ${j.written} to Sheet`);
@@ -1246,7 +1254,6 @@ async function sendLog(changes){
     setLogStatus(`⚠ log failed: ${e.message}`);
   }
 }
-function loadDB(){ const raw = localStorage.getItem(STORAGE_KEY); return raw ? JSON.parse(raw) : null; }
 
 function getUser(id){ return DB.users.find(u=>u.id===id); }
 function getJO(id){ return DB.jobOrders.find(j=>j.id===id); }
@@ -1298,19 +1305,19 @@ function dueBadgeHTML(t){
 }
 function receivingHTML(joId){
   const jo = getJO(joId), co = getCompany(jo.companyId), ku = getKumiai(co.kumiaiId);
-  return `Receiving Kumiai: <b>${ku.name}</b> · Receiving Company: <b>${co.name}</b>`;
+  return `Receiving Kumiai: <b>${escHTML(ku.name)}</b> · Receiving Company: <b>${escHTML(co.name)}</b>`;
 }
 function receivingPlainHTML(joId){
   const jo = getJO(joId), co = getCompany(jo.companyId), ku = getKumiai(co.kumiaiId);
-  return `<b>${ku.name}</b> · <b>${co.name}</b>`;
+  return `<b>${escHTML(ku.name)}</b> · <b>${escHTML(co.name)}</b>`;
 }
 /* JO Nametag: JO#, Receiving Org, Receiving Company, Track, Task — the standard 5-field identity block for any task reference */
 function joNametagHTML(joId, trackKey, taskName, opts){
   const jo = getJO(joId), co = getCompany(jo.companyId), ku = getKumiai(co.kumiaiId);
   const dark = opts && opts.dark;
   return `<div class="jo-nametag ${dark?'on-dark':''}">
-    <div class="jnt-jo">JO# ${jo.jo}</div>
-    <div class="jnt-org">${ku.name} · ${co.name}</div>
+    <div class="jnt-jo">JO# ${escHTML(jo.jo)}</div>
+    <div class="jnt-org">${escHTML(ku.name)} · ${escHTML(co.name)}</div>
     <div class="jnt-task">${trackKey} · ${escHTML(taskName)}</div>
   </div>`;
 }
@@ -1319,8 +1326,8 @@ function joNametagB3HTML(joId, trackKey, taskName){
   const jo = getJO(joId), co = getCompany(jo.companyId), ku = getKumiai(co.kumiaiId);
   return `<div class="jo-nametag">
     <div class="jnt-title">${escHTML(taskName)}<span class="track-badge">${trackKey}</span></div>
-    <div class="jnt-jo2">JO# ${jo.jo}</div>
-    <div class="jnt-org">${ku.name} · ${co.name}</div>
+    <div class="jnt-jo2">JO# ${escHTML(jo.jo)}</div>
+    <div class="jnt-org">${escHTML(ku.name)} · ${escHTML(co.name)}</div>
   </div>`;
 }
 function lastActivityDate(task, type){
@@ -1393,6 +1400,7 @@ const logInFlight = new Set();
 async function supaFetch(path, opts={}){
   const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {...opts, cache:'no-store',
     headers:{apikey: SUPABASE_KEY, Authorization: `Bearer ${authBearer()}`, 'Content-Type':'application/json'}});
+  if(res.status===401 && sessionToken){ signOut('expired'); throw new Error('Your session ended. Sign in again.'); }
   if(!res.ok){
     let msg = '';
     try { msg = (await res.json()).message || ''; } catch(e){}
@@ -1616,6 +1624,7 @@ function taskFilePath(taskId, ref){ return `${encodeURIComponent(taskId)}/${enco
 async function storageFetch(path, opts={}){
   const res = await fetch(`${SUPABASE_URL}/storage/v1/object/${path}`, {...opts, cache:'no-store',
     headers:{apikey: SUPABASE_KEY, Authorization: `Bearer ${authBearer()}`, ...(opts.headers||{})}});
+  if(res.status===401 && sessionToken){ signOut('expired'); throw new Error('Your session ended. Sign in again.'); }
   if(!res.ok){
     let msg = '';
     try { msg = (await res.json()).message || ''; } catch(e){}
@@ -1836,8 +1845,8 @@ async function sendMessage(){
   renderAllScreens();
   showToast(`✓ Message sent to ${names.join(', ')}`);
 }
-function escHTML(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-function escAttr(s){ return escHTML(s).replace(/"/g,'&quot;'); }
+function escHTML(s){ return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+function escAttr(s){ return escHTML(s); }
 /* Log Note popup: small centered modal. Only the assigned user can save. */
 function openNoteModal(taskId, pageContext){
   const t = DB.tasks.find(x=>x.id===taskId);
@@ -1979,7 +1988,7 @@ function enterAs(uid){
   const myTracks = myTracksFor(uid);
   s2Track = null;
   s2JO = firstJOForTrack(myTracks.length ? myTracks[0].key : null);
-  showScreenById('s1');
+  showScreen('s1');   // callers that sign someone in already show the loading screen
 }
 async function resetSampleData(){
   if(!confirm('Reload all data from the source (Google Sheet or bundled CSVs)? Local edits made in this browser will be discarded.')) return;
@@ -2084,15 +2093,9 @@ async function loadFromSupabase(){
 }
 async function loadFromSource(){
   EVENT_LOGS = null;
-  try {
-    const db = await loadFromSupabase();
-    if(db) return db;
-  } catch(e){ console.warn('Supabase load failed, trying Sheet / CSV:', e); }
-  const sheetId = sheetIdFromPage();
-  if(sheetId === SHEET_ID && SHEET_ID) return loadFromOfficerSheets();
-  const entries = await Promise.all(SHEET_TABS.map(async tab=>[tab, await fetchTab(tab, sheetId)]));
-  const db = buildDBFromTabs(Object.fromEntries(entries));
-  SOURCE_LABEL = sheetId ? `Google Sheet ${sheetId.slice(0,8)}…` : 'Bundled CSV (data/)';
+  // Supabase only. The old fallback read the Google Sheets directly, which only worked while they were public.
+  const db = await loadFromSupabase();
+  if(!db) throw new Error('Kiroku has no data yet, or this account may not read it.');
   return db;
 }
 async function loadFromOfficerSheets(){
@@ -2122,11 +2125,11 @@ function objectsToRows(objs, emptyHeader){
   return [hdr, ...objs.map(o=>hdr.map(h=>o[h] ?? ''))];
 }
 async function reloadFromSource(){
+  // Never shows sample or cached data instead of the real data.
   try { DB = await loadFromSource(); }
   catch(e){
-    console.warn('Source load failed, using built-in sample:', e);
-    DB = seedDB();
-    SOURCE_LABEL = `Built-in sample (source failed: ${e.message})`;
+    if(DB && DB.users && DB.users.length){ showToast(`⚠ Could not refresh: ${e.message}`, 6000); return; }
+    throw e;
   }
   await loadActivityLogs();
   lastSnapshot = null;
@@ -2161,7 +2164,7 @@ function onFormKumiaiChange(){
   const kid = document.getElementById('jf-kumiai').value;
   const sel = document.getElementById('jf-company');
   const companies = companiesForKumiai(kid);
-  sel.innerHTML = companies.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
+  sel.innerHTML = companies.map(c=>`<option value="${c.id}">${escHTML(c.name)}</option>`).join('');
 }
 /* Job Order changes → Google Sheets → Supabase, through apps-script/JobOrders.gs.
    Create, edit, archive, reactivate and delete are made in the sheets first (the masterlist and
@@ -2548,7 +2551,41 @@ function showScreen(id){
   // Configuration reloads the history, so actions sent since the last load appear without a refresh.
   if(id==='s5') loadActivityLogs().then(()=>{ if(document.getElementById('s5').classList.contains('active')) renderAllScreens(); });
 }
-function showScreenById(id){ showScreen(id); }
+// Tabs and page links: the same page change, behind the loading screen.
+function showScreenById(id){
+  const tab = tabsFor(getUser(currentUserId)).find(t=>t.id===id);
+  withLoader(`Opening ${tab ? tab.label : 'page'}…`, ()=>showScreen(id));
+}
+/* ---------- Loading screen ----------
+   Covers signing in, signing out and moving to another page. It stays up for at least a moment so it reads
+   as a step rather than a flicker, and otherwise only as long as the work it covers. Nested calls share it. */
+let loaderDepth = 0;
+// Two frames so the screen is painted before the work starts; the timeout keeps a background tab moving.
+const nextPaint = ()=>Promise.race([new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r))), new Promise(r=>setTimeout(r, 60))]);
+function showLoader(text){
+  const el = document.getElementById('pageLoader');
+  document.getElementById('plText').textContent = text || 'Loading…';
+  loaderDepth++;
+  if(el.hidden){ el.hidden = false; void el.offsetWidth; }
+  el.classList.add('show');
+}
+function hideLoader(){
+  if(--loaderDepth > 0) return;
+  loaderDepth = 0;
+  const el = document.getElementById('pageLoader');
+  el.classList.remove('show');
+  setTimeout(()=>{ if(!loaderDepth) el.hidden = true; }, 200);
+}
+async function withLoader(text, work, minMs){
+  showLoader(text);
+  const t0 = performance.now();
+  try { await nextPaint(); await work(); }
+  finally {
+    const left = (minMs ?? 350) - (performance.now() - t0);
+    if(left > 0) await new Promise(r=>setTimeout(r, left));
+    hideLoader();
+  }
+}
 
 function navHTML(activeTab){
   const user = getUser(currentUserId);
@@ -2560,9 +2597,9 @@ function navHTML(activeTab){
     </nav>
     <span class="spacer"></span>
     ${notifHTML()}
-    <span class="who">${user.name===user.role ? user.name : `${user.name} (${user.role})`}</span>
+    <span class="who">${escHTML(user.name===user.role ? user.name : `${user.name} (${user.role})`)}</span>
     ${isCEO(user) || activeTab==='All Due Gates' ? '<span class="readonly-pill">View only</span>' : ''}
-    ${SIGN_IN || mockActive ? '<button class="signout-btn" onclick="signOut()">Sign out</button>' : ''}
+    ${SIGN_IN ? '<button class="signout-btn" onclick="signOut()">Sign out</button>' : ''}
   </div>`;
 }
 
@@ -2616,7 +2653,7 @@ function buildScreen1(){
     <div class="body-row">
       <div class="main-col fit-col">
         <div class="greet">
-          <h2>Good day, ${user.name}</h2>
+          <h2>Good day, ${escHTML(user.name)}</h2>
           <p>${total} task${total===1?'':'s'} ${seesAllTasks(user)?'across all active Job Orders':'assigned to you in this sample database'}.</p>
         </div>
         <div class="hero-row">
@@ -2693,8 +2730,8 @@ function buildJODetail(joId, highlightTaskId, backFn, backLabel, pageContext, pa
   <div class="body-row">
     <div class="main-col" style="padding-top:15px;">
       <div class="task-hero">
-        <div class="av">${initialsFromName(jo.candidateName)}</div>
-        <div><div class="n">JO# ${jo.jo}</div><div class="s">${heroStatusText}</div><div class="hrecv">${receivingHTML(joId)} · Target Deploy: <b>${fmtDate(jo.targetDeploymentDate)}</b></div></div>
+        <div class="av">${escHTML(initialsFromName(jo.candidateName))}</div>
+        <div><div class="n">JO# ${escHTML(jo.jo)}</div><div class="s">${heroStatusText}</div><div class="hrecv">${receivingHTML(joId)} · Target Deploy: <b>${fmtDate(jo.targetDeploymentDate)}</b></div></div>
       </div>
       ${current ? taskFieldsHTML(current, pageContext) : '<div class="task-title">Job Order Gate Checklist</div>'}
       <div class="meta-row">
@@ -2904,8 +2941,8 @@ function buildJOProfile(joId, pageContext){
   <div class="body-row">
     <div class="main-col">
       <div class="greet">
-        <h2>JO# ${jo.jo}${!jo.active ? ' <span style="color:var(--ink-soft); font-weight:600; font-size:0.8125rem;">(Archived)</span>' : ''}</h2>
-        <p>${ku.name} · ${co.name}${jo.workCategory?` · ${jo.workCategory}`:''}${jo.programType?` · ${jo.programType}`:''}</p>
+        <h2>JO# ${escHTML(jo.jo)}${!jo.active ? ' <span style="color:var(--ink-soft); font-weight:600; font-size:0.8125rem;">(Archived)</span>' : ''}</h2>
+        <p>${escHTML(ku.name)} · ${escHTML(co.name)}${jo.workCategory?` · ${escHTML(jo.workCategory)}`:''}${jo.programType?` · ${escHTML(jo.programType)}`:''}</p>
       </div>
       ${canManage ? `<div class="greet-actions">
         <button class="act-btn" onclick="openS2Form('${joId}')">${svgIcon('pencil')} Edit</button>
@@ -2917,13 +2954,13 @@ function buildJOProfile(joId, pageContext){
       <div class="dual-card-row">
         <div class="card">
           <div class="card-hd"><span class="t">Recently Completed</span></div>
-          ${doneList.length ? doneList.map(t=>`<div class="done-row"><span class="ck">✓</span><div class="ci-body"><div style="font-weight:700;">${escHTML(t.name)} · ${t.track}</div><div style="font-size:0.6875rem;color:var(--ink-soft);margin-top:1px;">${getUser(getEditor(t)).name}</div><div class="ci-badges"><span class="badge-done">Completed · ${fmtStamp(t.doneAt)}</span></div></div></div>`).join('') : '<div class="empty-note">Nothing completed yet.</div>'}
+          ${doneList.length ? doneList.map(t=>`<div class="done-row"><span class="ck">✓</span><div class="ci-body"><div style="font-weight:700;">${escHTML(t.name)} · ${t.track}</div><div style="font-size:0.6875rem;color:var(--ink-soft);margin-top:1px;">${escHTML(getUser(getEditor(t)).name)}</div><div class="ci-badges"><span class="badge-done">Completed · ${fmtStamp(t.doneAt)}</span></div></div></div>`).join('') : '<div class="empty-note">Nothing completed yet.</div>'}
         </div>
         <div class="card">
           <div class="card-hd"><span class="t">Recent Actions</span></div>
           ${activityList.length ? activityList.map(a=>{
             const meta = ACTION_META[a.type];
-            return `<div class="done-row"><span class="ck" style="color:var(--ink-soft);">${svgIcon(meta.icon)}</span><div class="ci-body"><div style="font-weight:700;">${a.task.name} · ${a.task.track}</div><div style="font-size:0.6875rem;color:var(--ink-soft);margin-top:1px;">${getUser(getEditor(a.task)).name}</div><div class="ci-badges"><span class="badge-followup">${meta.label} · ${fmtStamp(a)}</span></div></div></div>`;
+            return `<div class="done-row"><span class="ck" style="color:var(--ink-soft);">${svgIcon(meta.icon)}</span><div class="ci-body"><div style="font-weight:700;">${escHTML(a.task.name)} · ${a.task.track}</div><div style="font-size:0.6875rem;color:var(--ink-soft);margin-top:1px;">${escHTML(getUser(getEditor(a.task)).name)}</div><div class="ci-badges"><span class="badge-followup">${meta.label} · ${fmtStamp(a)}</span></div></div></div>`;
           }).join('') : '<div class="empty-note">No actions logged yet.</div>'}
         </div>
       </div>
@@ -2940,7 +2977,7 @@ function buildArchivedTable(){
   const rows = archived.map(j=>{
     const co = getCompany(j.companyId), ku = getKumiai(co.kumiaiId);
     return `<tr>
-      <td>JO# ${j.jo}</td><td>${ku.name}</td><td>${co.name}</td><td>${fmtDate(j.targetDeploymentDate)}</td>
+      <td>JO# ${escHTML(j.jo)}</td><td>${escHTML(ku.name)}</td><td>${escHTML(co.name)}</td><td>${fmtDate(j.targetDeploymentDate)}</td>
       <td class="actions">
         <button class="act-btn small" onclick="viewArchivedJO('${j.id}')">View</button>
         <button class="act-btn small" onclick="reactivateJO('${j.id}')">${svgIcon('undo')} Reactivate</button>
@@ -2961,8 +2998,8 @@ function buildJOFormPanel(formState){
   const jo = isCreate ? null : getJO(formState);
   const co = jo ? getCompany(jo.companyId) : null;
   const initialKumiaiId = co ? co.kumiaiId : (DB.kumiai[0] ? DB.kumiai[0].id : '');
-  const companyOptions = companiesForKumiai(initialKumiaiId).map(c=>`<option value="${c.id}" ${jo && jo.companyId===c.id?'selected':''}>${c.name}</option>`).join('');
-  const kumiaiOptions = DB.kumiai.map(k=>`<option value="${k.id}" ${k.id===initialKumiaiId?'selected':''}>${k.name}</option>`).join('');
+  const companyOptions = companiesForKumiai(initialKumiaiId).map(c=>`<option value="${c.id}" ${jo && jo.companyId===c.id?'selected':''}>${escHTML(c.name)}</option>`).join('');
+  const kumiaiOptions = DB.kumiai.map(k=>`<option value="${k.id}" ${k.id===initialKumiaiId?'selected':''}>${escHTML(k.name)}</option>`).join('');
   const workCatOptions = WORK_CATEGORIES.map(w=>`<option ${jo && jo.workCategory===w?'selected':''}>${w}</option>`).join('');
   const progTypeOptions = PROGRAM_TYPES.map(p=>`<option ${jo && jo.programType===p?'selected':''}>${p}</option>`).join('');
 
@@ -2978,8 +3015,8 @@ function buildJOFormPanel(formState){
 
   return `<div class="jo-form-panel" style="flex:1; display:flex; flex-direction:row; min-width:0; height:100%;">
     <div class="jo-form-left" style="flex:0 0 320px; border-right:1px solid var(--border); padding:18px; overflow-y:auto; height:100%; box-sizing:border-box;">
-      <div class="section-label" style="margin-top:0;">${isCreate?'New Job Order':'Edit JO# '+jo.jo}</div>
-      <div class="form-field" style="margin-bottom:12px;"><label>JO number</label><input id="jf-num" value="${jo?jo.jo:''}" placeholder="2026-0201"></div>
+      <div class="section-label" style="margin-top:0;">${isCreate?'New Job Order':'Edit JO# '+escHTML(jo.jo)}</div>
+      <div class="form-field" style="margin-bottom:12px;"><label>JO number</label><input id="jf-num" value="${jo?escAttr(jo.jo):''}" placeholder="2026-0201"></div>
       <div class="form-field" style="margin-bottom:12px;"><label>Target deploy date</label><input id="jf-deploy" type="date" value="${jo?jo.targetDeploymentDate:''}" ${isCreate?'oninput="updateJOFormPreview()"':''}></div>
       <div class="form-field" style="margin-bottom:12px;"><label>Receiving Organization</label><select id="jf-kumiai" onchange="onFormKumiaiChange()">${kumiaiOptions}</select></div>
       <div class="form-field" style="margin-bottom:12px;"><label>Receiving Company</label><select id="jf-company">${companyOptions}</select></div>
@@ -3075,9 +3112,9 @@ function buildDueGatesScreen(scope){
     const joTasks = tasksForJO(j.id);
     const overdue = joTasks.filter(t=>trackList.some(x=>x.key===t.track) && computeStatus(t)==='flagged').length;
     const pills = trackList.map(td=>`<span class="dg-pill">${dgTrackInd(joTasks.filter(t=>t.track===td.key))}${td.key}</span>`).join('');
-    return `<div class="dg-jo ${j.id===selJOId?'on':''}" role="button" tabindex="0" onclick="${isMine?'selectS2JO':'selectS3JO'}('${j.id}')" title="${ku.name} · ${co.name}">
-      <div class="dg-jo-top"><a onclick="event.stopPropagation(); ${isMine?'openS2Profile':'openS3Profile'}('${j.id}')" title="Open JO profile">JO# ${j.jo}</a>${overdue?`<span class="dg-od">${overdue} overdue</span>`:''}</div>
-      <div class="dg-jo-co">${co.name}</div>
+    return `<div class="dg-jo ${j.id===selJOId?'on':''}" role="button" tabindex="0" onclick="${isMine?'selectS2JO':'selectS3JO'}('${j.id}')" title="${escHTML(ku.name)} · ${escHTML(co.name)}">
+      <div class="dg-jo-top"><a onclick="event.stopPropagation(); ${isMine?'openS2Profile':'openS3Profile'}('${j.id}')" title="Open JO profile">JO# ${escHTML(j.jo)}</a>${overdue?`<span class="dg-od">${overdue} overdue</span>`:''}</div>
+      <div class="dg-jo-co">${escHTML(co.name)}</div>
       <div class="dg-pills">${pills}</div>
     </div>`;
   }).join('') || `<div class="empty-note" style="padding:15px;">${searchTerm ? 'No Job Orders match your search.' : 'No Job Orders with open items in this track.'}</div>`;
@@ -3137,7 +3174,7 @@ function buildDueGatesScreen(scope){
       const up = lastActivityDate(t,'upload');
       const notes = (t.activity||[]).filter(a=>a.type==='note').length;
       const meta = [];
-      if(!editable || isAdmin(getUser(currentUserId))) meta.push(`<span>${getUser(getEditor(t)).name}</span>`);
+      if(!editable || isAdmin(getUser(currentUserId))) meta.push(`<span>${escHTML(getUser(getEditor(t)).name)}</span>`);
       if(fu) meta.push(`<span class="dg-fu" title="Followed up · ${fmtFullDate(fu)}"><i></i>${fus>1?fus+'× · ':''}${fmtDate(fu)}</span>`);
       if(up) meta.push(`<span title="Document uploaded · ${fmtFullDate(up)}">${dgIcon('clip')}${fmtDate(up)}</span>`);
       if(notes) meta.push(`<span title="Notes">${dgIcon('note')}${notes}</span>`);
@@ -3145,7 +3182,7 @@ function buildDueGatesScreen(scope){
       if(t.remarks) meta.push(`<span class="dg-remark" title="${escAttr(t.remarks)}">${escHTML(t.remarks)}</span>`);
       const lead = !isMine ? dgInd(trackClass(computeStatus(t)))
         : editable ? `<span class="dg-cb ${t.done?'on':''}" role="checkbox" aria-checked="${t.done}" title="${t.done?'Mark open':'Mark done'}" onclick="event.stopPropagation(); toggleTask('${t.id}','${pageContext}')">${t.done?'✓':''}</span>`
-        : `<span class="dg-lock" title="Assigned to ${getUser(getEditor(t)).name}. Only they can change this step.">${dgIcon('lock')}</span>`;
+        : `<span class="dg-lock" title="Assigned to ${escHTML(getUser(getEditor(t)).name)}. Only they can change this step.">${dgIcon('lock')}</span>`;
       return `<div class="dg-row ${t.done?'is-done':''}" role="button" tabindex="0" onclick="openDueGatesTaskDetail('${t.id}','${pageContext}')">
         <span class="dg-lead">${lead}</span>
         <div class="dg-row-body"><div class="dg-row-name">${escHTML(t.name)}</div>${meta.length?`<div class="dg-row-sub">${meta.join('')}</div>`:''}</div>
@@ -3161,8 +3198,8 @@ function buildDueGatesScreen(scope){
     }).join('');
     checklistHTML = `<div class="dg-ck-hd">
         <div class="dg-ck-title">
-          <div class="dg-ck-jo">JO# ${jo.jo}${trackKey?`<button type="button" class="dg-tag" onclick="${selectTrackFn}('${trackKey}')" title="Show every track">${trackKey} ${dgIcon('x')}</button>`:''}</div>
-          <div class="dg-ck-meta"><span title="${ku.name}">${co.name}</span><span>Deploy <b>${fmtFullDate(jo.targetDeploymentDate)}</b></span></div>
+          <div class="dg-ck-jo">JO# ${escHTML(jo.jo)}${trackKey?`<button type="button" class="dg-tag" onclick="${selectTrackFn}('${trackKey}')" title="Show every track">${trackKey} ${dgIcon('x')}</button>`:''}</div>
+          <div class="dg-ck-meta"><span title="${escHTML(ku.name)}">${escHTML(co.name)}</span><span>Deploy <b>${fmtFullDate(jo.targetDeploymentDate)}</b></span></div>
         </div>
         <div class="dg-final">
           <div class="dg-ring ${followedCount?'fu':''}" style="background:conic-gradient(var(--blue) 0 ${pct}%, var(--line-2) ${pct}% 100%)"><div class="dg-hole" style="${overdueCount?'color:var(--red)':''}">${doneCount}/${total}</div></div>
@@ -3194,7 +3231,7 @@ function buildScreen4(){
     const dotColor = trackColor(st);
     return `<div class="kumiai-row ${k.id===s4Kumiai?'sel':''}" onclick="selectS4Kumiai('${k.id}')">
       <span class="kdot" style="background:${dotColor}"></span>
-      <div class="kbody"><div class="kn">${k.name}</div><div class="ks">${companies.length} compan${companies.length===1?'y':'ies'} · ${jos.length} active JO${jos.length===1?'':'s'}</div></div>
+      <div class="kbody"><div class="kn">${escHTML(k.name)}</div><div class="ks">${companies.length} compan${companies.length===1?'y':'ies'} · ${jos.length} active JO${jos.length===1?'':'s'}</div></div>
     </div>`;
   }).join('') || '<div class="empty-note" style="padding:15px;">No Kumiai match your search.</div>';
 
@@ -3214,7 +3251,7 @@ function buildScreen4(){
       </div>`;
     }).join('');
     return `<div class="company-row ${s4Company===co.id?'sel':''}" onclick="selectS4Company('${co.id}')">
-      <div class="chead"><span class="cname">${co.name}</span><span class="ctag">${ku.name}</span><span class="cjocount">${jos.length} active JO${jos.length===1?'':'s'}</span></div>
+      <div class="chead"><span class="cname">${escHTML(co.name)}</span><span class="ctag">${escHTML(ku.name)}</span><span class="cjocount">${jos.length} active JO${jos.length===1?'':'s'}</span></div>
       <div class="track-summary-grid">${cells}</div>
     </div>`;
   }).join('') || '<div class="empty-note" style="padding:20px;">No companies under this Kumiai.</div>';
@@ -3235,13 +3272,13 @@ function buildScreen4(){
           <div class="jo3-lbl">${tr.name}</div>
         </div>`;
       }).join('');
-      return `<div class="jo3-row"><div class="jo3-title">JO# ${j.jo}</div><div class="jo3-balls">${cells}</div></div>`;
+      return `<div class="jo3-row"><div class="jo3-title">JO# ${escHTML(j.jo)}</div><div class="jo3-balls">${cells}</div></div>`;
     }).join('') || '<div class="empty-note" style="padding:15px;">No active Job Orders for this company.</div>';
-    b3HTML = `<div class="tri-hd">${co.name} · ${jos.length}</div><div class="tri-body">${rows}</div>`;
+    b3HTML = `<div class="tri-hd">${escHTML(co.name)} · ${jos.length}</div><div class="tri-body">${rows}</div>`;
   }
 
   return navHTML('CEO Page') +
-    `<span class="scope-tag">${s4Kumiai==='all'?'All Kumiai':getKumiai(s4Kumiai).name}</span>
+    `<span class="scope-tag">${s4Kumiai==='all'?'All Kumiai':escHTML(getKumiai(s4Kumiai).name)}</span>
     <div class="tri" style="margin-top:12px; border-top:1px solid var(--border);">
       <div class="tri-col col-kumiai">
         <div class="tri-hd">Active Receiving Organizations · <u>${filteredKumiai.length}</u></div>
@@ -3356,7 +3393,7 @@ function buildEventLogsHTML(){
 }
 function logTaskLabel(r){
   const t = r.task_id ? getTaskById(r.task_id) : null, jo = getJO(r.jo_id);
-  return {task: t ? `${escHTML(t.name)} · ${t.track}` : (r.task_id || 'Job order'), jo: jo ? `JO# ${jo.jo}` : r.jo_id};
+  return {task: t ? `${escHTML(t.name)} · ${t.track}` : (r.task_id || 'Job order'), jo: jo ? `JO# ${escHTML(jo.jo)}` : r.jo_id};
 }
 function updateEventLogTable(){
   const body = document.getElementById('evBody');
@@ -3441,33 +3478,35 @@ document.addEventListener('keydown', e=>{
 });
 /* ---------- init ---------- */
 /* ---------- Sign-in (Supabase Auth) ----------
-   Accounts are made by Admin in the Supabase dashboard. A login belongs to the row in users with the
-   same email (link_my_account in supabase/10_admin_masterlist.sql). Who a user is comes from Supabase,
-   not from this page, and row security decides what they can read and write. */
-// Turn this on once every user has an account (supabase/SETUP.md). Until then the "Logged in as" list stays.
-const LOGIN_REQUIRED = false;
-// Opening the page with ?login shows real sign-in without changing it for anyone else, to try accounts first.
-const SIGN_IN = LOGIN_REQUIRED || new URLSearchParams(location.search).has('login');
-// Demo accounts, until real accounts exist. This is a convenience, not security: the details are in
-// this page for anyone to read, and Supabase cannot tell who is signed in. Set to false to remove them.
-const MOCK_LOGIN = true;
-const MOCK_PASSWORD = 'kiroku2026';
-const MOCK_ACCOUNTS = {
-  'admin@kiroku.sample':'u6', 'ceo@kiroku.sample':'u5', 'docofficer1@kiroku.sample':'u1',
-  'docofficer2@kiroku.sample':'u2', 'docofficer3@kiroku.sample':'u3', 'docofficer4@kiroku.sample':'u4',
-};
-const MOCK_USER_KEY = 'kiroku_mock_user';
-const mockActive = MOCK_LOGIN && !SIGN_IN;
+   The only way into Kiroku. There is no demo login, no shared password and no "act as" switch.
+   Accounts are made by Admin in the Supabase dashboard and linked to a row in users (users.auth_user_id).
+   Who a user is comes from Supabase, not from this page, and the database rules
+   (supabase/13_security_hardening.sql) decide what each person can read and write. Hiding a button here
+   only keeps the screen tidy; it is never what protects the data. */
+const SIGN_IN = true;
+const IDLE_LIMIT_MS = 30*60*1000;          // signed out after 30 minutes without use
 let sessionToken = null;
 let sessionRole = null;
 let recoveringPassword = false;
 let sbInstance = null;
+let signingOut = false;
 function authBearer(){ return sessionToken || SUPABASE_KEY; }
 function sbClient(){
-  if(!sbInstance && window.supabase) sbInstance = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  // The session is kept in sessionStorage, not localStorage: it ends when the tab or browser closes,
+  // so the next person on a shared PC is not signed in as you.
+  if(!sbInstance && window.supabase) sbInstance = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+    auth:{storage: window.sessionStorage, persistSession: true, autoRefreshToken: true, detectSessionInUrl: true}});
   return sbInstance;
 }
-const SI_EMAIL_KEY = 'kiroku_signin_email';
+// Everything Kiroku ever kept in this browser, from older versions too. Notification read marks stay.
+function clearKirokuBrowserData(){
+  try {
+    Object.keys(localStorage)
+      .filter(k=>/^sb-/.test(k) || ['kiroku_sample_db_v2','kiroku_mock_user','kiroku_signin_email'].includes(k))
+      .forEach(k=>localStorage.removeItem(k));
+  } catch(e){}
+  try { sessionStorage.clear(); } catch(e){}
+}
 // view: 'form', 'newpass', or 'wait' (logo only, while Kiroku checks for an existing sign-in).
 function showSignIn(view, alertText, noteText){
   document.getElementById('signin').hidden = false;
@@ -3477,10 +3516,6 @@ function showSignIn(view, alertText, noteText){
   document.getElementById('siNewPass').hidden = view!=='newpass';
   const n = document.getElementById('siNote'); n.hidden = !noteText; n.textContent = noteText||'';
   const a = document.getElementById('siAlert'); a.hidden = !alertText; a.textContent = alertText||'';
-  if(view==='form'){
-    const email = document.getElementById('siEmail');
-    if(!email.value){ try { email.value = localStorage.getItem(SI_EMAIL_KEY) || ''; } catch(e){} }
-  }
   if(alertText) a.focus();
   else if(view==='form') document.getElementById(document.getElementById('siEmail').value ? 'siPass' : 'siEmail').focus();
   else if(view==='newpass') document.getElementById('siPass2').focus();
@@ -3498,7 +3533,8 @@ function signInMessage(error){
   if(/rate|too many/i.test(m)) return 'Too many tries. Wait a few minutes, then try again.';
   if(/not confirmed/i.test(m)) return 'This account is not active yet. Ask Admin to confirm it.';
   if(/fetch|network/i.test(m)) return 'Could not reach Kiroku. Check your connection and try again.';
-  return m || 'Could not sign in. Try again.';
+  if(/weak|pwned|leaked/i.test(m)) return 'Choose a stronger password: at least 12 characters, not one used on other sites.';
+  return 'Could not sign in. Try again.';
 }
 async function submitSignIn(ev){
   ev.preventDefault();
@@ -3506,29 +3542,20 @@ async function submitSignIn(ev){
   const email = emailEl.value.trim();
   if(!email || !emailEl.validity.valid){ showSignIn('form', 'Enter your work email.'); emailEl.focus(); return; }
   if(!passEl.value){ showSignIn('form', 'Enter your password.'); passEl.focus(); return; }
-  if(mockActive){
-    const uid = MOCK_ACCOUNTS[email.toLowerCase()], ok = uid && getUser(uid) && passEl.value===MOCK_PASSWORD;
-    passEl.value = '';
-    if(!ok){ showSignIn('form', 'Incorrect email or password.'); passEl.focus(); return; }
-    try { localStorage.setItem(SI_EMAIL_KEY, email); localStorage.setItem(MOCK_USER_KEY, uid); } catch(e){}
-    enterMock(uid);
-    return;
-  }
+  if(!sbClient()){ showSignIn('form', 'Could not load the sign-in service. Check your connection and reload the page.'); return; }
   const btn = document.getElementById('siSubmit');
   btn.disabled = true; btn.textContent = 'Signing in…';
   let result;
   try { result = await sbClient().auth.signInWithPassword({email, password: passEl.value}); }
   catch(e){ result = {error:e}; }
   passEl.value = '';
+  btn.disabled = false; btn.textContent = 'Sign in';
   if(result.error){
-    btn.disabled = false; btn.textContent = 'Sign in';
     showSignIn('form', signInMessage(result.error));
     passEl.focus();
     return;
   }
-  try { localStorage.setItem(SI_EMAIL_KEY, email); } catch(e){}
   await startSession(result.data.session);
-  btn.disabled = false; btn.textContent = 'Sign in';
 }
 async function sendPasswordReset(){
   const emailEl = document.getElementById('siEmail'), email = emailEl.value.trim();
@@ -3537,13 +3564,13 @@ async function sendPasswordReset(){
   try { ({error} = await sbClient().auth.resetPasswordForEmail(email, {redirectTo: location.origin + location.pathname})); }
   catch(e){ error = e; }
   // The same answer whether or not the email has an account, so this cannot be used to test for accounts.
-  if(error) showSignIn('form', signInMessage(error));
+  if(error && /rate|too many/i.test(error.message||'')) showSignIn('form', signInMessage(error));
   else showSignIn('form', '', 'If that email has an account, a reset link is on its way.');
 }
 async function submitNewPassword(ev){
   ev.preventDefault();
   const passEl = document.getElementById('siPass2');
-  if(passEl.value.length < 8){ showSignIn('newpass', 'Use at least 8 characters.'); passEl.focus(); return; }
+  if(passEl.value.length < 12){ showSignIn('newpass', 'Use at least 12 characters.'); passEl.focus(); return; }
   const btn = document.getElementById('siSaveNew');
   btn.disabled = true;
   let error = null;
@@ -3556,123 +3583,80 @@ async function submitNewPassword(ev){
   const {data:{session}} = await sbClient().auth.getSession();
   if(session) await startSession(session); else showSignIn('form', '', 'Password saved. Sign in with it.');
 }
-async function signOut(){
-  if(mockActive){
-    try { localStorage.removeItem(MOCK_USER_KEY); } catch(e){}
-    location.reload();
-    return;
-  }
-  await sbClient().auth.signOut();
-  location.reload();
+// reason: '' (the Sign out button), 'idle' or 'expired'. The page reloads empty, so no data stays on screen.
+async function signOut(reason){
+  if(signingOut) return;
+  signingOut = true;
+  showLoader('Signing out…');
+  try { if(sbClient()) await sbClient().auth.signOut(); } catch(e){}
+  sessionToken = null; sessionRole = null; DB = null;
+  clearKirokuBrowserData();
+  location.replace(location.pathname + (typeof reason==='string' && reason ? '?signedout=' + reason : ''));
 }
 async function startSession(session){
   sessionToken = session.access_token;
   let me;
   try { me = await supaFetch('rpc/link_my_account', {method:'POST', body:'{}'}); }
-  catch(e){ showSignIn('form', `Could not check your account: ${e.message}`); return; }
-  if(!me || !me.user_id){
+  catch(e){ sessionToken = null; await sbClient().auth.signOut(); showSignIn('form', 'Could not check your account. Try again.'); return; }
+  if(!me || !me.user_id || !['Admin','CEO','Doc Officer'].includes(me.role)){
     await sbClient().auth.signOut();
     sessionToken = null;
-    showSignIn('form', 'This email is not set up in Kiroku yet. Ask Admin to add it to the Users tab.');
+    clearKirokuBrowserData();
+    showSignIn('form', 'This login is not set up in Kiroku. Ask Admin to link it to your user.');
     return;
   }
   sessionRole = me.role;
   currentUserId = me.user_id;
-  await reloadFromSource();
-  document.getElementById('signin').hidden = true;
-  initSelections();
-  enterAs(me.user_id);
-  startActivityRealtime();
-}
-function populateUserSwitch(){
-  const sel = document.getElementById('userSwitch');
-  sel.innerHTML = DB.users.map(u=>`<option value="${u.id}" ${u.id===currentUserId?'selected':''}>${u.name}${u.role===u.name?'':' ('+u.role+')'}</option>`).join('');
-}
-async function startWithMockLogin(){
-  await reloadFromSource();
-  initSelections();
-  let saved = null;
-  try { saved = localStorage.getItem(MOCK_USER_KEY); } catch(e){}
-  // Signed out (no saved user): show the sign-in page.
-  if(saved && getUser(saved)) enterMock(saved);
-  else showSignIn('form');
-  startActivityRealtime();
-  window.addEventListener('load', startActivityRealtime);   // in case supabase-js loads after init
-}
-// The button at the top of the demo sign-in card: pick a user and go straight in, no password.
-function pickerOrder(){
-  const rank = u => u.role==='Admin' ? 0 : u.role==='CEO' ? 1 : 2;
-  return DB.users.slice().sort((a,b)=>rank(a)-rank(b) || a.name.localeCompare(b.name));
-}
-function closeUserPicker(){
-  const p = document.getElementById('siPicker');
-  if(p.hidden) return;
-  p.hidden = true;
-  document.getElementById('siSwitch').setAttribute('aria-expanded','false');
-}
-function toggleUserPicker(){
-  const p = document.getElementById('siPicker');
-  if(!p.hidden){ closeUserPicker(); return; }
-  p.innerHTML = pickerOrder().map(u=>`<button type="button" class="si-user" role="menuitem" onclick="pickMockUser('${u.id}')">
-    <span class="si-user-mark">${escHTML(u.role==='Admin' ? 'A' : u.role==='CEO' ? 'C' : u.name.replace(/\D/g,'') || u.name[0])}</span>
-    <span class="si-user-text"><b>${escHTML(u.name)}</b><small>${escHTML(u.role)}</small></span></button>`).join('');
-  p.hidden = false;
-  document.getElementById('siSwitch').setAttribute('aria-expanded','true');
-  p.querySelector('.si-user').focus();
-}
-function pickMockUser(uid){
-  closeUserPicker();
-  try { localStorage.setItem(MOCK_USER_KEY, uid); } catch(e){}
-  enterMock(uid);
-}
-document.addEventListener('click', e=>{ if(!e.target.closest('#siPicker') && !e.target.closest('#siSwitch')) closeUserPicker(); });
-document.addEventListener('keydown', e=>{
-  const p = document.getElementById('siPicker');
-  if(p.hidden) return;
-  if(e.key==='Escape'){ closeUserPicker(); document.getElementById('siSwitch').focus(); return; }
-  if(e.key==='ArrowDown' || e.key==='ArrowUp'){
-    e.preventDefault();
-    const items = [...p.querySelectorAll('.si-user')], i = items.indexOf(document.activeElement);
-    items[(i + (e.key==='ArrowDown' ? 1 : -1) + items.length) % items.length].focus();
+  lastActivity = Date.now();
+  try {
+    await withLoader('Signing in…', async ()=>{
+      await reloadFromSource();
+      document.getElementById('signin').hidden = true;
+      initSelections();
+      enterAs(me.user_id);
+    }, 700);
+  } catch(e){
+    console.warn('Kiroku load failed:', e);
+    await signOut('loadfailed');
+    return;
   }
-});
-function enterMock(uid){
-  document.getElementById('signin').hidden = true;
-  initSelections();
-  enterAs(uid);
-}
-async function startWithoutLogin(){
-  await reloadFromSource();
-  initSelections();
-  populateUserSwitch();
-  document.getElementById('s1').classList.add('active');
-  renderAllScreens();
   startActivityRealtime();
-  window.addEventListener('load', startActivityRealtime);   // in case supabase-js loads after init
 }
-if(mockActive){
-  document.getElementById('userSwitchGrp').hidden = true;
-  document.getElementById('siForgot').hidden = true;
-  document.getElementById('siSwitch').hidden = false;
-  showSignIn('wait');
-  startWithMockLogin();
-}
-else if(!SIGN_IN) startWithoutLogin();
-else {
-  document.getElementById('userSwitchGrp').hidden = true;
-  showSignIn('wait');   // covers the empty page until Kiroku knows whether someone is signed in
-}
-if(SIGN_IN) window.addEventListener('load', async ()=>{
-  if(!sbClient()){ showSignIn('form', 'Could not load the sign-in service. Check your connection and reload the page.'); return; }
-  sbClient().auth.onAuthStateChange((event, session)=>{
-    if(event==='PASSWORD_RECOVERY'){ recoveringPassword = true; showSignIn('newpass'); }
-    // Later tokens replace the old one; supabase-js refreshes them before they expire.
-    if(session && sessionToken) sessionToken = session.access_token;
-  });
-  const {data:{session}} = await sbClient().auth.getSession();
-  if(recoveringPassword) return;
-  if(session) await startSession(session);
-  else showSignIn('form');
+// Idle sign-out: any click, key, scroll or touch counts as use; checked every 30 seconds and on return to the tab.
+let lastActivity = Date.now();
+['pointerdown','keydown','scroll','touchstart','wheel'].forEach(ev=>
+  document.addEventListener(ev, ()=>{ lastActivity = Date.now(); }, {passive:true, capture:true}));
+function checkIdle(){ if(sessionToken && Date.now() - lastActivity > IDLE_LIMIT_MS) signOut('idle'); }
+setInterval(checkIdle, 30000);
+document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) checkIdle(); });
+
+const SIGNED_OUT_NOTES = {
+  idle: 'You were signed out after 30 minutes without activity.',
+  expired: 'Your session ended. Sign in again.',
+  loadfailed: 'Kiroku could not load your data. Sign in again, or ask Admin if this keeps happening.',
+};
+const signedOutReason = new URLSearchParams(location.search).get('signedout');
+// Left behind by older versions of this page (a full copy of the data, the demo user, old sessions): removed on every load.
+try { Object.keys(localStorage).filter(k=>/^sb-/.test(k) || ['kiroku_sample_db_v2','kiroku_mock_user','kiroku_signin_email'].includes(k))
+  .forEach(k=>localStorage.removeItem(k)); } catch(e){}
+if(signedOutReason) history.replaceState(null, '', location.pathname);
+showSignIn('wait');   // covers the empty page until Kiroku knows whether someone is signed in
+window.addEventListener('load', async ()=>{
+  showLoader('Loading Kiroku…');
+  try {
+    if(!sbClient()){ showSignIn('form', 'Could not load the sign-in service. Check your connection and reload the page.'); return; }
+    sbClient().auth.onAuthStateChange((event, session)=>{
+      if(event==='PASSWORD_RECOVERY'){ recoveringPassword = true; showSignIn('newpass'); return; }
+      if(!sessionToken) return;
+      // supabase-js refreshes the token before it expires; use the new one. No session = ended or revoked.
+      if(session) sessionToken = session.access_token;
+      else if(event==='SIGNED_OUT' && !signingOut) signOut('expired');
+    });
+    const {data:{session}} = await sbClient().auth.getSession();
+    if(recoveringPassword) return;
+    if(session) await startSession(session);
+    else showSignIn('form', '', SIGNED_OUT_NOTES[signedOutReason] || '');
+  } finally { hideLoader(); }
 });
 </script>
 </body>

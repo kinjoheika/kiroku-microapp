@@ -20,6 +20,8 @@ function doPost(e) {
     if (!data.user) return jsonOut({ ok: false, error: 'Only Admin and Doc Officer 1 can change Job Orders. Sign in again if you are one of them.' });
     const handler = JO_ACTIONS[data.action];
     if (!handler) return jsonOut({ ok: false, error: 'unknown action' });
+    const bad = checkJobOrderInput(data);
+    if (bad) return jsonOut({ ok: false, error: bad });
 
     // One writer at a time: the scheduled sync (scheduledSync) waits on the same lock.
     const lock = LockService.getScriptLock();
@@ -53,7 +55,39 @@ function signedInManager(accessToken) {
   const rows = supabaseJson(url + '/rest/v1/users?select=user_id,name,role&auth_user_id=eq.' + encodeURIComponent(authId),
     { apikey: key, Authorization: 'Bearer ' + key });
   const user = rows[0];
-  return user && (user.role === 'Admin' || user.user_id === 'u1') ? user : null;
+  return user && (user.role === 'Admin' || (user.user_id === 'u1' && user.role === 'Doc Officer')) ? user : null;
+}
+
+// Everything the page sends is checked before any sheet is touched. The page is not trusted:
+// a request can be made by hand with any values.
+const ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
+function isDate(v) { return /^\d{4}-\d{2}-\d{2}$/.test(String(v)) && !isNaN(new Date(v + 'T00:00:00').getTime()); }
+function checkJobOrderInput(data) {
+  const officers = ownerSources().map(src => src.owner);
+  if (data.jo_id !== undefined && !ID_RE.test(String(data.jo_id))) return 'Bad Job Order ID.';
+  const jo = data.jo;
+  if (jo) {
+    if (jo.jo_id !== undefined && !ID_RE.test(String(jo.jo_id))) return 'Bad Job Order ID.';
+    if (!/^[A-Za-z0-9][A-Za-z0-9 _\/-]{0,39}$/.test(String(jo.jo_number || '').trim())) return 'JO number: letters, digits, - and / only (up to 40).';
+    if (!ID_RE.test(String(jo.company_id || ''))) return 'Choose a company.';
+    if (!isDate(jo.target_deployment_date)) return 'Target deploy date must be a date.';
+    if (jo.work_category && WORK_CATEGORIES.indexOf(jo.work_category) < 0) return 'Unknown work category.';
+    if (jo.program_type && PROGRAM_TYPES.indexOf(jo.program_type) < 0) return 'Unknown program type.';
+    if (jo.worker_name && String(jo.worker_name).length > 120) return 'Worker name is too long.';
+  }
+  const tasks = data.tasks || [];
+  if (!Array.isArray(tasks) || tasks.length > 200) return 'Bad task list.';
+  for (const t of tasks) {
+    if (TASK_TRACKS.indexOf(t.track) < 0) return 'Unknown track ' + t.track + '.';
+    if (officers.indexOf(t.editor_id) < 0) return 'A task can only be assigned to a Doc Officer.';
+    if (!isDate(t.due_date)) return 'Bad due date.';
+    if (!Number.isInteger(Number(t.index)) || !Number.isFinite(Number(t.order)) || !Number.isFinite(Number(t.offset_days))) return 'Bad task numbers.';
+    if (!t.task_name || String(t.task_name).length > 200) return 'Bad task description.';
+  }
+  for (const d of (data.due_changes || [])) {
+    if (!ID_RE.test(String(d.task_id)) || !isDate(d.due_date)) return 'Bad due date change.';
+  }
+  return null;
 }
 
 const JO_ACTIONS = {
@@ -93,7 +127,7 @@ function createJobOrder(data) {
     'Target Deployment Date': jo.target_deployment_date,
     work_category: jo.work_category || '', program_type: jo.program_type || '', active: true,
   };
-  m.sheet.appendRow(m.head.map(h => (h in joRow ? joRow[h] : '')));
+  m.sheet.appendRow(m.head.map(h => sheetSafe(h in joRow ? joRow[h] : '')));
 
   // Tasks go to their owner's sheet; the sync copies them into the Admin Masterlist.
   const byOwner = {};
@@ -108,7 +142,7 @@ function createJobOrder(data) {
     const sh = officerTab(owner, 'Tasks');
     const head = headerOf(sh);
     const rows = byOwner[owner].map(r => head.map(h => (h in r ? r[h] : '')));
-    sh.getRange(sh.getLastRow() + 1, 1, rows.length, head.length).setValues(rows);
+    sh.getRange(sh.getLastRow() + 1, 1, rows.length, head.length).setValues(sheetSafeRows(rows));
   });
   return { ok: true, jo_id: joId };
 }
@@ -238,7 +272,7 @@ function headerOf(sh) {
 function setCells(sh, head, rowNum, values) {
   Object.keys(values).forEach(h => {
     const c = head.indexOf(h);
-    if (c >= 0) sh.getRange(rowNum, c + 1).setValue(values[h]);
+    if (c >= 0) sh.getRange(rowNum, c + 1).setValue(sheetSafe(values[h]));
   });
 }
 
