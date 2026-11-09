@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Kiroku — Working Sample DB</title>
+<title>Kiroku — Completeness Gate</title>
 <style>
 :root{
   --black:#16181C; --darkred:#7A1F2B; --darkred-light:#F7E8E9;
@@ -767,7 +767,7 @@ textarea.tf-input{resize:vertical; line-height:1.4;}
 }
 
 /* ===== Sign-in ===== */
-#userSwitchGrp[hidden], .si-switch[hidden], .si-picker[hidden], .si-link[hidden], .si[hidden], .si form[hidden], .si-card[hidden], .si-alert[hidden], .si-note[hidden]{display:none;}
+.si-link[hidden], .si[hidden], .si form[hidden], .si-card[hidden], .si-alert[hidden], .si-note[hidden]{display:none;}
 .si{position:fixed; inset:0; z-index:70; overflow-y:auto; display:flex; flex-direction:column; align-items:center; gap:22px; padding:max(32px,10vh) 16px 28px; background:var(--bg);}
 .si-logo{display:flex; flex-direction:column; align-items:center; text-align:center;}
 .si-mark{width:46px; height:46px; margin-bottom:14px; border-radius:12px; display:grid; place-items:center; background:var(--darkred); color:#fff; font-size:1.3125rem; font-weight:700;}
@@ -946,7 +946,7 @@ main#main{display:flex; flex-direction:column; flex:1 1 auto; min-height:0; widt
 <div class="page-head">
   <div class="eyebrow">Kiroku · Working Sample Database</div>
   <h1 id="headline">5 users · 3-track workflow · sample trial build</h1>
-  <p>This single file carries its own database (saved in this browser's storage). Each Doc Officer only edits the specific tasks assigned to them; the CEO and the All Due Gates page are view-only. Pass this file to another computer and it runs standalone, no install required.</p>
+  <p>Kiroku tracks job orders and tasks. Sign in to access the records allowed for your account.</p>
 </div>
 
 <div class="pl" id="pageLoader" role="status" aria-live="polite" hidden>
@@ -1016,7 +1016,8 @@ main#main{display:flex; flex-direction:column; flex:1 1 auto; min-height:0; widt
 <!-- Sign-in, and new activity_logs rows live (Supabase Realtime). -->
 <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.js"></script>
 <script>
-const TODAY = new Date('2026-07-31T00:00:00');
+// Use the current Philippine calendar date, including for overdue calculations.
+const TODAY = new Date(`${new Intl.DateTimeFormat('en-CA', {timeZone:'Asia/Manila', year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date())}T00:00:00`);
 const STORAGE_KEY = 'kiroku_sample_db_v2';
 
 /* ---------- Data source ----------
@@ -1356,7 +1357,7 @@ function myTracksFor(userId){
 
 /* ---------- activity / scoring ---------- */
 function daysSince(iso){ return Math.round((TODAY - new Date(iso+'T00:00:00'))/86400000); }
-// Actions taken this session carry the sample TODAY; ones reloaded from activity_logs carry their real date.
+// Compare activity dates against the current Manila calendar date.
 function loggedToday(task, type){
   const sampleToday = isoStr(TODAY), realToday = manilaToday();
   return (task.activity||[]).some(a=>a.type===type && (a.date===sampleToday || (a.logId && a.date===realToday)));
@@ -2085,7 +2086,7 @@ async function loadFromSupabase(){
   if(entries.some(([,objs])=>objs.length===0)) return null;   // not synced yet: use the Sheet / CSV
   const db = buildDBFromTabs(Object.fromEntries(entries.map(([tab, objs])=>[tab, supaToRows(tab, objs)])));
   SOURCE_LABEL = 'Supabase (kiroku)';
-  EVENT_LOGS = !SIGN_IN || sessionRole==='Admin' ? await fetchEventLogs().catch(e=>{ console.warn('event_logs load failed:', e); return null; }) : null;
+  EVENT_LOGS = sessionRole==='Admin' ? await fetchEventLogs().catch(e=>{ console.warn('event_logs load failed:', e); return null; }) : null;
   return db;
 }
 async function loadFromSource(){
@@ -2596,7 +2597,7 @@ function navHTML(activeTab){
     ${notifHTML()}
     <span class="who">${escHTML(user.name===user.role ? user.name : `${user.name} (${user.role})`)}</span>
     ${isCEO(user) || activeTab==='All Due Gates' ? '<span class="readonly-pill">View only</span>' : ''}
-    ${SIGN_IN ? '<button class="signout-btn" onclick="signOut()">Sign out</button>' : ''}
+    <button class="signout-btn" onclick="signOut()">Sign out</button>
   </div>`;
 }
 
@@ -3487,7 +3488,11 @@ let sessionRole = null;
 let recoveringPassword = false;
 let sbInstance = null;
 let signingOut = false;
-function authBearer(){ return sessionToken || SUPABASE_KEY; }
+function authBearer(){
+  // Fail closed: never fall back to the publishable/anonymous key for authenticated requests.
+  if(!sessionToken) throw new Error('Sign in is required.');
+  return sessionToken;
+}
 function sbClient(){
   // The session is kept in sessionStorage, not localStorage: it ends when the tab or browser closes,
   // so the next person on a shared PC is not signed in as you.

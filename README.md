@@ -1,3 +1,16 @@
+1. Replace Google Sheets with My Entries for each user.
+2. Google Sheets should contain configuration lists, including Agencies and Job Orders (JO).
+3. Combine the Agency and Client Lists into one tab.
+4. Google Sheets should only be accessible to Admin accounts.
+
+**Kiroku Accounts:**
+- **Data Master Config** – Main masterlist.
+- **Admin 1** – Client-side IT management.
+- **Admin 2** – Our IT team for system maintenance.
+- **Audit Logs** – Tracks user activities and workflows.
+
+
+
 ## Things To Do
 1. Integrate four Google Sheets into one centralized Supabase database.
 2. Implement event logging and activity tracking from G-sheet to Supabase.
@@ -10,7 +23,7 @@
 9. Setting Menu
 10. Improve the user interface and overall design
 
-Kiroku Launch
+## Kiroku Launch
 
 Workflow – 8/10
 Audit trail – 8/10
@@ -64,9 +77,8 @@ The goal is to make attacks expensive, limited in damage, and detectable, not im
     6. Encryption at rest and in transit. Disk encryption on the server and laptops; TLS on the LAN with an internal certificate. 
     7. Patch on a schedule. OS, database, and dependencies. Pin versions so updates are deliberate. 
     8. Backups that you have tested restoring. Ransomware and accidental deletion are often bigger threats than hackers. 
-    9. Staff training on phishing and password hygiene. Short, specific, and repeated. 
-    10. A response plan. Who to call, how to isolate a PC, how to rotate passwords, and when to notify the Philippine National Privacy Commission (72-hour breach notification under the Data Privacy Act). 
-    11. Periodic independent review. A penetration test by a third party once before go-live and yearly after. This is the closest you can get to evidence of security.
+9.. A response plan. Who to call, how to isolate a PC, how to rotate passwords, and when to notify the Philippine National Privacy Commission (72-hour breach notification under the Data Privacy Act). 
+    10. Periodic independent review. A penetration test by a third party once before go-live and yearly after. This is the closest you can get to evidence of security.
 
 
 What to tell your clients
