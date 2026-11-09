@@ -71,9 +71,8 @@ The goal is to make attacks expensive, limited in damage, and detectable, not im
     6. Encryption at rest and in transit. Disk encryption on the server and laptops; TLS on the LAN with an internal certificate. 
     7. Patch on a schedule. OS, database, and dependencies. Pin versions so updates are deliberate. 
     8. Backups that you have tested restoring. Ransomware and accidental deletion are often bigger threats than hackers. 
-    9. Staff training on phishing and password hygiene. Short, specific, and repeated. 
-    10. A response plan. Who to call, how to isolate a PC, how to rotate passwords, and when to notify the Philippine National Privacy Commission (72-hour breach notification under the Data Privacy Act). 
-    11. Periodic independent review. A penetration test by a third party once before go-live and yearly after. This is the closest you can get to evidence of security.
+9.. A response plan. Who to call, how to isolate a PC, how to rotate passwords, and when to notify the Philippine National Privacy Commission (72-hour breach notification under the Data Privacy Act). 
+    10. Periodic independent review. A penetration test by a third party once before go-live and yearly after. This is the closest you can get to evidence of security.
 
 
 What to tell your clients
