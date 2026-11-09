@@ -262,3 +262,10 @@ Nothing below is live yet. Every file is in this folder, not committed, not publ
 2. After the next sync, Admin runs in the SQL Editor:
    `update public.users set auth_user_id = (select id from auth.users where email = '<their login email>') where user_id = '<uN>';`
    This works only from the dashboard, never through the API.
+
+## Live result — 2026-11-09
+* Sign-up off (`disable_signup = true`).
+* New page published (`kiroku-v4-microapp` @ 6583f51).
+* `13_security_hardening.sql` applied.
+* `14_security_tests.sql` on the live project: **160/160 PASS**. Covered: anon, a stranger with a login, Admin, CEO, and Doc Officers 1–4.
+* Outside check with the public key: all 9 tables, the write functions, and file upload are refused.

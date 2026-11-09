@@ -2599,7 +2599,7 @@ function navHTML(activeTab){
     ${notifHTML()}
     <span class="who">${escHTML(user.name===user.role ? user.name : `${user.name} (${user.role})`)}</span>
     ${isCEO(user) || activeTab==='All Due Gates' ? '<span class="readonly-pill">View only</span>' : ''}
-    ${SIGN_IN ? '<button class="signout-btn" onclick="signOut()">Sign out</button>' : ''}
+    ${SIGN_IN ? '<button class="signout-btn" onclick="openPasswordModal()">Change password</button> <button class="signout-btn" onclick="signOut()">Sign out</button>' : ''}
   </div>`;
 }
 
@@ -3592,6 +3592,82 @@ async function signOut(reason){
   sessionToken = null; sessionRole = null; DB = null;
   clearKirokuBrowserData();
   location.replace(location.pathname + (typeof reason==='string' && reason ? '?signedout=' + reason : ''));
+}
+/* Change password while signed in. No email is needed, so it works even when a login address cannot
+   receive mail. The current password is checked first, so someone at a computer left signed in cannot
+   change it and lock the owner out. */
+function openPasswordModal(){
+  let m = document.getElementById('pwModal');
+  if(!m){
+    m = document.createElement('div');
+    m.id = 'pwModal';
+    m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.35);display:none;align-items:center;justify-content:center;z-index:1000;padding:16px;';
+    const lbl = 'display:block;font-size:0.8125rem;font-weight:700;margin:10px 0 4px;';
+    const inp = 'width:100%;box-sizing:border-box;padding:8px;border:1px solid #ccc;border-radius:6px;font:inherit;';
+    m.innerHTML = `<form role="dialog" aria-modal="true" aria-labelledby="pwTitle" novalidate style="background:var(--card);border-radius:10px;width:380px;max-width:100%;padding:18px;box-shadow:0 10px 30px rgba(0,0,0,.25);">
+      <div id="pwTitle" style="font-weight:800;font-size:0.9375rem;margin-bottom:4px;">Change password</div>
+      <label for="pwCur" style="${lbl}">Current password</label>
+      <input id="pwCur" type="password" autocomplete="current-password" required style="${inp}">
+      <label for="pwNew" style="${lbl}">New password <span style="font-weight:400;">(at least 12 characters)</span></label>
+      <input id="pwNew" type="password" autocomplete="new-password" minlength="12" required style="${inp}">
+      <label for="pwNew2" style="${lbl}">Type the new password again</label>
+      <input id="pwNew2" type="password" autocomplete="new-password" minlength="12" required style="${inp}">
+      <div id="pwMsg" role="alert" style="min-height:1.2em;margin-top:10px;font-size:0.8125rem;"></div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px;">
+        <button id="pwCancel" class="act-btn" type="button">Cancel</button>
+        <button id="pwSave" class="act-btn primary" type="submit">Save new password</button>
+      </div></form>`;
+    document.body.appendChild(m);
+    m.addEventListener('click', e=>{ if(e.target===m) closePasswordModal(); });
+    m.addEventListener('keydown', e=>{ if(e.key==='Escape') closePasswordModal(); });
+    document.getElementById('pwCancel').onclick = closePasswordModal;
+    m.querySelector('form').onsubmit = submitPasswordChange;
+  }
+  dialogShown();
+  ['pwCur','pwNew','pwNew2'].forEach(id=>{ document.getElementById(id).value = ''; });
+  setPwMsg('');
+  m.style.display = 'flex';
+  document.getElementById('pwCur').focus();
+}
+function closePasswordModal(){
+  const m = document.getElementById('pwModal');
+  if(!m || m.style.display==='none') return;
+  ['pwCur','pwNew','pwNew2'].forEach(id=>{ document.getElementById(id).value = ''; });
+  m.style.display = 'none';
+  dialogHidden();
+}
+function setPwMsg(text, ok){
+  const el = document.getElementById('pwMsg');
+  el.textContent = text || '';
+  el.style.color = ok ? '#1a7f37' : '#b42318';
+}
+async function submitPasswordChange(ev){
+  ev.preventDefault();
+  const cur = document.getElementById('pwCur'), nw = document.getElementById('pwNew'), nw2 = document.getElementById('pwNew2');
+  if(!cur.value){ setPwMsg('Enter your current password.'); cur.focus(); return; }
+  if(nw.value.length < 12){ setPwMsg('The new password needs at least 12 characters.'); nw.focus(); return; }
+  if(nw.value !== nw2.value){ setPwMsg('The two new passwords are not the same.'); nw2.focus(); return; }
+  if(nw.value === cur.value){ setPwMsg('Choose a password different from the current one.'); nw.focus(); return; }
+  const btn = document.getElementById('pwSave');
+  btn.disabled = true; btn.textContent = 'Saving…';
+  try {
+    const {data:{user}} = await sbClient().auth.getUser();
+    if(!user || !user.email){ setPwMsg('Your session ended. Sign in again.'); return; }
+    const check = await sbClient().auth.signInWithPassword({email: user.email, password: cur.value});
+    if(check.error){
+      setPwMsg(/invalid/i.test(check.error.message||'') ? 'Your current password is not correct.' : signInMessage(check.error));
+      cur.value = ''; cur.focus(); return;
+    }
+    if(check.data && check.data.session) sessionToken = check.data.session.access_token;
+    const {error} = await sbClient().auth.updateUser({password: nw.value});
+    if(error){ setPwMsg(signInMessage(error)); return; }
+    closePasswordModal();
+    showToast('✓ Password changed. Use the new one next time you sign in.', 6000);
+  } catch(e){
+    setPwMsg('Could not change the password. Check your connection and try again.');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Save new password';
+  }
 }
 async function startSession(session){
   sessionToken = session.access_token;
