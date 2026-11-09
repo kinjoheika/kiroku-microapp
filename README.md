@@ -10,7 +10,7 @@
 9. Setting Menu
 10. Improve the user interface and overall design
 
-Kiroku Launch
+## Kiroku Launch
 
 Workflow – 8/10
 Audit trail – 8/10
