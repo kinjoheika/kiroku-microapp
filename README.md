@@ -1,3 +1,10 @@
+1. Remove G-sheet in each user change it to my entries
+2. G-sheet contain it configuration in list of agency, JO
+3. list of agency and client put in one 1 tab
+4.  G-sheet must only shown in admin
+
+
+
 ## Things To Do
 1. Integrate four Google Sheets into one centralized Supabase database.
 2. Implement event logging and activity tracking from G-sheet to Supabase.
