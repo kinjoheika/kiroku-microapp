@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Kiroku — Working Sample DB</title>
+<title>Kiroku — Completeness Gate</title>
 <style>
 :root{
   --black:#16181C; --darkred:#7A1F2B; --darkred-light:#F7E8E9;
@@ -767,7 +767,7 @@ textarea.tf-input{resize:vertical; line-height:1.4;}
 }
 
 /* ===== Sign-in ===== */
-#userSwitchGrp[hidden], .si-switch[hidden], .si-picker[hidden], .si-link[hidden], .si[hidden], .si form[hidden], .si-card[hidden], .si-alert[hidden], .si-note[hidden]{display:none;}
+.si-link[hidden], .si[hidden], .si form[hidden], .si-card[hidden], .si-alert[hidden], .si-note[hidden]{display:none;}
 .si{position:fixed; inset:0; z-index:70; overflow-y:auto; display:flex; flex-direction:column; align-items:center; gap:22px; padding:max(32px,10vh) 16px 28px; background:var(--bg);}
 .si-logo{display:flex; flex-direction:column; align-items:center; text-align:center;}
 .si-mark{width:46px; height:46px; margin-bottom:14px; border-radius:12px; display:grid; place-items:center; background:var(--darkred); color:#fff; font-size:1.3125rem; font-weight:700;}
@@ -935,16 +935,12 @@ main#main{display:flex; flex-direction:column; flex:1 1 auto; min-height:0; widt
 <div class="page-head">
   <div class="eyebrow">Kiroku · Working Sample Database</div>
   <h1 id="headline">5 users · 3-track workflow · sample trial build</h1>
-  <p>This single file carries its own database (saved in this browser's storage). Each Doc Officer only edits the specific tasks assigned to them; the CEO and the All Due Gates page are view-only. Pass this file to another computer and it runs standalone, no install required.</p>
+  <p>Kiroku tracks job orders and tasks. Sign in to access the records allowed for your account.</p>
 </div>
 
 <div class="si" id="signin" hidden>
   <div class="si-logo"><span class="si-mark" aria-hidden="true">記</span><h1 id="siTitle">Sign in to Kiroku</h1><p class="si-sub" id="siSub">Completeness Gate</p></div>
   <section class="si-card" id="siCard" hidden>
-    <button class="si-switch" id="siSwitch" type="button" title="Choose a user" aria-label="Choose a user" aria-haspopup="menu" aria-expanded="false" onclick="toggleUserPicker()" hidden>
-      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6"/><path d="M16 4.8a3.5 3.5 0 0 1 0 6.4M18 14.4c2.1.7 3.5 2.7 3.5 5.6"/></svg>
-    </button>
-    <div class="si-picker" id="siPicker" role="menu" aria-label="Choose a user" hidden></div>
     <div class="si-alert" id="siAlert" role="alert" tabindex="-1" hidden></div>
     <p class="si-note" id="siNote" role="status" hidden></p>
     <form id="siForm" onsubmit="submitSignIn(event)" novalidate hidden>
@@ -970,7 +966,6 @@ main#main{display:flex; flex-direction:column; flex:1 1 auto; min-height:0; widt
 </div>
 
 <div class="env-bar">
-  <div class="grp" id="userSwitchGrp"><label>Logged in as</label><select id="userSwitch" onchange="enterAs(this.value)"></select></div>
   <div class="grp"><button onclick="resetSampleData()">↺ Reload data</button></div>
   <span class="tag" id="dbTag"></span>
   <span class="tag" id="logTag"></span>
@@ -1007,7 +1002,8 @@ main#main{display:flex; flex-direction:column; flex:1 1 auto; min-height:0; widt
 <!-- Sign-in, and new activity_logs rows live (Supabase Realtime). -->
 <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.js"></script>
 <script>
-const TODAY = new Date('2026-07-31T00:00:00');
+// Use the current Philippine calendar date, including for overdue calculations.
+const TODAY = new Date(`${new Intl.DateTimeFormat('en-CA', {timeZone:'Asia/Manila', year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date())}T00:00:00`);
 const STORAGE_KEY = 'kiroku_sample_db_v2';
 
 /* ---------- Data source ----------
@@ -1243,7 +1239,6 @@ async function sendLog(changes){
     setLogStatus(`⚠ log failed: ${e.message}`);
   }
 }
-function loadDB(){ const raw = localStorage.getItem(STORAGE_KEY); return raw ? JSON.parse(raw) : null; }
 
 function getUser(id){ return DB.users.find(u=>u.id===id); }
 function getJO(id){ return DB.jobOrders.find(j=>j.id===id); }
@@ -1349,7 +1344,7 @@ function myTracksFor(userId){
 
 /* ---------- activity / scoring ---------- */
 function daysSince(iso){ return Math.round((TODAY - new Date(iso+'T00:00:00'))/86400000); }
-// Actions taken this session carry the sample TODAY; ones reloaded from activity_logs carry their real date.
+// Compare activity dates against the current Manila calendar date.
 function loggedToday(task, type){
   const sampleToday = isoStr(TODAY), realToday = manilaToday();
   return (task.activity||[]).some(a=>a.type===type && (a.date===sampleToday || (a.logId && a.date===realToday)));
@@ -2076,7 +2071,7 @@ async function loadFromSupabase(){
   if(entries.some(([,objs])=>objs.length===0)) return null;   // not synced yet: use the Sheet / CSV
   const db = buildDBFromTabs(Object.fromEntries(entries.map(([tab, objs])=>[tab, supaToRows(tab, objs)])));
   SOURCE_LABEL = 'Supabase (kiroku)';
-  EVENT_LOGS = !SIGN_IN || sessionRole==='Admin' ? await fetchEventLogs().catch(e=>{ console.warn('event_logs load failed:', e); return null; }) : null;
+  EVENT_LOGS = sessionRole==='Admin' ? await fetchEventLogs().catch(e=>{ console.warn('event_logs load failed:', e); return null; }) : null;
   return db;
 }
 async function loadFromSource(){
@@ -2559,7 +2554,7 @@ function navHTML(activeTab){
     ${notifHTML()}
     <span class="who">${user.name===user.role ? user.name : `${user.name} (${user.role})`}</span>
     ${isCEO(user) || activeTab==='All Due Gates' ? '<span class="readonly-pill">View only</span>' : ''}
-    ${SIGN_IN || mockActive ? '<button class="signout-btn" onclick="signOut()">Sign out</button>' : ''}
+    <button class="signout-btn" onclick="signOut()">Sign out</button>
   </div>`;
 }
 
@@ -3439,27 +3434,19 @@ document.addEventListener('keydown', e=>{
 /* ---------- init ---------- */
 /* ---------- Sign-in (Supabase Auth) ----------
    Accounts are made by Admin in the Supabase dashboard. A login belongs to the row in users with the
-   same email (link_my_account in supabase/10_admin_masterlist.sql). Who a user is comes from Supabase,
+   linked account (link_my_account RPC). Who a user is comes from Supabase,
    not from this page, and row security decides what they can read and write. */
-// Turn this on once every user has an account (supabase/SETUP.md). Until then the "Logged in as" list stays.
-const LOGIN_REQUIRED = false;
-// Opening the page with ?login shows real sign-in without changing it for anyone else, to try accounts first.
-const SIGN_IN = LOGIN_REQUIRED || new URLSearchParams(location.search).has('login');
-// Demo accounts, until real accounts exist. This is a convenience, not security: the details are in
-// this page for anyone to read, and Supabase cannot tell who is signed in. Set to false to remove them.
-const MOCK_LOGIN = true;
-const MOCK_PASSWORD = 'kiroku2026';
-const MOCK_ACCOUNTS = {
-  'admin@kiroku.sample':'u6', 'ceo@kiroku.sample':'u5', 'docofficer1@kiroku.sample':'u1',
-  'docofficer2@kiroku.sample':'u2', 'docofficer3@kiroku.sample':'u3', 'docofficer4@kiroku.sample':'u4',
-};
-const MOCK_USER_KEY = 'kiroku_mock_user';
-const mockActive = MOCK_LOGIN && !SIGN_IN;
+// Production mode: Supabase Authentication is mandatory. No mock account switcher.
+const SIGN_IN = true;
 let sessionToken = null;
 let sessionRole = null;
 let recoveringPassword = false;
 let sbInstance = null;
-function authBearer(){ return sessionToken || SUPABASE_KEY; }
+function authBearer(){
+  // Fail closed: never fall back to the publishable/anonymous key for authenticated requests.
+  if(!sessionToken) throw new Error('Sign in is required.');
+  return sessionToken;
+}
 function sbClient(){
   if(!sbInstance && window.supabase) sbInstance = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   return sbInstance;
@@ -3503,14 +3490,6 @@ async function submitSignIn(ev){
   const email = emailEl.value.trim();
   if(!email || !emailEl.validity.valid){ showSignIn('form', 'Enter your work email.'); emailEl.focus(); return; }
   if(!passEl.value){ showSignIn('form', 'Enter your password.'); passEl.focus(); return; }
-  if(mockActive){
-    const uid = MOCK_ACCOUNTS[email.toLowerCase()], ok = uid && getUser(uid) && passEl.value===MOCK_PASSWORD;
-    passEl.value = '';
-    if(!ok){ showSignIn('form', 'Incorrect email or password.'); passEl.focus(); return; }
-    try { localStorage.setItem(SI_EMAIL_KEY, email); localStorage.setItem(MOCK_USER_KEY, uid); } catch(e){}
-    enterMock(uid);
-    return;
-  }
   const btn = document.getElementById('siSubmit');
   btn.disabled = true; btn.textContent = 'Signing in…';
   let result;
@@ -3554,13 +3533,20 @@ async function submitNewPassword(ev){
   if(session) await startSession(session); else showSignIn('form', '', 'Password saved. Sign in with it.');
 }
 async function signOut(){
-  if(mockActive){
-    try { localStorage.removeItem(MOCK_USER_KEY); } catch(e){}
+  try {
+    await sbClient().auth.signOut();
+  } finally {
+    sessionToken = null;
+    sessionRole = null;
+    currentUserId = null;
+    DB = null;
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem('kiroku_mock_user');
+      localStorage.removeItem(SI_EMAIL_KEY);
+    } catch(e) {}
     location.reload();
-    return;
   }
-  await sbClient().auth.signOut();
-  location.reload();
 }
 async function startSession(session){
   sessionToken = session.access_token;
@@ -3581,85 +3567,9 @@ async function startSession(session){
   enterAs(me.user_id);
   startActivityRealtime();
 }
-function populateUserSwitch(){
-  const sel = document.getElementById('userSwitch');
-  sel.innerHTML = DB.users.map(u=>`<option value="${u.id}" ${u.id===currentUserId?'selected':''}>${u.name}${u.role===u.name?'':' ('+u.role+')'}</option>`).join('');
-}
-async function startWithMockLogin(){
-  await reloadFromSource();
-  initSelections();
-  let saved = null;
-  try { saved = localStorage.getItem(MOCK_USER_KEY); } catch(e){}
-  // Signed out (no saved user): show the sign-in page.
-  if(saved && getUser(saved)) enterMock(saved);
-  else showSignIn('form');
-  startActivityRealtime();
-  window.addEventListener('load', startActivityRealtime);   // in case supabase-js loads after init
-}
-// The button at the top of the demo sign-in card: pick a user and go straight in, no password.
-function pickerOrder(){
-  const rank = u => u.role==='Admin' ? 0 : u.role==='CEO' ? 1 : 2;
-  return DB.users.slice().sort((a,b)=>rank(a)-rank(b) || a.name.localeCompare(b.name));
-}
-function closeUserPicker(){
-  const p = document.getElementById('siPicker');
-  if(p.hidden) return;
-  p.hidden = true;
-  document.getElementById('siSwitch').setAttribute('aria-expanded','false');
-}
-function toggleUserPicker(){
-  const p = document.getElementById('siPicker');
-  if(!p.hidden){ closeUserPicker(); return; }
-  p.innerHTML = pickerOrder().map(u=>`<button type="button" class="si-user" role="menuitem" onclick="pickMockUser('${u.id}')">
-    <span class="si-user-mark">${escHTML(u.role==='Admin' ? 'A' : u.role==='CEO' ? 'C' : u.name.replace(/\D/g,'') || u.name[0])}</span>
-    <span class="si-user-text"><b>${escHTML(u.name)}</b><small>${escHTML(u.role)}</small></span></button>`).join('');
-  p.hidden = false;
-  document.getElementById('siSwitch').setAttribute('aria-expanded','true');
-  p.querySelector('.si-user').focus();
-}
-function pickMockUser(uid){
-  closeUserPicker();
-  try { localStorage.setItem(MOCK_USER_KEY, uid); } catch(e){}
-  enterMock(uid);
-}
-document.addEventListener('click', e=>{ if(!e.target.closest('#siPicker') && !e.target.closest('#siSwitch')) closeUserPicker(); });
-document.addEventListener('keydown', e=>{
-  const p = document.getElementById('siPicker');
-  if(p.hidden) return;
-  if(e.key==='Escape'){ closeUserPicker(); document.getElementById('siSwitch').focus(); return; }
-  if(e.key==='ArrowDown' || e.key==='ArrowUp'){
-    e.preventDefault();
-    const items = [...p.querySelectorAll('.si-user')], i = items.indexOf(document.activeElement);
-    items[(i + (e.key==='ArrowDown' ? 1 : -1) + items.length) % items.length].focus();
-  }
-});
-function enterMock(uid){
-  document.getElementById('signin').hidden = true;
-  initSelections();
-  enterAs(uid);
-}
-async function startWithoutLogin(){
-  await reloadFromSource();
-  initSelections();
-  populateUserSwitch();
-  document.getElementById('s1').classList.add('active');
-  renderAllScreens();
-  startActivityRealtime();
-  window.addEventListener('load', startActivityRealtime);   // in case supabase-js loads after init
-}
-if(mockActive){
-  document.getElementById('userSwitchGrp').hidden = true;
-  document.getElementById('siForgot').hidden = true;
-  document.getElementById('siSwitch').hidden = false;
-  showSignIn('wait');
-  startWithMockLogin();
-}
-else if(!SIGN_IN) startWithoutLogin();
-else {
-  document.getElementById('userSwitchGrp').hidden = true;
-  showSignIn('wait');   // covers the empty page until Kiroku knows whether someone is signed in
-}
-if(SIGN_IN) window.addEventListener('load', async ()=>{
+// Sign-in is required for every visitor; the Supabase session is restored on load.
+showSignIn('wait');
+window.addEventListener('load', async ()=>{
   if(!sbClient()){ showSignIn('form', 'Could not load the sign-in service. Check your connection and reload the page.'); return; }
   sbClient().auth.onAuthStateChange((event, session)=>{
     if(event==='PASSWORD_RECOVERY'){ recoveringPassword = true; showSignIn('newpass'); }
