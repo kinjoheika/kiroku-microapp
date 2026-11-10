@@ -1,7 +1,3 @@
-1. Replace Google Sheets with My Entries for each user.
-2. Google Sheets should contain configuration lists, including Agencies and Job Orders (JO).
-3. Combine the Agency and Client Lists into one tab.
-4. Google Sheets should only be accessible to Admin accounts.
 
 # links for the main pieces:
 Kiroku Sync script (Apps Script): https://script.google.com/home/projects/1rn_tEbYq-Waq3Fs69Nui-zu6_3pNj41kWgmQIqwPqgI1j4JvZskRjDmt/edit
