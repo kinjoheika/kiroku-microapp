@@ -68,21 +68,20 @@ Send this to the team:
 - [ ] GitHub → repository **Settings → Collaborators**: only people who must change the code.
 - [ ] Supabase → **Organization → Team**: only you and Admin.
 
-## 🟡 6. MFA — authenticator app codes — *Claude builds it, you decide*
-- [ ] **Decide:** required for **everyone** (recommended) or only Admin and CEO?
-- [ ] Claude builds:
-  * the QR set-up screen
-  * the 6-digit code step at sign-in
-  * a database rule so data is only given after the code is entered
-- [ ] Each person installs Google or Microsoft Authenticator and scans their QR once.
-- [ ] Admin keeps a backup (a second device) for their own authenticator.
+## 🟡 6. MFA — authenticator app codes, for everyone — *built 2026-11-11*
+- [x] Decided: **everyone**.
+- [x] Built: QR set-up screen, 6-digit code at sign-in and in Change password, database rule (`18_require_mfa.sql`).
+- [ ] New pages live (Claude pushes them).
+- [ ] Supabase → SQL Editor: run `supabase/18_require_mfa.sql`, then `14_security_tests.sql` (every row PASS).
+- [ ] Each person installs Google or Microsoft Authenticator and scans their QR at their next sign-in.
+- [ ] Admin scans the QR with a second phone too, or keeps the key shown under it somewhere safe.
 
-## 🟡 7. Backups and recovery — *you and Claude*
+## 🟡 7. Backups and recovery — *built 2026-11-11 (Free plan: no Supabase backups)*
 Supabase is now the only copy of the data (the sheets are gone), so this matters more than before.
-- [ ] Tell Claude your Supabase plan: **Free** (no automatic backups) or **Pro** (daily backups).
-- [ ] Until then: Admin clicks **Configuration → Download Excel** once a week and keeps the file somewhere safe.
-- [ ] Claude writes an export script (all tables to dated files) and a restore guide.
-- [ ] Do one test restore into a spare project, and note the date here.
+- [x] Weekly backup script and restore guide: `backup/README.md`. Restore tested on a copy (all rows back, all PASS).
+- [ ] Run `backup/setup-backup.ps1` once on the office PC (needs the database password; type it there, never in chat).
+- [ ] Check `C:\Kiruko\backups\backup.log` after the first Monday.
+- [ ] Uploaded task files are not in the backup: download the task-files bucket from Supabase Storage now and then.
 
 ---
 

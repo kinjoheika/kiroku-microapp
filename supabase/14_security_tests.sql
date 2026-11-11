@@ -35,17 +35,24 @@ begin
   select company_id into v_co from public.companies order by company_id limit 1;
 
   for p in
-    select 'anon (not signed in)' as who, 'anon' as db_role, null::uuid as uid, null::text as user_id, 'anon' as role
+    select 'anon (not signed in)' as who, 'anon' as db_role, null::uuid as uid, null::text as user_id, 'anon' as role, null::text as aal
     union all
-    select u.name || ' (' || u.role || ')', 'authenticated', u.auth_user_id, u.user_id, u.role
+    select u.name || ' (' || u.role || ')', 'authenticated', u.auth_user_id, u.user_id, u.role, 'aal2'
       from public.users u where u.auth_user_id is not null
     union all
-    select 'stranger (signed up, not in Kiroku)', 'authenticated', '5bd0f5c1-0000-4000-8000-0000deadbeef'::uuid, null, 'stranger'
+    select 'stranger (signed up, not in Kiroku)', 'authenticated', '5bd0f5c1-0000-4000-8000-0000deadbeef'::uuid, null, 'stranger', 'aal2'
+    union all
+    -- the right password but no 6-digit code yet (18_require_mfa.sql): must get nothing, like a stranger
+    (select 'Admin with password only, no 6-digit code', 'authenticated', u.auth_user_id, null, 'stranger', 'aal1'
+      from public.users u
+     where u.role = 'Admin' and u.auth_user_id is not null
+       and to_regprocedure('public.kiroku_uid()') is not null
+     order by u.user_id limit 1)
   loop
     v_own   := (select task_id from public.tasks where editor_id = p.user_id order by task_id limit 1);
     v_other := (select task_id from public.tasks where editor_id is not null and editor_id is distinct from p.user_id
                  order by task_id limit 1);
-    v_claims := json_build_object('role', p.db_role, 'sub', p.uid)::text;
+    v_claims := json_build_object('role', p.db_role, 'sub', p.uid, 'aal', p.aal)::text;
     v_jo_not_mine := (select j.jo_id from public.job_orders j
                        where not exists (select 1 from public.tasks t2 where t2.jo_id = j.jo_id and t2.editor_id = p.user_id)
                        order by j.jo_id limit 1);

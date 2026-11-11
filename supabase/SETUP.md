@@ -26,7 +26,28 @@ To change the database, add a new numbered file; do not edit or re-run old ones.
 | `14_security_tests.sql` | **The security exam.** Tries every action as every role. Changes nothing | Run after every change: all PASS |
 | `15_entries_stages.sql` | My Entries, stages, agencies and clients | Applied |
 | `16_no_sheets.sql` | Users, archive / reactivate / delete job orders | Applied 2026-11-11 |
-| `17_remove_sheet_sync.sql` | Removes the Google Sheets sync (functions, sheet_sync_state, sync_runs) | **To run**: see below |
+| `17_remove_sheet_sync.sql` | Removes the Google Sheets sync (functions, sheet_sync_state, sync_runs) | Applied 2026-11-11 |
+| `18_require_mfa.sql` | Two-step sign-in: no data without the 6-digit code | **To run**: see "Two-step sign-in" |
+| `18_rollback.sql` | Switches the two-step check off again (password alone) | Only if needed |
+
+## Two-step sign-in (MFA)
+
+Everyone signs in with email, password **and a 6-digit code** from an authenticator app on their phone
+(Google Authenticator or Microsoft Authenticator). No email or text message is used.
+
+* **First sign-in after the change:** Kiroku shows a QR code. Scan it in the app, type the code. Done once.
+  Admin: scan the same QR code with a **second phone** too (or keep the key shown under it somewhere safe), so a lost
+  phone does not lock out the only Admin.
+* **Every sign-in after that:** email, password, then the code the app shows.
+* **Change password** asks for the code too.
+* **Lost or new phone:** Supabase → **Authentication → Users** → the person → remove their **MFA factor**. At their
+  next sign-in Kiroku shows a new QR code.
+* **Switching it on:** after the new pages are live, run `18_require_mfa.sql`, then `14_security_tests.sql`.
+  From then on the database itself gives nothing to a password-only sign-in.
+
+## Backups
+
+Weekly, on the office PC: see `backup/README.md` (setup, checking, restoring).
 
 ## Run 17 (finish removing Google Sheets)
 

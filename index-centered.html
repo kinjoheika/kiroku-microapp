@@ -803,6 +803,13 @@ textarea.tf-input{resize:vertical; line-height:1.4;}
 .si-alert{margin-bottom:16px; padding:9px 11px; border:1px solid var(--red-line); border-radius:8px; background:var(--red-soft); color:var(--red); font-size:0.8125rem;}
 .si-alert:focus{outline:none;}
 .si-note{margin-bottom:16px; font-size:0.8125rem; color:var(--ink-2);}
+.si-steps{margin:0 0 14px 18px; padding:0; font-size:0.8125rem; color:var(--ink-2); line-height:1.5;}
+.si-qr{display:block; width:180px; height:180px; margin:0 auto 12px; padding:8px; border:1px solid var(--line); border-radius:8px; background:#fff;}
+.si-key{margin:0 0 16px; font-size:0.75rem; color:var(--ink-3); text-align:center; word-break:break-all;}
+.si-key code{font-size:0.8125rem; color:var(--ink); letter-spacing:.04em;}
+.si-code{letter-spacing:.3em; font-size:1.125rem !important; text-align:center;}
+.si-alt{margin-top:12px; align-self:center;}
+.si-mfa-part[hidden]{display:none;}
 .si-hint{margin:-8px 0 16px; font-size:0.7812rem; color:var(--ink-3);}
 .signout-btn{border:1px solid #5B6470; border-radius:6px; background:none; color:#C7CBD1; padding:3px 10px; font-family:var(--font-body); font-size:0.75rem; cursor:pointer;}
 .signout-btn:hover{background:#2E3138; color:#fff;}
@@ -1114,6 +1121,23 @@ body{background:transparent !important; padding-left:20vw !important; padding-ri
       </div>
       <p class="si-hint" id="siPass2Hint">Use at least 8 characters.</p>
       <button class="si-btn" id="siSaveNew" type="submit">Save new password</button>
+    </form>
+    <form id="siMfa" onsubmit="submitMfaCode(event)" novalidate hidden>
+      <div class="si-mfa-part" id="siMfaSetup" hidden>
+        <p class="si-note">Kiroku asks for a 6-digit code from your phone at every sign-in. Set it up once:</p>
+        <ol class="si-steps">
+          <li>Install <b>Google Authenticator</b> or <b>Microsoft Authenticator</b> on your phone.</li>
+          <li>In the app, tap <b>+</b> and scan this code.</li>
+          <li>Type the 6-digit code the app shows for Kiroku.</li>
+        </ol>
+        <img class="si-qr" id="siMfaQr" alt="QR code to scan with your authenticator app">
+        <p class="si-key">Can't scan? Enter this key in the app instead:<br><code id="siMfaSecret"></code></p>
+      </div>
+      <p class="si-note si-mfa-part" id="siMfaAsk" hidden>Open your authenticator app and type the 6-digit code for Kiroku.</p>
+      <label for="siCode">6-digit code</label>
+      <input id="siCode" class="si-code" name="one-time-code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]*" maxlength="6" required>
+      <button class="si-btn" id="siCodeBtn" type="submit">Continue</button>
+      <button class="si-link si-alt" type="button" onclick="cancelMfa()">Cancel and sign out</button>
     </form>
   </section>
 </div>
@@ -3827,14 +3851,16 @@ function clearKirokuBrowserData(){
 function showSignIn(view, alertText, noteText){
   document.getElementById('signin').hidden = false;
   document.getElementById('siCard').hidden = view==='wait';
-  document.getElementById('siTitle').textContent = view==='newpass' ? 'Set a new password' : 'Sign in to Kiroku';
+  document.getElementById('siTitle').textContent = view==='newpass' ? 'Set a new password' : view==='mfa' ? 'Two-step sign-in' : 'Sign in to Kiroku';
   document.getElementById('siForm').hidden = view!=='form';
   document.getElementById('siNewPass').hidden = view!=='newpass';
+  document.getElementById('siMfa').hidden = view!=='mfa';
   const n = document.getElementById('siNote'); n.hidden = !noteText; n.textContent = noteText||'';
   const a = document.getElementById('siAlert'); a.hidden = !alertText; a.textContent = alertText||'';
   if(alertText) a.focus();
   else if(view==='form') document.getElementById(document.getElementById('siEmail').value ? 'siPass' : 'siEmail').focus();
   else if(view==='newpass') document.getElementById('siPass2').focus();
+  else if(view==='mfa') document.getElementById('siCode').focus();
 }
 function togglePassword(btn, inputId){
   const input = document.getElementById(inputId), show = input.type==='password';
@@ -3928,6 +3954,8 @@ function openPasswordModal(){
       <input id="pwNew" type="password" autocomplete="new-password" minlength="12" required style="${inp}">
       <label for="pwNew2" style="${lbl}">Type the new password again</label>
       <input id="pwNew2" type="password" autocomplete="new-password" minlength="12" required style="${inp}">
+      <label for="pwCode" style="${lbl}">6-digit code from your authenticator app</label>
+      <input id="pwCode" inputmode="numeric" autocomplete="one-time-code" maxlength="6" required style="${inp}">
       <div id="pwMsg" role="alert" style="min-height:1.2em;margin-top:10px;font-size:0.8125rem;"></div>
       <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px;">
         <button id="pwCancel" class="act-btn" type="button">Cancel</button>
@@ -3940,15 +3968,18 @@ function openPasswordModal(){
     m.querySelector('form').onsubmit = submitPasswordChange;
   }
   dialogShown();
-  ['pwCur','pwNew','pwNew2'].forEach(id=>{ document.getElementById(id).value = ''; });
+  ['pwCur','pwNew','pwNew2','pwCode'].forEach(id=>{ document.getElementById(id).value = ''; });
   setPwMsg('');
   m.style.display = 'flex';
   document.getElementById('pwCur').focus();
 }
+let pwNeedsCode = false;   // the current password was checked, the 6-digit code not yet
 function closePasswordModal(){
   const m = document.getElementById('pwModal');
   if(!m || m.style.display==='none') return;
-  ['pwCur','pwNew','pwNew2'].forEach(id=>{ document.getElementById(id).value = ''; });
+  // Checking the password started a password-only session, which cannot read data: sign in again.
+  if(pwNeedsCode){ pwNeedsCode = false; signOut(''); return; }
+  ['pwCur','pwNew','pwNew2','pwCode'].forEach(id=>{ document.getElementById(id).value = ''; });
   m.style.display = 'none';
   dialogHidden();
 }
@@ -3960,21 +3991,35 @@ function setPwMsg(text, ok){
 async function submitPasswordChange(ev){
   ev.preventDefault();
   const cur = document.getElementById('pwCur'), nw = document.getElementById('pwNew'), nw2 = document.getElementById('pwNew2');
-  if(!cur.value){ setPwMsg('Enter your current password.'); cur.focus(); return; }
+  const codeEl = document.getElementById('pwCode'), code = codeEl.value.replace(/\s/g, '');
+  if(!pwNeedsCode && !cur.value){ setPwMsg('Enter your current password.'); cur.focus(); return; }
   if(nw.value.length < 12){ setPwMsg('The new password needs at least 12 characters.'); nw.focus(); return; }
   if(nw.value !== nw2.value){ setPwMsg('The two new passwords are not the same.'); nw2.focus(); return; }
-  if(nw.value === cur.value){ setPwMsg('Choose a password different from the current one.'); nw.focus(); return; }
+  if(!pwNeedsCode && nw.value === cur.value){ setPwMsg('Choose a password different from the current one.'); nw.focus(); return; }
+  if(!/^\d{6}$/.test(code)){ setPwMsg('Type the 6-digit code from your authenticator app.'); codeEl.focus(); return; }
   const btn = document.getElementById('pwSave');
   btn.disabled = true; btn.textContent = 'Saving…';
   try {
-    const {data:{user}} = await sbClient().auth.getUser();
-    if(!user || !user.email){ setPwMsg('Your session ended. Sign in again.'); return; }
-    const check = await sbClient().auth.signInWithPassword({email: user.email, password: cur.value});
-    if(check.error){
-      setPwMsg(/invalid/i.test(check.error.message||'') ? 'Your current password is not correct.' : signInMessage(check.error));
-      cur.value = ''; cur.focus(); return;
+    if(!pwNeedsCode){
+      const {data:{user}} = await sbClient().auth.getUser();
+      if(!user || !user.email){ setPwMsg('Your session ended. Sign in again.'); return; }
+      const check = await sbClient().auth.signInWithPassword({email: user.email, password: cur.value});
+      if(check.error){
+        setPwMsg(/invalid/i.test(check.error.message||'') ? 'Your current password is not correct.' : signInMessage(check.error));
+        cur.value = ''; cur.focus(); return;
+      }
+      pwNeedsCode = true;
     }
-    if(check.data && check.data.session) sessionToken = check.data.session.access_token;
+    // Back to two-step level with the code (the password check above started a password-only session).
+    const {data: list} = await sbClient().auth.mfa.listFactors();
+    const factor = ((list && list.totp) || []).find(f => f.status === 'verified');
+    if(factor){
+      const {error: codeError} = await sbClient().auth.mfa.challengeAndVerify({factorId: factor.id, code});
+      if(codeError){ setPwMsg('That code is not right or has expired. Type the code the app shows now.'); codeEl.value = ''; codeEl.focus(); return; }
+    }
+    pwNeedsCode = false;
+    const {data:{session: fresh}} = await sbClient().auth.getSession();
+    if(fresh) sessionToken = fresh.access_token;
     const {error} = await sbClient().auth.updateUser({password: nw.value});
     if(error){ setPwMsg(signInMessage(error)); return; }
     closePasswordModal();
@@ -3985,7 +4030,79 @@ async function submitPasswordChange(ev){
     btn.disabled = false; btn.textContent = 'Save new password';
   }
 }
+/* ---------- Two-step sign-in (MFA) ----------
+   After the password, a 6-digit code from an authenticator app (Google or Microsoft Authenticator). The first time,
+   Kiroku shows a QR code to scan. The database gives no data without the code (supabase/18_require_mfa.sql).
+   Lost phone: Admin removes the person's MFA factor in Supabase > Authentication > Users; they scan a new code. */
+let mfaPending = null;   // {factorId, resolve} while the code screen is up
+async function requireMfa(session){
+  const mfa = sbClient().auth.mfa;
+  const {data: level, error} = await mfa.getAuthenticatorAssuranceLevel();
+  if(error) throw error;
+  if(level.currentLevel === 'aal2') return session;
+  const {data: list, error: listError} = await mfa.listFactors();
+  if(listError) throw listError;
+  let factorId, setup = null;
+  const verified = (list.totp || []).find(f => f.status === 'verified');
+  if(verified) factorId = verified.id;
+  else {
+    // A set-up that was started but never finished is removed first, so the new QR code is the only one.
+    for(const f of (list.all || []).filter(f => f.factor_type === 'totp' && f.status !== 'verified')){
+      await mfa.unenroll({factorId: f.id});
+    }
+    const {data, error: enrollError} = await mfa.enroll({factorType: 'totp', friendlyName: 'Kiroku'});
+    if(enrollError) throw enrollError;
+    factorId = data.id;
+    setup = data.totp;
+  }
+  return new Promise(resolve => {
+    mfaPending = {factorId, resolve};
+    document.getElementById('siMfaSetup').hidden = !setup;
+    document.getElementById('siMfaAsk').hidden = !!setup;
+    if(setup){
+      document.getElementById('siMfaQr').src = setup.qr_code;
+      document.getElementById('siMfaSecret').textContent = setup.secret;
+    }
+    document.getElementById('siCode').value = '';
+    showSignIn('mfa');
+  });
+}
+async function submitMfaCode(ev){
+  ev.preventDefault();
+  if(!mfaPending) return;
+  const el = document.getElementById('siCode'), code = el.value.replace(/\s/g, '');
+  if(!/^\d{6}$/.test(code)){ showSignIn('mfa', 'Type the 6 digits your authenticator app shows.'); return; }
+  const btn = document.getElementById('siCodeBtn');
+  btn.disabled = true; btn.textContent = 'Checking…';
+  let error = null;
+  try { ({error} = await sbClient().auth.mfa.challengeAndVerify({factorId: mfaPending.factorId, code})); }
+  catch(e){ error = e; }
+  btn.disabled = false; btn.textContent = 'Continue';
+  if(error){
+    el.value = '';
+    showSignIn('mfa', /invalid|expired|code/i.test(error.message || '') ? 'That code is not right or has expired. Type the code the app shows now.' : signInMessage(error));
+    return;
+  }
+  const {data:{session}} = await sbClient().auth.getSession();
+  const pending = mfaPending;
+  mfaPending = null;
+  pending.resolve(session);
+}
+function cancelMfa(){
+  const pending = mfaPending;
+  mfaPending = null;
+  if(pending) pending.resolve(null);
+  signOut('');
+}
 async function startSession(session){
+  try { session = await requireMfa(session); }
+  catch(e){
+    console.warn('two-step sign-in failed:', e);
+    try { await sbClient().auth.signOut(); } catch(x){}
+    showSignIn('form', 'Could not finish the two-step sign-in. Sign in again.');
+    return;
+  }
+  if(!session) return;
   sessionToken = session.access_token;
   let me;
   try { me = await supaFetch('rpc/link_my_account', {method:'POST', body:'{}'}); }
