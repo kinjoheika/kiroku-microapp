@@ -1,13 +1,13 @@
 /**
- * Kiroku V4 — Job Order changes made in the app, written to the Google Sheets and Supabase.
- * Add this file to the same Apps Script project as Sync.gs (it uses SOURCES, masterlistId() and syncAll()).
+ * Kiroku V4 — Job Order changes made in the app, written to the Admin Masterlist and Supabase.
+ * Add this file to the same Apps Script project as Sync.gs (it uses masterlistId() and syncAll()).
  *
- * The sheets stay the source of truth: each change is made in the sheets first, the way a
- * hand edit would be, and syncAll() then carries it to Supabase and the other officers' sheets.
- *   create      JO row -> Admin Masterlist JobOrders, each task -> its owner's Tasks tab
- *   edit        JO row updated; when the deploy date moves, the owners' task due dates too
+ * The Admin Masterlist is the only Google Sheet. Each change is made there first, the way a
+ * hand edit would be, and syncAll() then carries it to Supabase and the website.
+ *   create      JO row -> JobOrders tab, its tasks -> Tasks tab
+ *   edit        JO row updated; when the deploy date moves, the task due dates too
  *   archive     active = FALSE      reactivate   active = TRUE
- *   delete      rows removed from every sheet, then from Supabase (the sync never deletes)
+ *   delete      rows removed from the sheet, then from Supabase (the sync never deletes)
  *
  * Setup: see supabase/SETUP.md ("Job Orders from the app").
  */
@@ -63,7 +63,7 @@ function signedInManager(accessToken) {
 const ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
 function isDate(v) { return /^\d{4}-\d{2}-\d{2}$/.test(String(v)) && !isNaN(new Date(v + 'T00:00:00').getTime()); }
 function checkJobOrderInput(data) {
-  const officers = ownerSources().map(src => src.owner);
+  const officers = docOfficerIds();
   if (data.jo_id !== undefined && !ID_RE.test(String(data.jo_id))) return 'Bad Job Order ID.';
   const jo = data.jo;
   if (jo) {
@@ -129,21 +129,20 @@ function createJobOrder(data) {
   };
   m.sheet.appendRow(m.head.map(h => sheetSafe(h in joRow ? joRow[h] : '')));
 
-  // Tasks go to their owner's sheet; the sync copies them into the Admin Masterlist.
-  const byOwner = {};
-  tasks.forEach(t => {
-    (byOwner[t.editor_id] = byOwner[t.editor_id] || []).push({
-      'Job Order No.': number, 'Track': t.track, 'Task Description': t.task_name, 'Due Date': t.due_date, 'Status': 'Pending',
+  // Tasks go to the Admin Masterlist's Tasks tab; the sync sends them to Supabase.
+  const names = officerNames();
+  const sh = adminTab('Tasks');
+  const head = headerOf(sh);
+  const rows = tasks.map(t => {
+    const r = {
+      'Job Order No.': number, 'Worker Name': joRow['Worker Name'], 'Track': t.track, 'Task Description': t.task_name,
+      'Due Date': t.due_date, 'Status': 'Pending', 'Assigned Officer': names[t.editor_id] || '',
       'task_id': joId + '-' + t.track + '-' + t.index, 'jo_id': joId, 'editor_id': t.editor_id,
       'order': t.order, 'offset_days': t.offset_days, 'done': false,
-    });
+    };
+    return head.map(h => (h in r ? r[h] : ''));
   });
-  Object.keys(byOwner).forEach(owner => {
-    const sh = officerTab(owner, 'Tasks');
-    const head = headerOf(sh);
-    const rows = byOwner[owner].map(r => head.map(h => (h in r ? r[h] : '')));
-    sh.getRange(sh.getLastRow() + 1, 1, rows.length, head.length).setValues(sheetSafeRows(rows));
-  });
+  sh.getRange(sh.getLastRow() + 1, 1, rows.length, head.length).setValues(sheetSafeRows(rows));
   return { ok: true, jo_id: joId };
 }
 
@@ -164,18 +163,16 @@ function editJobOrder(data) {
     'Work Category': jo.work_category || '', 'Program Type': jo.program_type || '',
   });
 
-  // New due dates, written in each task owner's sheet (the others are refreshed by the sync).
+  // New due dates, written in the Admin Masterlist's Tasks tab.
   const due = {};
   (data.due_changes || []).forEach(d => { due[d.task_id] = d.due_date; });
   if (Object.keys(due).length) {
-    ownerSources().forEach(src => {
-      const sh = officerTab(src.owner, 'Tasks');
-      const head = headerOf(sh);
-      const idCol = head.indexOf('task_id'), edCol = head.indexOf('editor_id'), dueCol = head.indexOf('Due Date');
-      sh.getDataRange().getValues().forEach((r, k) => {
-        const id = cellText(r[idCol]);
-        if (k > 0 && id in due && cellText(r[edCol]) === src.owner) sh.getRange(k + 1, dueCol + 1).setValue(due[id]);
-      });
+    const sh = adminTab('Tasks');
+    const head = headerOf(sh);
+    const idCol = head.indexOf('task_id'), dueCol = head.indexOf('Due Date');
+    sh.getDataRange().getValues().forEach((r, k) => {
+      const id = cellText(r[idCol]);
+      if (k > 0 && id in due) sh.getRange(k + 1, dueCol + 1).setValue(due[id]);
     });
   }
   return { ok: true, jo_id: jo.jo_id };
@@ -208,16 +205,10 @@ function deleteJobOrder(data) {
   const number = i >= 0 ? cellText(m.rows[i][m.col['Job Order No.']]) : joId;
   if (i >= 0) m.sheet.deleteRow(i + 2);
 
-  // Every sheet shows every task, so the rows go from all of them, and their sync state with them.
+  // Its task rows go from the sheet, and their sync state with them.
   const adminTasks = SpreadsheetApp.openById(masterlistId()).getSheetByName('Tasks');
-  if (adminTasks) deleteRowsWhere(adminTasks, 'jo_id', v => v === joId);
+  const taskRows = adminTasks ? deleteRowsWhere(adminTasks, 'jo_id', v => v === joId) : 0;
   const prefix = joId + '-';
-  let taskRows = 0;
-  ownerSources().forEach(src => {
-    taskRows += deleteRowsWhere(officerTab(src.owner, 'Tasks'), 'jo_id', v => v === joId);
-    const act = SpreadsheetApp.openById(props.getProperty(src.idProp)).getSheetByName('Activity');
-    if (act) deleteRowsWhere(act, 'task_id', v => v.indexOf(prefix) === 0);
-  });
 
   UrlFetchApp.fetch(url + '/rest/v1/sheet_sync_state?task_id=like.' + encodeURIComponent(prefix + '*'), {
     method: 'delete', headers: headers, muteHttpExceptions: true,
@@ -252,17 +243,25 @@ function masterlistJobOrders() {
   return { sheet: sheet, head: head, col: col, rows: values.slice(1) };
 }
 
-function ownerSources() {
-  return SOURCES.filter(s => s.owner);
+function adminTab(tab) {
+  const sh = SpreadsheetApp.openById(masterlistId()).getSheetByName(tab);
+  if (!sh) throw new Error('Tab "' + tab + '" not found in the Admin Masterlist');
+  return sh;
 }
 
-function officerTab(owner, tab) {
-  const src = SOURCES.find(s => s.owner === owner);
-  const sheetId = src && PropertiesService.getScriptProperties().getProperty(src.idProp);
-  if (!sheetId) throw new Error('No sheet for officer ' + owner);
-  const sh = SpreadsheetApp.openById(sheetId).getSheetByName(tab);
-  if (!sh) throw new Error('Tab "' + tab + '" not found for officer ' + owner);
-  return sh;
+// { user_id: name } of every Doc Officer, from Supabase.
+function officerNames() {
+  const props = PropertiesService.getScriptProperties();
+  const url = props.getProperty('SUPABASE_URL');
+  const key = props.getProperty('SUPABASE_SERVICE_KEY');
+  const out = {};
+  supabaseJson(url + '/rest/v1/users?select=user_id,name&role=eq.Doc%20Officer', { apikey: key, Authorization: 'Bearer ' + key })
+    .forEach(u => { out[u.user_id] = u.name; });
+  return out;
+}
+
+function docOfficerIds() {
+  return Object.keys(officerNames());
 }
 
 function headerOf(sh) {

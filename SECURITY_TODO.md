@@ -2,6 +2,9 @@
 
 Updated 2026-11-09. Work top to bottom. The first three are **urgent**: each one alone is a way into Kiroku.
 
+**Plan change 2026-11-11: no Google Sheets.** Follow `supabase/SETUP.md`, "No Google Sheets: Kiroku only". It
+**deletes** the secret key instead of replacing it (item 1), and makes items 4 and 6 (Apps Script) unnecessary.
+
 **Already done and verified on live:**
 * database locked (160/160 tests passed)
 * sign-up off

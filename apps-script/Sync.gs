@@ -1,44 +1,37 @@
 /**
- * Kiroku V4 sync — five Google Sheets and Supabase, kept in step every 5 minutes.
- *   Admin Masterlist <-> Supabase <-> 4 Doc Officer sheets, and Supabase <-> the Kiroku website.
+ * Kiroku V4 sync — one Google Sheet (the Admin Masterlist) and Supabase, kept in step every 5 minutes.
+ *   Admin Masterlist <-> Supabase <-> the Kiroku website.
  * Paste this file into one Apps Script project (Extensions > Apps Script). Setup: supabase/SETUP.md.
  *
  * Secrets and sheet IDs go in Project Settings > Script Properties, never in this file:
  *   SUPABASE_URL          https://<project-ref>.supabase.co
  *   SUPABASE_SERVICE_KEY  the service_role key (server-side only; bypasses row security)
  *   ADMIN_SHEET_ID        the Admin Masterlist's sheet ID (from the sheet URL)
- *   SHEET_ID_1 .. SHEET_ID_4   the Doc Officer 1..4 sheet IDs
  *
  * Who edits what:
- *   - the Admin Masterlist has every tab: Users, Kumiai, Companies, JobOrders (it alone sends these)
- *     and all Tasks, editable
- *   - each Doc Officer sheet holds and edits only the Tasks it owns
- *   - both directions for Tasks go through syncTasks, which also decides conflicts
+ *   - the Admin Masterlist is the only Google Sheet, and only the Admin uses it. It has every tab:
+ *     Users, Kumiai, Companies, JobOrders and all Tasks, editable
+ *   - Doc Officers and the CEO have no sheet: they work in the Kiroku website, which saves to Supabase
+ *   - both directions for Tasks go through syncTasks, which also decides conflicts (Admin wins)
  * People see everyday columns (Job Order No., Worker Name, Track, Task Description, Due Date, Status, Remarks,
- * and Assigned Officer on the Admin sheet). Technical columns stay in the same tab, hidden and locked; see
- * COLUMN_FIELD and SHARED_COLUMNS. The CEO has no sheet.
- * Activity: Supabase activity_logs is the one list. New rows typed into a sheet's Activity tab
- * are added to it, then every Activity tab is rewritten from it (see syncActivityTabs).
- * Event logs: Supabase is the real log. The Admin Masterlist's Event Log tab is a read-only copy;
- * the Doc Officer sheets have none.
+ * Assigned Officer). Technical columns stay in the same tab, hidden and locked; see COLUMN_FIELD and SHARED_COLUMNS.
+ * Activity: Supabase activity_logs is the one list. New rows typed into the Activity tab
+ * are added to it, then the tab is rewritten from it (see syncActivityTabs).
+ * Event logs: Supabase is the real log. The Admin Masterlist's Event Log tab is a read-only copy.
+ * New, empty sheet: setupFreshAdminSheet() first (fills it from Supabase).
  * Run setupFriendlySheets() once, previewTaskSync() to see what a sync would change, then syncAll(),
  * then installTrigger() to run scheduledSync() every 5 minutes.
  */
 
 const SHARED_TABS = { Users: 'users', Kumiai: 'kumiai', Companies: 'companies', JobOrders: 'job_orders' };
 
-// The old masterlist. Read only by setupAdminSheet(), to copy its data once. Nothing else uses it.
+// The old masterlist. Nothing reads it any more; setupFreshAdminSheet() only refuses to write into it.
 const OLD_MASTERLIST_ID = '1OcjPALavuFbnMdhoTTRtqppKyK94CIDCWord2Gqi6OA';
 const ADMIN_USER_ID = 'u6';
 
-// The Admin Masterlist goes first: tasks point at job orders, which must already exist.
-// owner = the editor_id whose tasks this sheet may change.
+// The one Google Sheet. The Doc Officer sheets (SHEET_ID_1..4) are no longer used.
 const SOURCES = [
-  { key: 'admin',         idProp: 'ADMIN_SHEET_ID', tabs: SHARED_TABS, activityUser: ADMIN_USER_ID },
-  { key: 'doc-officer-1', idProp: 'SHEET_ID_1', owner: 'u1' },
-  { key: 'doc-officer-2', idProp: 'SHEET_ID_2', owner: 'u2' },
-  { key: 'doc-officer-3', idProp: 'SHEET_ID_3', owner: 'u3' },
-  { key: 'doc-officer-4', idProp: 'SHEET_ID_4', owner: 'u4' },
+  { key: 'admin', idProp: 'ADMIN_SHEET_ID', tabs: SHARED_TABS, activityUser: ADMIN_USER_ID },
 ];
 
 function masterlistId() {
@@ -99,8 +92,6 @@ function previewTaskSync() {
   const props = PropertiesService.getScriptProperties();
   const url = props.getProperty('SUPABASE_URL');
   const key = props.getProperty('SUPABASE_SERVICE_KEY');
-  const ownerKeys = {};
-  SOURCES.filter(src => src.owner).forEach(src => { ownerKeys[src.owner] = src.key; });
   const ctx = readTaskContext(url, key);
   const agreed = readAgreedTasks(url, key, ctx);
   const baselines = readBaselines(url, key);
@@ -108,7 +99,7 @@ function previewTaskSync() {
   taskSources(props).forEach(src => {
     rowsByKey[src.key] = readTaskSheet(props.getProperty(src.idProp), ctx, src, true).rows;
   });
-  const m = mergeTasks(agreed, baselines, rowsByKey, ownerKeys);
+  const m = mergeTasks(agreed, baselines, rowsByKey);
   const lines = [];
   Object.keys(m.changes).forEach(source => m.changes[source].forEach(id => {
     const before = agreed[id] || {};
@@ -122,22 +113,17 @@ function previewTaskSync() {
 }
 
 // ---------------------------------------------------------------- Tasks: two-way sync
-// A task can be edited in two sheets (the Admin Masterlist and its owner's sheet) and in Kiroku.
-// Supabase holds the agreed value. sheet_sync_state holds, per sheet, the values that sheet had
-// after the last sync, so a cell that differs from them was edited there since then, and a Supabase
-// value that differs from them was changed in Kiroku since then. That is what stops loops: a value
-// the sync itself wrote is never mistaken for someone's edit. For one field:
-//   Admin sheet edited     -> Admin's value goes everywhere
-//   Kiroku changed it, and the owner's sheet changed it too -> Kiroku's stays
-//   only the owner's sheet edited -> the owner's value goes everywhere
-//   nobody edited          -> Supabase's value goes to every sheet
-// A value that loses is kept in event_logs and noted on the cell, never dropped silently.
-// A Doc Officer's sheet can change only their own tasks, and only OWNER_FIELDS on them. This check
-// runs here, so unhiding a column or editing another officer's row changes nothing.
-// A row removed from a sheet is put back: Job Orders are deleted from the app, not by removing rows.
+// A task can be edited in the Admin Masterlist and in Kiroku. Supabase holds the agreed value.
+// sheet_sync_state holds the values the Admin sheet had after the last sync, so a cell that differs
+// from them was edited there since then. That is what stops loops: a value the sync itself wrote is
+// never mistaken for someone's edit. For one field:
+//   Admin sheet edited -> Admin's value goes to Supabase and Kiroku
+//   not edited         -> Supabase's value (which Kiroku may have changed) goes to the sheet
+// When Kiroku and the Admin sheet both changed a field, Admin's value stays and Kiroku's is kept
+// in event_logs, never dropped silently.
+// A row removed from the sheet is put back: Job Orders are deleted from the app, not by removing rows.
 const TASK_FIELDS = ['jo_id', 'track', 'task_name', 'sort_order', 'offset_days', 'editor_id', 'due_date', 'status', 'remarks'];
 const REQUIRED_TASK_FIELDS = ['jo_id', 'track', 'task_name', 'sort_order', 'offset_days', 'due_date', 'status'];
-const OWNER_FIELDS = ['task_name', 'due_date', 'status', 'remarks'];
 const TASK_STATUSES = ['Pending', 'In Progress', 'Completed'];
 const TASK_TRACKS = ['TIO', 'OTIT', 'COE'];
 const ADMIN_KEY = 'admin';
@@ -170,74 +156,50 @@ const WORK_CATEGORIES = ['Construction', 'Caregiving', 'Manufacturing', 'Agricul
 const PROGRAM_TYPES = ['SSW1', 'SSW2', 'TITP1', 'TITP2', 'TITP3'];
 
 // Pure, so it can be tested without Google Sheets. Every value is text (see asText).
-//   supabase  { task_id: row }                 baselines { sheetKey: { task_id: row } }
-//   sheets    { sheetKey: { task_id: row } }   ownerKeys { editor_id: sheetKey }
-// Returns final { task_id: row }, changes { sheetKey: [task_id] } (what to send to Supabase,
-// by the sheet it came from), conflicts and rejected (new rows missing a required field).
-function mergeTasks(supabase, baselines, sheets, ownerKeys) {
+//   supabase  { task_id: row }   baselines { admin: { task_id: row } }   sheets { admin: { task_id: row } }
+// Returns final { task_id: row }, changes { admin: [task_id] } (what to send to Supabase),
+// conflicts and rejected (new rows missing a required field).
+function mergeTasks(supabase, baselines, sheets) {
   const final = {}, changes = {}, conflicts = [], rejected = [];
   const admin = sheets[ADMIN_KEY] || {};
   const ids = {};
   Object.keys(supabase).forEach(id => { ids[id] = true; });
   Object.keys(admin).forEach(id => { ids[id] = true; });
-  // An officer can add a new task only for themselves.
-  Object.keys(ownerKeys).forEach(owner => {
-    const rows = sheets[ownerKeys[owner]] || {};
-    Object.keys(rows).forEach(id => { if (supabase[id] || rows[id].editor_id === owner) ids[id] = true; });
-  });
+  const changed = id => (changes[ADMIN_KEY] = changes[ADMIN_KEY] || []).push(id);
 
   Object.keys(ids).forEach(id => {
     const agreed = supabase[id];
     const a = admin[id];
-    const ownerKey = agreed ? ownerKeys[agreed.editor_id]
-      : Object.keys(ownerKeys).map(o => ownerKeys[o]).find(k => sheets[k] && sheets[k][id] &&
-          ownerKeys[sheets[k][id].editor_id] === k);
-    const o = ownerKey && sheets[ownerKey] ? sheets[ownerKey][id] : undefined;
 
     if (!agreed) {
-      const from = a || o;
       const row = {};
-      TASK_FIELDS.forEach(f => { row[f] = from[f] === undefined ? '' : from[f]; });
-      const key = a ? ADMIN_KEY : ownerKey;
-      if (REQUIRED_TASK_FIELDS.some(f => row[f] === '')) { rejected.push({ task_id: id, source: key }); return; }
+      TASK_FIELDS.forEach(f => { row[f] = a[f] === undefined ? '' : a[f]; });
+      if (REQUIRED_TASK_FIELDS.some(f => row[f] === '')) { rejected.push({ task_id: id, source: ADMIN_KEY }); return; }
       final[id] = row;
-      (changes[key] = changes[key] || []).push(id);
+      changed(id);
       return;
     }
 
-    const before = (key, f) => {
-      const b = baselines[key] && baselines[key][id];
+    const before = f => {
+      const b = baselines[ADMIN_KEY] && baselines[ADMIN_KEY][id];
       return b && f in b ? b[f] : agreed[f];
     };
     const row = {};
-    let fromAdmin = false, fromOwner = false;
+    let fromAdmin = false;
     TASK_FIELDS.forEach(f => {
       row[f] = agreed[f];
       const blankBad = v => v === '' && REQUIRED_TASK_FIELDS.indexOf(f) >= 0;
-      const ownerEdit = o && OWNER_FIELDS.indexOf(f) >= 0 && f in o && o[f] !== before(ownerKey, f) && !blankBad(o[f]);
-      const adminEdit = a && f in a && a[f] !== before(ADMIN_KEY, f) && !blankBad(a[f]);
-      // Changed in Kiroku since this sheet was last in step, and the sheet was edited too.
-      const kirokuEdit = ownerEdit && agreed[f] !== before(ownerKey, f);
-      if (adminEdit) {
-        if (ownerEdit && o[f] !== a[f]) {
-          conflicts.push({ task_id: id, field: f, kept: a[f], lost: o[f], source: ownerKey, by: 'Admin' });
-        }
-        row[f] = a[f];
-        if (row[f] !== agreed[f]) fromAdmin = true;
-      } else if (kirokuEdit) {
-        if (o[f] !== agreed[f]) {
-          conflicts.push({ task_id: id, field: f, kept: agreed[f], lost: o[f], source: ownerKey, by: 'Kiroku' });
-        }
-      } else if (ownerEdit) {
-        row[f] = o[f];
-        if (row[f] !== agreed[f]) fromOwner = true;
+      const adminEdit = a && f in a && a[f] !== before(f) && !blankBad(a[f]);
+      if (!adminEdit) return;
+      // Kiroku changed it too since the last sync: Admin's value stays, Kiroku's goes to event_logs.
+      if (agreed[f] !== before(f) && agreed[f] !== a[f]) {
+        conflicts.push({ task_id: id, field: f, kept: a[f], lost: agreed[f], source: 'kiroku', by: 'Admin' });
       }
+      row[f] = a[f];
+      if (row[f] !== agreed[f]) fromAdmin = true;
     });
     final[id] = row;
-    if (fromAdmin || fromOwner) {
-      const key = fromAdmin ? ADMIN_KEY : ownerKey;
-      (changes[key] = changes[key] || []).push(id);
-    }
+    if (fromAdmin) changed(id);
   });
   return { final: final, changes: changes, conflicts: conflicts, rejected: rejected };
 }
@@ -261,7 +223,7 @@ function readAllRows(url, key, path) {
 }
 
 function taskSources(props) {
-  return SOURCES.filter(src => (src.owner || src.key === ADMIN_KEY) && props.getProperty(src.idProp));
+  return SOURCES.filter(src => src.key === ADMIN_KEY && props.getProperty(src.idProp));
 }
 
 // Names and numbers people see, and the IDs behind them.
@@ -339,12 +301,8 @@ function readTaskSheet(sheetId, ctx, src, dryRun) {
     else if (due) problems.push('Due Date is not a date');
     const jo = ctx.numberToJo[shown('Job Order No.')];
     if (jo) r.jo_id = jo; else if (shown('Job Order No.')) problems.push('Job Order No. ' + shown('Job Order No.') + ' is not in the Masterlist');
-    if (src.owner) {
-      r.editor_id = src.owner;
-    } else {
-      const ed = ctx.nameToId[shown('Assigned Officer')];
-      if (ed) r.editor_id = ed; else problems.push('Assigned Officer must be a Doc Officer');
-    }
+    const ed = ctx.nameToId[shown('Assigned Officer')];
+    if (ed) r.editor_id = ed; else problems.push('Assigned Officer must be a Doc Officer');
 
     let id = shown('task_id');
     if (!id) {
@@ -415,21 +373,19 @@ function taskRowForSupabase(row, id) {
 
 function syncTasks(url, key, props) {
   const sources = taskSources(props);
-  const ownerKeys = {};
-  SOURCES.filter(src => src.owner).forEach(src => { ownerKeys[src.owner] = src.key; });
 
   const ctx = readTaskContext(url, key);
   const agreed = readAgreedTasks(url, key, ctx);
   const baselines = readBaselines(url, key);
 
-  // Read every sheet before anything is written, so all of them are compared with the same state.
+  // Read the sheet before anything is written.
   const read = {}, rowsByKey = {};
   sources.forEach(src => {
     read[src.key] = readTaskSheet(props.getProperty(src.idProp), ctx, src, false);
     rowsByKey[src.key] = read[src.key].rows;
   });
 
-  const merged = mergeTasks(agreed, baselines, rowsByKey, ownerKeys);
+  const merged = mergeTasks(agreed, baselines, rowsByKey);
   merged.rejected.forEach(r => Logger.log(r.source + ': task ' + r.task_id + ' is missing a required field; not added'));
 
   // Supabase first: if this fails nothing else changes, and the next run tries again.
@@ -458,19 +414,13 @@ function syncTasks(url, key, props) {
     // A sheet that could not be written keeps its old baseline, so the next run writes it again.
     try {
       writeTaskSheet(read[src.key], merged.final, doneState, ctx, src);
-      saveBaselines(url, key, src.key, src.owner ? ownRows(merged.final, src.owner) : merged.final, baselines[src.key] || {});
+      saveBaselines(url, key, src.key, merged.final, baselines[src.key] || {});
     } catch (e) {
       logSyncFailure(url, key, src.key, 'Could not write the Tasks tab: ' + e);
       Logger.log(src.key + ': could not write the Tasks tab: ' + e);
     }
   });
   writeAssignedOfficers(props, merged.final, ctx.idToName);
-}
-
-function ownRows(final, owner) {
-  const out = {};
-  Object.keys(final).forEach(id => { if (final[id].editor_id === owner) out[id] = final[id]; });
-  return out;
 }
 
 // The value of one column for one task, as it should appear in the sheet.
@@ -486,17 +436,13 @@ function taskCellValue(h, id, row, doneState, ctx) {
   return f ? row[f] : undefined;
 }
 
-// A Doc Officer's sheet holds their own tasks; the Admin Masterlist holds all of them.
-// Writes only the cells that differ, adds the rows the sheet is missing, and removes rows
-// that now belong to another officer (the task itself stays in Supabase and their sheet).
+// The Admin Masterlist holds every task. Writes only the cells that differ and adds the rows the sheet is missing.
 function writeTaskSheet(s, final, doneState, ctx, src) {
   const head = s.head;
-  const wanted = src.owner ? ownRows(final, src.owner) : final;
   let changed = 0;
-  const added = [], remove = [];
-  Object.keys(s.rowNum).forEach(id => { if (!(id in wanted) && id in final) remove.push(s.rowNum[id] + 1); });
-  Object.keys(wanted).sort().forEach(id => {
-    const row = wanted[id];
+  const added = [];
+  Object.keys(final).sort().forEach(id => {
+    const row = final[id];
     const i = s.rowNum[id];
     if (i === undefined) {
       added.push(head.map(h => {
@@ -517,9 +463,8 @@ function writeTaskSheet(s, final, doneState, ctx, src) {
     });
   });
   if (added.length) s.sh.getRange(s.values.length + 1, 1, added.length, head.length).setValues(sheetSafeRows(added));
-  remove.sort((a, b) => b - a).forEach(r => s.sh.deleteRow(r));
   setJobOrderDropdown(s.sh, head, ctx);
-  Logger.log(src.key + ': wrote ' + changed + ' cells, added ' + added.length + ', moved away ' + remove.length);
+  Logger.log(src.key + ': wrote ' + changed + ' cells, added ' + added.length);
 }
 
 function setJobOrderDropdown(sh, head, ctx) {
@@ -552,7 +497,7 @@ function logTaskConflict(url, key, c) {
       payload: JSON.stringify({
         event_type: 'Record Updated', source: 'Google Sheets', action: 'Conflict', module: 'Tasks',
         record_id: c.task_id, field_changed: c.field, old_value: c.lost, new_value: c.kept,
-        description: c.by + ' and ' + c.source + ' both changed this field; ' + c.by + '\'s value was kept',
+        description: c.by + ' and ' + eventSheetName(c.source) + ' both changed this field; ' + c.by + '\'s value was kept',
         source_sheet: c.source,
       }),
       muteHttpExceptions: true,
@@ -562,7 +507,7 @@ function logTaskConflict(url, key, c) {
   }
 }
 
-// Tells the officer, on the cell, that their value was replaced and what it was.
+// Notes on the sheet cell that a value was replaced, and what it was. Kiroku has no cell, so nothing is noted.
 function noteConflict(s, c) {
   if (!s) return;
   const i = s.rowNum[c.task_id];
@@ -673,7 +618,7 @@ function resolveSharedRows(sheetId, payload) {
 
 // ---------------------------------------------------------------- Friendly Tasks tabs
 // Run once, before the first sync of this version, then again whenever the layout looks wrong.
-// Changes the Tasks tab of all five sheets to the friendly columns. First it copies each tab to a
+// Changes the Admin Masterlist's Tasks tab to the friendly columns. First it copies each tab to a
 // hidden "Backup Tasks <date>" tab, so nothing can be lost. Technical columns stay, hidden and locked.
 // Unsynced edits in the sheets are kept: the first sync picks them up as usual.
 function setupFriendlySheets() {
@@ -698,11 +643,7 @@ function setupFriendlySheets() {
       } else if (sh.getLastRow() === 0) {
         sh.getRange(1, 1, 1, VISIBLE_COLUMNS.length + HIDDEN_COLUMNS.length).setValues([VISIBLE_COLUMNS.concat(HIDDEN_COLUMNS)]);
       }
-      formatTasksTab(sh, ctx, src);
-      if (src.owner) {
-        const activity = ss.getSheetByName(ACTIVITY_TAB);
-        if (activity) activity.hideSheet();
-      }
+      formatTasksTab(sh, ctx);
       Logger.log(src.key + ': Tasks tab ready' + (legacy ? ' (converted, backup kept)' : ''));
     });
   } finally {
@@ -818,7 +759,6 @@ function convertTasksTab(ss, sh, agreed, ctx, src) {
     const id = cellText2(get(row, 'task_id'));
     if (!id) return;
     const editor = cellText2(get(row, 'editor_id'));
-    if (src.owner && editor !== src.owner) return;
     const done = asText(get(row, 'done'), 'done') === 'TRUE';
     // Keep In Progress set in Kiroku: the old tab can only say done or not done.
     const known = agreed[id];
@@ -843,7 +783,7 @@ function convertTasksTab(ss, sh, agreed, ctx, src) {
   sh.getRange(1, 1, rows.length + 1, head.length).setValues([head].concat(rows));
 }
 
-function formatTasksTab(sh, ctx, src) {
+function formatTasksTab(sh, ctx) {
   const head = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0].map(h => String(h).trim());
   const col = name => head.indexOf(name) + 1;
   if (sh.getMaxRows() < 1000) sh.insertRowsAfter(sh.getMaxRows(), 1000 - sh.getMaxRows());
@@ -886,10 +826,8 @@ function formatTasksTab(sh, ctx, src) {
 
   const firstHidden = col(HIDDEN_COLUMNS[0]);
   sh.hideColumns(firstHidden, head.length - firstHidden + 1);
-  // Everything on an officer's own sheet is theirs, so Assigned Officer would only repeat their name.
-  if (src.owner) sh.hideColumns(col('Assigned Officer'), 1);
 
-  // Locks: the header, technical columns and Worker Name for everyone, Assigned Officer for Doc Officers.
+  // Locks: the header, technical columns and Worker Name.
   // The sync ignores edits to these anyway; this just stops them being made by accident.
   sh.getProtections(SpreadsheetApp.ProtectionType.RANGE).forEach(p => { if (p.getDescription() === 'Kiroku') p.remove(); });
   const lock = range => {
@@ -900,15 +838,13 @@ function formatTasksTab(sh, ctx, src) {
   lock(sh.getRange(1, 1, 1, head.length));
   lock(sh.getRange(2, firstHidden, rows, head.length - firstHidden + 1));
   lock(column('Worker Name'));
-  if (src.owner) lock(column('Assigned Officer'));
 }
 
 // ---------------------------------------------------------------- Activity tabs
-// Each Doc Officer sheet's Activity tab is a copy of that officer's own rows in Supabase
-// activity_logs (user_id = the sheet's owner), newest first. The Admin Masterlist's has everyone's.
-//   1. Rows typed into the tab (activity_id blank) are added to activity_logs as the sheet's
-//      owner (or Admin), through import_sheet_activity() (supabase/09_merge_activity.sql).
-//   2. The tab is rewritten from activity_logs: every action the officer took, in the app or the sheet.
+// The Admin Masterlist's Activity tab is a copy of every row in Supabase activity_logs, newest first.
+//   1. Rows typed into the tab (activity_id blank) are added to activity_logs as Admin,
+//      through import_sheet_activity() (supabase/09_merge_activity.sql).
+//   2. The tab is rewritten from activity_logs: every action anyone took, in the app or the sheet.
 // A typed row Supabase refuses (unknown task_id, action_type, date) is kept at the bottom in red.
 // Edits to rows that have an activity_id are overwritten: activity_logs rows are permanent.
 // Never throws: a failed copy must not stop the sync.
@@ -923,7 +859,7 @@ const ACTIVITY_NOTE = 'This sheet\'s actions, copied from Supabase activity_logs
   'Rows with an activity_id cannot be changed: edits to them are put back.';
 
 function syncActivityTabs(url, key, props) {
-  const sheets = SOURCES.filter(src => (src.owner || src.activityUser) && props.getProperty(src.idProp))
+  const sheets = SOURCES.filter(src => src.activityUser && props.getProperty(src.idProp))
     .map(src => ({ src: src, sheetId: props.getProperty(src.idProp), keep: [] }));
 
   sheets.forEach(s => {
@@ -937,7 +873,7 @@ function syncActivityTabs(url, key, props) {
 
   // A sheet whose typed rows could not be sent is left as it is, so those rows are not lost.
   sheets.filter(s => !s.failed).forEach(s => {
-    try { writeActivityTab(s.sheetId, s.src.owner ? logs.filter(r => r.user_id === s.src.owner) : logs, s.keep); }
+    try { writeActivityTab(s.sheetId, logs, s.keep); }
     catch (e) { Logger.log(s.src.key + ': could not write the Activity tab: ' + e); }
   });
 }
@@ -973,7 +909,7 @@ function importTypedActivity(url, key, src, sheetId) {
     method: 'post',
     contentType: 'application/json',
     headers: { apikey: key, Authorization: 'Bearer ' + key },
-    payload: JSON.stringify({ p_source: src.key, p_user: src.owner || src.activityUser, p_rows: typed }),
+    payload: JSON.stringify({ p_source: src.key, p_user: src.activityUser, p_rows: typed }),
     muteHttpExceptions: true,
   });
   if (res.getResponseCode() >= 300) throw new Error(res.getContentText());
@@ -1096,7 +1032,7 @@ const EVENT_FIELD_NAMES = {
   'Company Id': 'Company', 'Kumiai Id': 'Kumiai',
 };
 
-// "doc-officer-2" -> "Doc Officer 2"
+// "doc-officer-2" -> "Doc Officer 2" (older log rows still name the old officer sheets)
 function eventSheetName(key) {
   if (!key) return '';
   if (key === 'admin') return 'Admin';
@@ -1251,79 +1187,92 @@ function installTrigger() {
   ScriptApp.newTrigger('scheduledSync').timeBased().everyMinutes(5).create();
 }
 
-// One-time cleanup: each Doc Officer sheet keeps only the tabs it uses (Tasks, Activity).
-// The shared tabs live in the Admin Masterlist. Run it once by hand.
-// Deleted tabs can be restored from File > Version history.
-const UNUSED_OFFICER_TABS = Object.keys(SHARED_TABS).concat(['Event Log']);
-
-function removeUnusedTabs() {
-  const props = PropertiesService.getScriptProperties();
-  SOURCES.filter(src => src.owner).forEach(src => {
-    const sheetId = props.getProperty(src.idProp);
-    if (!sheetId) return;
-    const ss = SpreadsheetApp.openById(sheetId);
-    UNUSED_OFFICER_TABS.forEach(tab => {
-      const sh = ss.getSheetByName(tab);
-      if (sh) {
-        ss.deleteSheet(sh);
-        Logger.log(src.key + ': deleted tab ' + tab);
-      }
-    });
-  });
-}
-
-// One-time setup: fills the Admin Masterlist from the old masterlist and Supabase, so it holds
-// every record before the sync starts using it. The old masterlist is only read, never changed.
-// Refuses to touch a tab that already has rows, so it cannot overwrite the Admin's data.
-function setupAdminSheet() {
+// One-time setup of a NEW, empty Admin Masterlist, filled from Supabase (which holds every record,
+// including everything entered in Kiroku). Supabase is only read. Tabs are written in the everyday layout,
+// so setupFriendlySheets() afterwards only formats them. Stops, changing nothing, if any of these tabs
+// already has content, so it can never overwrite a sheet in use.
+// Steps: supabase/SETUP.md, "A fresh, clean Admin Masterlist".
+function setupFreshAdminSheet() {
   const props = PropertiesService.getScriptProperties();
   const url = props.getProperty('SUPABASE_URL');
   const key = props.getProperty('SUPABASE_SERVICE_KEY');
+  if (!url || !key) throw new Error('Set SUPABASE_URL and SUPABASE_SERVICE_KEY in Script Properties.');
   const adminId = masterlistId();
-  if (adminId === OLD_MASTERLIST_ID) throw new Error('ADMIN_SHEET_ID is the old masterlist. Give the Admin\'s sheet.');
+  if (adminId === OLD_MASTERLIST_ID) throw new Error('ADMIN_SHEET_ID is the old masterlist. Give the new, empty sheet.');
 
-  const admin = SpreadsheetApp.openById(adminId);
-  const old = SpreadsheetApp.openById(OLD_MASTERLIST_ID);
-  const emptyTab = name => {
-    const sh = admin.getSheetByName(name) || admin.insertSheet(name);
-    if (sh.getLastRow() > 1) throw new Error('Tab "' + name + '" in the Admin sheet already has rows. Nothing was changed there.');
-    return sh;
+  const ss = SpreadsheetApp.openById(adminId);
+  const tabs = ['Users', 'Kumiai', 'Companies', 'JobOrders', 'Tasks', ACTIVITY_TAB, EVENT_LOG_TAB];
+  tabs.forEach(name => {
+    const sh = ss.getSheetByName(name);
+    if (sh && sh.getLastRow() > 0) throw new Error('Tab "' + name + '" already has content. This is for a new, empty sheet. Nothing was changed.');
+  });
+  ss.setSpreadsheetTimeZone(TZ);
+
+  const rows = path => readAllRows(url, key, path);
+  const text = v => (v === null || v === undefined) ? '' : String(v);
+  const day = v => v ? Utilities.parseDate(String(v).slice(0, 10), TZ, 'yyyy-MM-dd') : '';
+  const users = rows('users?select=user_id,name,role,email&order=user_id');
+  const kumiai = rows('kumiai?select=kumiai_id,name&order=kumiai_id');
+  const companies = rows('companies?select=company_id,name,kumiai_id&order=company_id');
+  const jobs = rows('job_orders?select=jo_id,jo_number,worker_name,company_id,target_deployment_date,work_category,program_type,active&order=jo_id');
+  const kumiaiName = {}, companyName = {};
+  kumiai.forEach(k => { kumiaiName[k.kumiai_id] = k.name; });
+  companies.forEach(c => { companyName[c.company_id] = c.name; });
+
+  // Tab -> [header, rows as { header: value }, columns that are NOT plain text]
+  const content = {
+    Users: [users.map(u => ({ 'Name': text(u.name), 'Role': text(u.role), 'Email': text(u.email), 'user_id': text(u.user_id) })), []],
+    Kumiai: [kumiai.map(k => ({ 'Kumiai': text(k.name), 'kumiai_id': text(k.kumiai_id) })), []],
+    Companies: [companies.map(c => ({ 'Company': text(c.name), 'Kumiai': text(kumiaiName[c.kumiai_id]),
+      'company_id': text(c.company_id), 'kumiai_id': text(c.kumiai_id) })), []],
+    JobOrders: [jobs.map(j => ({ 'Job Order No.': text(j.jo_number), 'Worker Name': text(j.worker_name),
+      'Company': text(companyName[j.company_id]), 'Target Deployment Date': day(j.target_deployment_date),
+      'Work Category': text(j.work_category), 'Program Type': text(j.program_type), 'Active': j.active !== false,
+      'Assigned Officers': '', 'jo_id': text(j.jo_id), 'company_id': text(j.company_id) })),
+      ['Target Deployment Date', 'Active']],
   };
-  ['Users', 'Kumiai', 'Companies', 'JobOrders', 'Tasks'].forEach(name => {
-    const sh = admin.getSheetByName(name);
-    if (sh && sh.getLastRow() > 1) throw new Error('Tab "' + name + '" in the Admin sheet already has rows. Nothing was copied.');
-  });
-  admin.setSpreadsheetTimeZone(TZ);
-
-  Object.keys(SHARED_TABS).forEach(name => {
-    const values = old.getSheetByName(name).getDataRange().getValues();
-    const head = values[0].map(h => String(h).trim());
-    if (name === 'Users' && head.indexOf('email') < 0) {
-      values.forEach((row, i) => row.push(i === 0 ? 'email' : ''));
-      head.push('email');
-    }
-    if (name === 'Users' && !values.some(row => String(row[head.indexOf('user_id')]).trim() === ADMIN_USER_ID)) {
-      values.push(head.map(h => ({ user_id: ADMIN_USER_ID, name: 'Admin', role: 'Admin' }[h] || '')));
-    }
-    if (name === 'JobOrders' && head.indexOf('assigned_officers') < 0) {
-      values.forEach((row, i) => row.push(i === 0 ? 'assigned_officers' : ''));
-    }
-    emptyTab(name).getRange(1, 1, values.length, values[0].length).setValues(values);
-    admin.getSheetByName(name).getRange(1, 1, 1, values[0].length).setFontWeight('bold');
-    admin.getSheetByName(name).setFrozenRows(1);
+  Object.keys(content).forEach(tab => {
+    const layout = SHARED_COLUMNS[tab];
+    writeFreshTab(ss, tab, layout.columns.map(c => c[0]).concat(layout.hidden), content[tab][0], content[tab][1]);
   });
 
-  const names = {};
-  readAllRows(url, key, 'users?select=user_id,name').forEach(u => { names[u.user_id] = u.name; });
-  const taskHead = ['task_id', 'jo_id', 'track', 'task_name', 'order', 'offset_days', 'editor_id', 'due_date', 'done', 'done_at', 'assigned_officer'];
-  const taskRows = readAllRows(url, key, 'tasks?select=*&order=task_id').map(t => taskHead.map(h => {
-    if (h === 'assigned_officer') return names[t.editor_id] || t.editor_id || '';
-    const f = RENAME_BACK[h] || h;
-    return f === 'done' ? t[f] === true : asText(t[f], f);
-  }));
-  const taskSh = emptyTab('Tasks');
-  taskSh.getRange(1, 1, taskRows.length + 1, taskHead.length).setValues([taskHead].concat(taskRows));
-  taskSh.getRange(1, 1, 1, taskHead.length).setFontWeight('bold');
-  taskSh.setFrozenRows(1);
-  Logger.log('Admin Masterlist filled: ' + taskRows.length + ' tasks. Next: run setupFriendlySheets.');
+  const ctx = readTaskContext(url, key);
+  const agreed = readAgreedTasks(url, key, ctx);
+  const doneAt = {};
+  rows('tasks?select=task_id,done_at').forEach(t => { doneAt[t.task_id] = asText(t.done_at, 'done_at'); });
+  const tasks = Object.keys(agreed).sort().map(id => {
+    const r = agreed[id];
+    return {
+      'Job Order No.': text(ctx.joToNumber[r.jo_id]), 'Worker Name': text(ctx.joToWorker[r.jo_id]), 'Track': r.track,
+      'Task Description': r.task_name, 'Due Date': day(r.due_date), 'Status': r.status,
+      'Assigned Officer': ctx.idToName[r.editor_id] || r.editor_id, 'Remarks': r.remarks,
+      'task_id': id, 'jo_id': r.jo_id, 'editor_id': r.editor_id, 'order': Number(r.sort_order),
+      'offset_days': Number(r.offset_days), 'done': r.status === 'Completed', 'done_at': doneAt[id] || '',
+    };
+  });
+  writeFreshTab(ss, 'Tasks', VISIBLE_COLUMNS.concat(HIDDEN_COLUMNS), tasks, ['Due Date', 'order', 'offset_days', 'done', 'done_at']);
+
+  // The blank tab a new Google Sheet starts with.
+  ss.getSheets().forEach(sh => {
+    if (tabs.indexOf(sh.getName()) < 0 && sh.getLastRow() === 0 && ss.getSheets().length > 1) ss.deleteSheet(sh);
+  });
+  Logger.log('Fresh Admin Masterlist filled from Supabase: ' + users.length + ' users, ' + kumiai.length + ' kumiai, ' +
+    companies.length + ' companies, ' + jobs.length + ' job orders, ' + tasks.length + ' tasks. ' +
+    'Next: run setupFriendlySheets, then previewTaskSync.');
+}
+
+// Writes one tab of the fresh sheet. Text columns are set to plain text first, so a value such as
+// "001" or "2026-01" stays exactly as stored in Supabase instead of being turned into a number or date.
+function writeFreshTab(ss, name, head, objects, notText) {
+  const sh = ss.getSheetByName(name) || ss.insertSheet(name);
+  const values = [head].concat(objects.map(o => head.map(h => (o[h] === undefined || o[h] === null) ? '' : o[h])));
+  if (sh.getMaxColumns() < head.length) sh.insertColumnsAfter(sh.getMaxColumns(), head.length - sh.getMaxColumns());
+  if (objects.length) {
+    head.forEach((h, i) => {
+      if (notText.indexOf(h) < 0) sh.getRange(2, i + 1, objects.length, 1).setNumberFormat('@');
+    });
+  }
+  sh.getRange(1, 1, values.length, head.length).setValues(values);
+  sh.getRange(1, 1, 1, head.length).setFontWeight('bold');
+  sh.setFrozenRows(1);
 }

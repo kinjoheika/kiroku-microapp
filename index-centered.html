@@ -327,6 +327,7 @@ body.logging .action-row, body.logging .gate-row .ball, body.logging .cbx{pointe
 .cfg-tabs{display:flex; gap:4px; margin-bottom:12px; border-bottom:1px solid var(--border);}
 .cfg-tab{border:none; background:none; padding:8px 12px; font-weight:700; font-size:0.8125rem; color:var(--ink-soft); cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-1px; font-family:var(--font-body);}
 .cfg-tab:hover{color:var(--ink);}
+.cfg-dl{margin-left:auto; align-self:center;}
 .cfg-tab.on{color:var(--darkred); border-bottom-color:var(--darkred);}
 .ev-table{min-width:860px;}
 .ev-table td:nth-child(6){min-width:0;}
@@ -2230,190 +2231,47 @@ async function reloadFromSource(){
   document.getElementById('dbTag').textContent = `${DB.tasks.length} tasks · ${DB.users.length} users · source: ${SOURCE_LABEL}`;
 }
 
-/* ---------- Job Order management (Doc Officer 1 only) ---------- */
+/* ---------- Job Order management ---------- */
 function canManageJOs(){ return currentUserId==='u1' || isAdmin(getUser(currentUserId)); }
-function buildFreshTasksForJO(jo){
-  const tasks = [];
-  const deployDate = new Date(jo.targetDeploymentDate+'T00:00:00');
-  TRACK_DEFS.forEach(trackDef=>{
-    TASKS_CONFIG[trackDef.key].slice().sort((a,b)=>a.order-b.order).forEach((cfg,i)=>{
-      const due = isoStr(addDays(deployDate, cfg.offset));
-      tasks.push({id:`${jo.id}-${trackDef.key}-${i}`, joId:jo.id, track:trackDef.key, name:cfg.name, done:false, due, doneAt:null,
-        editorId:cfg.editor, status:'Pending', remarks:'', order:cfg.order, offset:cfg.offset, updatedAt:null});
-    });
-  });
-  return tasks;
-}
-function readJOForm(){
-  return {
-    num: document.getElementById('jf-num').value.trim(),
-    deploy: document.getElementById('jf-deploy').value,
-    companyId: document.getElementById('jf-company').value,
-    workCategory: document.getElementById('jf-workcat').value,
-    programType: document.getElementById('jf-progtype').value
-  };
-}
-function onFormKumiaiChange(){
-  const kid = document.getElementById('jf-kumiai').value;
-  const sel = document.getElementById('jf-company');
-  const companies = companiesForKumiai(kid);
-  sel.innerHTML = companies.map(c=>`<option value="${c.id}">${escHTML(c.name)}</option>`).join('');
-}
-/* Job Order changes → Google Sheets → Supabase, through apps-script/JobOrders.gs.
-   Create, edit, archive, reactivate and delete are made in the sheets first (the masterlist and
-   each officer's Tasks tab), then the web app runs the sync, so Supabase and every sheet match.
-   The page then reloads from Supabase. Leave JO_WRITE_URL blank to keep changes in this browser
-   only (old behaviour: they are gone on the next page load). */
-const JO_WRITE_URL = '';
+/* ---------- Job Order archive / reactivate / delete ----------
+   Saved in Supabase (supabase/16_no_sheets.sql), which checks who may do what. */
 let joSaving = false;
-async function joWrite(action, body, savingMsg){
-  if(joSaving) return null;
+async function joRpc(fn, body, savingMsg){
+  if(joSaving) return false;
   joSaving = true;
-  document.body.classList.add('logging');
   showToast(savingMsg, 60000);
-  let res;
   try {
-    // text/plain keeps this a simple request (no CORS preflight, which Apps Script does not answer).
-    const r = await fetch(JO_WRITE_URL, {method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
-      body:JSON.stringify({access_token:authBearer(), action, ...body})});
-    res = await r.json();
-  } catch(e){ res = {ok:false, error:e.message}; }
-  if(res.ok) await reloadFromSource();
-  joSaving = false;
-  document.body.classList.remove('logging');
-  if(!res.ok){ showToast('✗ Not saved'); alert(`Not saved: ${res.error}`); return null; }
-  return res;
-}
-function joWrittenToast(res, what){
-  showToast(res.synced ? `✓ ${what} · Google Sheets and Supabase updated`
-    : `✓ ${what} in Google Sheets · Supabase updates on the next sync (within 5 min)`, 5000);
-}
-function tasksPlanForJO(deploy){
-  const deployDate = new Date(deploy+'T00:00:00');
-  const tasks = [];
-  TRACK_DEFS.forEach(trackDef=>{
-    TASKS_CONFIG[trackDef.key].slice().sort((a,b)=>a.order-b.order).forEach((cfg,i)=>{
-      tasks.push({track:trackDef.key, index:i, task_name:cfg.name, order:cfg.order, offset_days:cfg.offset,
-        editor_id:cfg.editor, due_date:isoStr(addDays(deployDate, cfg.offset))});
-    });
-  });
-  return tasks;
-}
-async function submitCreateJO(){
-  if(!canManageJOs() || joSaving) return;
-  const f = readJOForm();
-  if(!f.num || !f.deploy || !f.companyId){ alert('JO number, target deploy date, and company are required.'); return; }
-  if(JO_WRITE_URL){
-    if(DB.jobOrders.some(j=>j.jo===f.num)){ alert(`JO# ${f.num} already exists.`); return; }
-    const res = await joWrite('create_jo', {jo:{jo_number:f.num, company_id:f.companyId, target_deployment_date:f.deploy,
-      work_category:f.workCategory, program_type:f.programType}, tasks:tasksPlanForJO(f.deploy)}, 'Saving Job Order…');
-    if(!res) return;
-    s2Form = null;
-    s2Profile = getJO(res.jo_id) ? res.jo_id : null;
-    renderAllScreens();
-    joWrittenToast(res, `JO# ${f.num} created`);
-    return;
+    await supaFetch(`rpc/${fn}`, {method:'POST', body: JSON.stringify({p_user_id: currentUserId, ...body})});
+    await reloadFromSource();
+    return true;
+  } catch(e){
+    showToast('✗ Not saved', 4000);
+    alert(`Not saved: ${e.message}`);
+    return false;
+  } finally {
+    joSaving = false;
   }
-  const id = 'j'+Date.now();
-  const jo = {id, jo:f.num, companyId:f.companyId, targetDeploymentDate:f.deploy, workCategory:f.workCategory, programType:f.programType, active:true};
-  DB.jobOrders.push(jo);
-  DB.tasks = DB.tasks.concat(buildFreshTasksForJO(jo));
-  saveDB();
-  s2Form = null;
-  s2Profile = id;
-  renderAllScreens();
-  showToast('✓ Job Order created');
-}
-async function submitEditJO(joId){
-  if(!canManageJOs() || joSaving) return;
-  const jo = getJO(joId);
-  const f = readJOForm();
-  if(!f.num || !f.deploy || !f.companyId){ alert('JO number, target deploy date, and company are required.'); return; }
-  const before = {...jo};
-  const deployChanged = jo.targetDeploymentDate !== f.deploy;
-  // [task, old due, new due] for every task whose due date moves with the deploy date
-  const dueChanges = [];
-  if(deployChanged){
-    const deployDate = new Date(f.deploy+'T00:00:00');
-    tasksForJO(joId).forEach(t=>{
-      const cfg = TASKS_CONFIG[t.track].find(c=>c.name===t.name);
-      const offset = t.offset!==null && t.offset!==undefined ? t.offset : (cfg ? cfg.offset : null);
-      if(offset===null) return;
-      const due = isoStr(addDays(deployDate, offset));
-      if(due!==t.due) dueChanges.push([t, t.due, due]);
-    });
-  }
-  if(JO_WRITE_URL){
-    if(DB.jobOrders.some(j=>j.id!==joId && j.jo===f.num)){ alert(`JO# ${f.num} already exists.`); return; }
-    const res = await joWrite('edit_jo', {jo:{jo_id:joId, jo_number:f.num, company_id:f.companyId, target_deployment_date:f.deploy,
-      work_category:f.workCategory, program_type:f.programType},
-      due_changes:dueChanges.map(([t,,due])=>({task_id:t.id, due_date:due}))}, 'Saving changes…');
-    if(!res) return;
-    s2Form = null;
-    renderAllScreens();
-    joWrittenToast(res, `JO# ${f.num} saved`);
-  } else {
-    jo.jo = f.num; jo.companyId = f.companyId; jo.targetDeploymentDate = f.deploy; jo.workCategory = f.workCategory; jo.programType = f.programType;
-    dueChanges.forEach(([t,,due])=>{ t.due = due; });
-    saveDB();
-    s2Form = null;
-    renderAllScreens();
-    showToast('✓ Saved');
-  }
-
-  // Record the update: one row for the job order, one per task whose due date moved.
-  const changes = [];
-  if(before.jo!==f.num) changes.push(`JO number ${before.jo} → ${f.num}`);
-  if(before.companyId!==f.companyId) changes.push(`Company ${(getCompany(before.companyId)||{}).name} → ${getCompany(f.companyId).name}`);
-  if(deployChanged) changes.push(`Target deploy ${fmtFullDate(before.targetDeploymentDate)} → ${fmtFullDate(f.deploy)}`);
-  if(before.workCategory!==f.workCategory) changes.push(`Work category ${before.workCategory||'—'} → ${f.workCategory}`);
-  if(before.programType!==f.programType) changes.push(`Program type ${before.programType||'—'} → ${f.programType}`);
-  if(!changes.length) return;
-  const entries = [logEntry('Task Update', {joId, details:`JO# ${f.num} updated: ${changes.join('; ')}`})]
-    .concat(dueChanges.map(([t, oldDue, due])=> logEntry('Task Update', {taskId:t.id,
-      details:`Due date ${fmtFullDate(oldDue)} → ${fmtFullDate(due)} (target deploy changed)`})));
-  runLogged(`${joId}|edit`, entries).then(ok=>{ if(ok) refreshActivityViews(); });
 }
 async function setJOActive(joId, active){
   if(!canManageJOs() || joSaving) return;
   const num = getJO(joId).jo;
-  if(JO_WRITE_URL){
-    const res = await joWrite(active?'reactivate_jo':'archive_jo', {jo_id:joId}, active?'Reactivating…':'Archiving…');
-    if(!res) return;
-    if(!active) s2Profile = null;
-    renderAllScreens();
-    joWrittenToast(res, `JO# ${num} ${active?'reactivated':'archived'}`);
-  } else {
-    getJO(joId).active = active;
-    saveDB();
-    if(!active) s2Profile = null;
-    renderAllScreens();
-    showToast(active?'Job Order reactivated.':'Job Order archived.');
-  }
-  // Not written to activity_logs: those rows are permanent and would block deleting an archived JO.
-  // The sync records the change in Sync Logs (Job Orders · Active).
+  if(!await joRpc('set_job_order_active', {p_jo_id: joId, p_active: active}, active ? 'Reactivating…' : 'Archiving…')) return;
+  if(!active) s2Profile = null;
+  renderAllScreens();
+  showToast(`✓ JO# ${num} ${active ? 'reactivated' : 'archived'}`, 4000);
 }
 function archiveJO(joId){ return setJOActive(joId, false); }
 function reactivateJO(joId){ return setJOActive(joId, true); }
 async function deleteJOConfirm(joId){
-  if(!canManageJOs() || joSaving) return;
+  if(!isAdmin(getUser(currentUserId)) || joSaving) return;
   const jo = getJO(joId);
   const count = tasksForJO(joId).length;
-  if(!confirm(`Delete JO# ${jo.jo} permanently? This removes the Job Order and all ${count} tasks${JO_WRITE_URL?' from the Google Sheets and Supabase':''}. This cannot be undone.`)) return;
-  if(JO_WRITE_URL){
-    const res = await joWrite('delete_jo', {jo_id:joId}, 'Deleting…');
-    if(!res) return;
-    s2Profile = null;
-    renderAllScreens();
-    joWrittenToast(res, `JO# ${jo.jo} deleted`);
-    return;
-  }
-  DB.jobOrders = DB.jobOrders.filter(j=>j.id!==joId);
-  DB.tasks = DB.tasks.filter(t=>t.joId!==joId);
-  saveDB();
+  if(!confirm(`Delete JO# ${jo.jo} permanently? This removes the Job Order and all ${count} tasks. This cannot be undone.\n\n` +
+    'Only a job order with no recorded activity can be deleted. Otherwise, keep it archived.')) return;
+  if(!await joRpc('admin_delete_job_order', {p_jo_id: joId}, 'Deleting…')) return;
   s2Profile = null;
   renderAllScreens();
-  showToast('Job Order deleted.');
+  showToast(`✓ JO# ${jo.jo} deleted`, 4000);
 }
 
 /* ---------- selection helpers ---------- */
@@ -2465,7 +2323,8 @@ function openS3Profile(joId){ s3Profile=joId; renderAllScreens(); }
 function closeS3Profile(){ s3Profile=null; renderAllScreens(); }
 function openS2Archived(){ s2Archived=true; renderAllScreens(); }
 function closeS2Archived(){ s2Archived=false; renderAllScreens(); }
-function openS2Form(joId){ s2Form = joId || 'create'; renderAllScreens(); }
+// New and edit happen on My Entries, which saves to Supabase.
+function openS2Form(joId){ showScreenById('s6'); if(joId) startJoEdit(joId); }
 function closeS2Form(){ s2Form=null; renderAllScreens(); }
 function viewArchivedJO(joId){ s2Archived=false; s2Profile=joId; renderAllScreens(); }
 function selectS4Kumiai(kid){ s4Kumiai=kid; s4Company=null; renderAllScreens(); }
@@ -3069,7 +2928,7 @@ function buildArchivedTable(){
       <td class="actions">
         <button class="act-btn small" onclick="viewArchivedJO('${j.id}')">View</button>
         <button class="act-btn small" onclick="reactivateJO('${j.id}')">${svgIcon('undo')} Reactivate</button>
-        <button class="act-btn small danger" onclick="deleteJOConfirm('${j.id}')">${svgIcon('trash')} Delete</button>
+        ${isAdmin(getUser(currentUserId)) ? `<button class="act-btn small danger" onclick="deleteJOConfirm('${j.id}')">${svgIcon('trash')} Delete</button>` : ''}
       </td>
     </tr>`;
   }).join('') || '<tr><td colspan="5" style="padding:15px 22px; color:var(--ink-soft); font-style:italic;">No archived Job Orders.</td></tr>';
@@ -3081,62 +2940,6 @@ function buildArchivedTable(){
     </table></div>`;
 }
 
-function buildJOFormPanel(formState){
-  const isCreate = formState==='create';
-  const jo = isCreate ? null : getJO(formState);
-  const co = jo ? getCompany(jo.companyId) : null;
-  const initialKumiaiId = co ? co.kumiaiId : (DB.kumiai[0] ? DB.kumiai[0].id : '');
-  const companyOptions = companiesForKumiai(initialKumiaiId).map(c=>`<option value="${c.id}" ${jo && jo.companyId===c.id?'selected':''}>${escHTML(c.name)}</option>`).join('');
-  const kumiaiOptions = DB.kumiai.map(k=>`<option value="${k.id}" ${k.id===initialKumiaiId?'selected':''}>${escHTML(k.name)}</option>`).join('');
-  const workCatOptions = WORK_CATEGORIES.map(w=>`<option ${jo && jo.workCategory===w?'selected':''}>${w}</option>`).join('');
-  const progTypeOptions = PROGRAM_TYPES.map(p=>`<option ${jo && jo.programType===p?'selected':''}>${p}</option>`).join('');
-
-  let previewHTML, previewCount;
-  if(isCreate){
-    previewCount = 18;
-    previewHTML = `<div id="jf-preview-list"><div class="empty-note">Enter a Target Deploy Date to preview the checklist.</div></div>`;
-  } else {
-    const tasks = tasksForJO(formState).slice().sort((a,b)=> TRACK_DEFS.findIndex(t=>t.key===a.track) - TRACK_DEFS.findIndex(t=>t.key===b.track));
-    previewCount = tasks.length;
-    previewHTML = `<div id="jf-preview-list">${tasks.map(t=>`<div class="gate-row"><span class="ball ${computeStatus(t)}"></span><span class="gn">${escHTML(t.name)} <span style="color:var(--ink-soft); font-weight:400;">· ${t.track}</span></span>${dueBadgeHTML(t)}</div>`).join('')}</div>`;
-  }
-
-  return `<div class="jo-form-panel" style="flex:1; display:flex; flex-direction:row; min-width:0; height:100%;">
-    <div class="jo-form-left" style="flex:0 0 320px; border-right:1px solid var(--border); padding:18px; overflow-y:auto; height:100%; box-sizing:border-box;">
-      <div class="section-label" style="margin-top:0;">${isCreate?'New Job Order':'Edit JO# '+escHTML(jo.jo)}</div>
-      <div class="form-field" style="margin-bottom:12px;"><label>JO number</label><input id="jf-num" value="${jo?escAttr(jo.jo):''}" placeholder="2026-0201"></div>
-      <div class="form-field" style="margin-bottom:12px;"><label>Target deploy date</label><input id="jf-deploy" type="date" value="${jo?jo.targetDeploymentDate:''}" ${isCreate?'oninput="updateJOFormPreview()"':''}></div>
-      <div class="form-field" style="margin-bottom:12px;"><label>Receiving Organization</label><select id="jf-kumiai" onchange="onFormKumiaiChange()">${kumiaiOptions}</select></div>
-      <div class="form-field" style="margin-bottom:12px;"><label>Receiving Company</label><select id="jf-company">${companyOptions}</select></div>
-      <div class="form-field" style="margin-bottom:12px;"><label>Work category</label><select id="jf-workcat">${workCatOptions}</select></div>
-      <div class="form-field" style="margin-bottom:18px;"><label>Program type</label><select id="jf-progtype">${progTypeOptions}</select></div>
-      <div style="display:flex; gap:8px;">
-        <button class="act-btn primary" onclick="${isCreate?'submitCreateJO()':`submitEditJO('${formState}')`}">${isCreate?'Create Job Order':'Save changes'}</button>
-        <button class="act-btn" onclick="closeS2Form()">Cancel</button>
-      </div>
-    </div>
-    <div style="flex:1; min-width:0; display:flex; flex-direction:column; height:100%;">
-      <div class="side-hd"><span class="lbl">Checklist${isCreate?' preview':''}</span><span class="count">${previewCount}</span></div>
-      <div class="gate-list-scroll">${previewHTML}</div>
-    </div>
-  </div>`;
-}
-function updateJOFormPreview(){
-  const el = document.getElementById('jf-deploy');
-  const container = document.getElementById('jf-preview-list');
-  if(!el || !container) return;
-  const val = el.value;
-  if(!val){ container.innerHTML = '<div class="empty-note">Enter a Target Deploy Date to preview the checklist.</div>'; return; }
-  const deployDate = new Date(val+'T00:00:00');
-  let rows = '';
-  TRACK_DEFS.forEach(trackDef=>{
-    TASKS_CONFIG[trackDef.key].slice().sort((a,b)=>a.order-b.order).forEach(cfg=>{
-      const due = isoStr(addDays(deployDate, cfg.offset));
-      rows += `<div class="gate-row"><span class="ball none"></span><span class="gn">${cfg.name} <span style="color:var(--ink-soft); font-weight:400;">· ${trackDef.key}</span></span>${dueBadgeHTML({done:false, due})}</div>`;
-    });
-  });
-  container.innerHTML = rows;
-}
 
 /* ================= SCREENS 2 & 3 : Due Gates (Template B) ================= */
 /* Due Gates indicators. Red = overdue, blue = done, gray = not started and not overdue.
@@ -3217,9 +3020,6 @@ function buildDueGatesScreen(scope){
   </div>`;
 
   if(isMine && s2Archived) return navHTML('My Due Gates') + buildArchivedTable();
-  if(isMine && s2Form){
-    return navHTML('My Due Gates') + `<div class="tri">${col1HTML}${buildJOFormPanel(s2Form)}</div>`;
-  }
 
   const detailId = isMine ? s2Detail : s3Detail;
   if(detailId){
@@ -3789,18 +3589,163 @@ let cfgTab = 'events';
 const evFilter = {q:'', type:''};
 function cfgShowTab(tab){ cfgTab = tab; renderAllScreens(); }
 function buildUsersHTML(){
-  const rows = DB.users.map(u=>`<tr><td>${escHTML(u.name)}</td><td>${escHTML(u.role)}</td><td>${escHTML(u.email)||'—'}</td>
-    <td>${u.linked ? 'Signed in before' : u.email ? 'Not signed in yet' : 'No email in the Users tab'}</td><td>${escHTML(u.id)}</td></tr>`).join('');
-  return `<div class="cfg-hd"><div><div class="cfg-title">Users</div><div class="cfg-sub">To add someone or change a role, edit the Users tab of the Admin Masterlist, then add their email under Authentication in Supabase. Changes appear within 5 minutes.</div></div></div>
-    <div class="cfg-table-wrap"><table class="cfg-table"><thead><tr><th>Name</th><th>Role</th><th>Email</th><th>Login</th><th>User ID</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  const roles = ['Doc Officer', 'CEO', 'Admin'];
+  const roleOpts = sel => roles.map(r => `<option ${r===sel ? 'selected' : ''}>${r}</option>`).join('');
+  const byId = (a, b) => (parseInt(a.id.slice(1), 10) || 0) - (parseInt(b.id.slice(1), 10) || 0) || a.id.localeCompare(b.id);
+  const rows = DB.users.slice().sort(byId).map(u => `<tr data-user="${escAttr(u.id)}">
+    <td><input class="cfg-input us-name" value="${escAttr(u.name)}" aria-label="Name of ${escAttr(u.name)}" onchange="cfgSaveUser('${escAttr(u.id)}')"></td>
+    <td><select class="cfg-input us-role" aria-label="Role of ${escAttr(u.name)}" onchange="cfgSaveUser('${escAttr(u.id)}')">${roleOpts(u.role)}</select></td>
+    <td><input type="email" class="cfg-input us-email" value="${escAttr(u.email)}" placeholder="name@company.com" aria-label="Email of ${escAttr(u.name)}" onchange="cfgSaveUser('${escAttr(u.id)}')"></td>
+    <td>${u.linked ? 'Linked' : 'No login linked'}</td><td class="cfg-sub">${escHTML(u.id)}</td></tr>`).join('');
+  const add = `<tr><td><input form="usAdd" name="nm" class="cfg-input" placeholder="New person's name" aria-label="New person's name" required></td>
+    <td><select form="usAdd" name="rl" class="cfg-input" aria-label="New person's role">${roleOpts('Doc Officer')}</select></td>
+    <td><input form="usAdd" name="em" type="email" class="cfg-input" placeholder="name@company.com" aria-label="New person's email"></td>
+    <td colspan="2"><button form="usAdd" class="act-btn small" type="submit">Add person</button></td></tr>`;
+  return `<div class="cfg-hd"><div><div class="cfg-title">Users</div><div class="cfg-sub">Change a name, role or email and it saves when you leave the field. To let a new person sign in: Supabase → Authentication → Users → Add user, with the same email. Then Table Editor → users → put that login's ID in auth_user_id. To remove someone's access, delete their login under Authentication.</div></div></div>
+    <form id="usAdd" onsubmit="cfgAddUser(this); return false;"></form>
+    <div class="cfg-table-wrap"><table class="cfg-table"><thead><tr><th>Name</th><th>Role</th><th>Email</th><th>Login</th><th>User ID</th></tr></thead><tbody>${rows}${add}</tbody></table></div>`;
+}
+function cfgSaveUser(id){
+  const row = document.querySelector(`tr[data-user="${CSS.escape(id)}"]`);
+  const role = row.querySelector('.us-role').value;
+  if(id === currentUserId && role !== 'Admin' && !confirm('Change your own role? You will lose access to Configuration.')){ renderAllScreens(); return; }
+  cfgRpc('admin_save_user', {p_target_id: id, p_name: row.querySelector('.us-name').value,
+    p_role: role, p_email: row.querySelector('.us-email').value});
+}
+function cfgAddUser(form){
+  cfgRpc('admin_save_user', {p_target_id: null, p_name: form.nm.value, p_role: form.rl.value, p_email: form.em.value});
+}
+
+/* ---------- Download to Excel (Admin) ----------
+   Builds a real .xlsx in the browser from what Supabase returns, one tab per list. No library: the file is a
+   zip of a few XML parts. Every cell is plain text, so nothing in it can run as a formula. */
+async function supaAll(path){
+  const all = [];
+  for(let offset = 0; ; offset += 1000){
+    const page = await supaFetch(`${path}${path.includes('?') ? '&' : '?'}limit=1000&offset=${offset}`);
+    all.push(...page);
+    if(page.length < 1000) return all;
+  }
+}
+async function downloadExcel(){
+  showToast('Preparing the Excel file…', 60000);
+  try {
+    const [activity, events] = await Promise.all([
+      supaAll('activity_logs?select=created_at,user_name,action_type,task_id,jo_id,action_details&order=created_at.desc'),
+      supaAll('event_logs?select=event_at,user_name,action,module,record_id,description,source&order=event_at.desc')]);
+    const stamp = iso => iso ? supaManilaStamp(iso) : '';
+    const userName = id => (getUser(id) || {}).name || id || '';
+    const joNum = id => (getJO(id) || {}).jo || id || '';
+    const coOf = jo => getCompany(jo.companyId) || {};
+    const kuOf = co => getKumiai(co.kumiaiId) || {};
+    const sheets = [
+      ['Job Orders', ['JO #', 'Workers', 'Agency', 'Client', 'Target Deploy', 'Active', 'Work Category', 'Program Type'],
+        DB.jobOrders.slice().sort((a, b) => a.jo.localeCompare(b.jo)).map(j => { const co = coOf(j);
+          return [j.jo, j.candidateName, kuOf(co).name, co.name, j.targetDeploymentDate, j.active ? 'Yes' : 'Archived', j.workCategory, j.programType]; })],
+      ['Tasks', ['JO #', 'Track', 'Stage', 'Due Date', 'Status', 'Assigned Officer', 'Remarks', 'Done At'],
+        DB.tasks.slice().sort((a, b) => joNum(a.joId).localeCompare(joNum(b.joId)) || a.track.localeCompare(b.track) || (a.order - b.order))
+          .map(t => [joNum(t.joId), t.track, t.name, t.due, t.status, userName(t.editorId), t.remarks, t.doneAt ? `${t.doneAt.date} ${t.doneAt.time}` : ''])],
+      ['Users', ['Name', 'Role', 'Email', 'User ID'], DB.users.map(u => [u.name, u.role, u.email, u.id])],
+      ['Agencies', ['Agency'], DB.kumiai.map(k => [k.name])],
+      ['Clients', ['Client', 'Agency'], DB.companies.map(c => [c.name, (getKumiai(c.kumiaiId) || {}).name])],
+      ['Activity', ['Date & time', 'User', 'Action', 'JO #', 'Task', 'Details'],
+        activity.map(r => [stamp(r.created_at), r.user_name, r.action_type, joNum(r.jo_id), r.task_id ? ((getTaskById(r.task_id) || {}).name || r.task_id) : '', r.action_details])],
+      ['Change Log', ['Date & time', 'User', 'Action', 'Module', 'Record', 'Description', 'Source'],
+        events.map(e => [stamp(e.event_at), e.user_name, e.action, e.module, e.record_id, e.description, e.source])],
+    ];
+    const blob = buildXlsx(sheets);
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `Kiroku ${isoStr(TODAY)}.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+    showToast('✓ Excel file downloaded', 4000);
+  } catch(e){
+    showToast(`✗ Could not make the Excel file: ${e.message}`, 6000);
+  }
+}
+function buildXlsx(sheets){
+  const enc = new TextEncoder();
+  const x = v => String(v ?? '').replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '')
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  const col = i => { let s = ''; for(i++; i > 0; i = Math.floor((i - 1) / 26)) s = String.fromCharCode(65 + (i - 1) % 26) + s; return s; };
+  const files = [];
+  const add = (name, text) => files.push({name, data: enc.encode(text)});
+  const head = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n';
+  const ns = 'http://schemas.openxmlformats.org';
+  sheets.forEach(([, header, rows], n) => {
+    const all = [header, ...rows];
+    const widths = header.map((h, i) => Math.min(60, Math.max(8, ...all.map(r => String(r[i] ?? '').length)) + 2));
+    const body = all.map((r, ri) => `<row r="${ri + 1}">` + r.map((v, ci) => (v === null || v === undefined || v === '') ? '' :
+      `<c r="${col(ci)}${ri + 1}" t="inlineStr"${ri === 0 ? ' s="1"' : ''}><is><t xml:space="preserve">${x(v)}</t></is></c>`).join('') + '</row>').join('');
+    add(`xl/worksheets/sheet${n + 1}.xml`, head + `<worksheet xmlns="${ns}/spreadsheetml/2006/main">` +
+      '<sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>' +
+      `<cols>${widths.map((w, i) => `<col min="${i + 1}" max="${i + 1}" width="${w}" customWidth="1"/>`).join('')}</cols>` +
+      `<sheetData>${body}</sheetData></worksheet>`);
+  });
+  add('[Content_Types].xml', head + `<Types xmlns="${ns}/package/2006/content-types">` +
+    '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>' +
+    '<Default Extension="xml" ContentType="application/xml"/>' +
+    '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>' +
+    '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>' +
+    sheets.map((s, n) => `<Override PartName="/xl/worksheets/sheet${n + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join('') +
+    '</Types>');
+  add('_rels/.rels', head + `<Relationships xmlns="${ns}/package/2006/relationships">` +
+    `<Relationship Id="rId1" Type="${ns}/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`);
+  add('xl/workbook.xml', head + `<workbook xmlns="${ns}/spreadsheetml/2006/main" xmlns:r="${ns}/officeDocument/2006/relationships"><sheets>` +
+    sheets.map(([name], n) => `<sheet name="${x(name.replace(/[\[\]:*?\/\\]/g, ' ').slice(0, 31))}" sheetId="${n + 1}" r:id="rId${n + 1}"/>`).join('') + '</sheets></workbook>');
+  add('xl/_rels/workbook.xml.rels', head + `<Relationships xmlns="${ns}/package/2006/relationships">` +
+    sheets.map((s, n) => `<Relationship Id="rId${n + 1}" Type="${ns}/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${n + 1}.xml"/>`).join('') +
+    `<Relationship Id="rId${sheets.length + 1}" Type="${ns}/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`);
+  add('xl/styles.xml', head + `<styleSheet xmlns="${ns}/spreadsheetml/2006/main">` +
+    '<fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts>' +
+    '<fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills>' +
+    '<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>' +
+    '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>' +
+    '<cellXfs count="2"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/></cellXfs>' +
+    '<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>');
+  return new Blob([zipStore(files)], {type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+}
+// A zip with no compression ("stored"), which every spreadsheet program reads.
+function zipStore(files){
+  const crcTable = zipStore.t || (zipStore.t = Array.from({length: 256}, (_, n) => {
+    let c = n; for(let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; return c >>> 0; }));
+  const crc32 = d => { let c = 0xFFFFFFFF; for(let i = 0; i < d.length; i++) c = crcTable[(c ^ d[i]) & 0xFF] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; };
+  const enc = new TextEncoder();
+  const parts = [], central = [];
+  let offset = 0;
+  files.forEach(f => {
+    const name = enc.encode(f.name), crc = crc32(f.data), size = f.data.length;
+    const local = new DataView(new ArrayBuffer(30));
+    [[0, 0x04034b50, 4], [4, 20, 2], [8, 0, 2], [10, 0, 2], [12, 0x21, 2], [14, crc, 4], [18, size, 4], [22, size, 4], [26, name.length, 2], [28, 0, 2]]
+      .forEach(([o, v, n]) => n === 4 ? local.setUint32(o, v, true) : local.setUint16(o, v, true));
+    const cen = new DataView(new ArrayBuffer(46));
+    [[0, 0x02014b50, 4], [4, 20, 2], [6, 20, 2], [8, 0, 2], [10, 0, 2], [12, 0, 2], [14, 0x21, 2], [16, crc, 4], [20, size, 4], [24, size, 4],
+     [28, name.length, 2], [30, 0, 2], [32, 0, 2], [34, 0, 2], [36, 0, 2], [38, 0, 4], [42, offset, 4]]
+      .forEach(([o, v, n]) => n === 4 ? cen.setUint32(o, v, true) : cen.setUint16(o, v, true));
+    parts.push(new Uint8Array(local.buffer), name, f.data);
+    central.push(new Uint8Array(cen.buffer), name);
+    offset += 30 + name.length + size;
+  });
+  const cenSize = central.reduce((n, p) => n + p.length, 0);
+  const end = new DataView(new ArrayBuffer(22));
+  [[0, 0x06054b50, 4], [4, 0, 2], [6, 0, 2], [8, files.length, 2], [10, files.length, 2], [12, cenSize, 4], [16, offset, 4], [20, 0, 2]]
+    .forEach(([o, v, n]) => n === 4 ? end.setUint32(o, v, true) : end.setUint16(o, v, true));
+  const out = new Uint8Array(offset + cenSize + 22);
+  let at = 0;
+  [...parts, ...central, new Uint8Array(end.buffer)].forEach(p => { out.set(p, at); at += p.length; });
+  return out;
 }
 function buildConfigScreen(){
   if(!isAdmin(getUser(currentUserId))) return '';
   const tabs = `<div class="cfg-tabs">
     <button class="cfg-tab ${cfgTab==='events'?'on':''}" onclick="cfgShowTab('events')">Event Logs</button>
-    <button class="cfg-tab ${cfgTab==='sync'?'on':''}" onclick="cfgShowTab('sync')">Sync Logs</button>
+    <button class="cfg-tab ${cfgTab==='sync'?'on':''}" onclick="cfgShowTab('sync')">Change Log</button>
     <button class="cfg-tab ${cfgTab==='users'?'on':''}" onclick="cfgShowTab('users')">Users</button>
     <button class="cfg-tab ${cfgTab==='setup'?'on':''}" onclick="cfgShowTab('setup')">Stages &amp; Masterlist</button>
+    <button class="act-btn small cfg-dl" type="button" onclick="downloadExcel()">Download Excel</button>
   </div>`;
   return navHTML('Configuration') + `<div class="cfg-wrap">${tabs}${cfgTab==='events' ? buildEventLogsHTML() : cfgTab==='users' ? buildUsersHTML() : cfgTab==='setup' ? buildSetupHTML() : buildSyncLogsHTML()}</div>`;
 }
@@ -3868,18 +3813,18 @@ function updateEventLogTable(){
   }).join('') : `<tr><td colspan="6" class="empty-note">${all.length ? 'No events match these filters.' : 'No events yet. Actions taken on tasks appear here.'}</td></tr>`;
 }
 function buildSyncLogsHTML(){
-  if(EVENT_LOGS===null) return `<div class="empty-note">Event logs are only available when Kiroku loads from Supabase. Reload after the sync has run.</div>`;
+  if(EVENT_LOGS===null) return `<div class="empty-note">The change log could not be read. Reload the page.</div>`;
   const opts = (arr, cur, all) => `<option value="">${all}</option>` + arr.map(v=>`<option value="${escHTML(v)}" ${v===cur?'selected':''}>${escHTML(v)}</option>`).join('');
   const actions = [...new Set(EVENT_LOGS.map(e=>e.action))].sort();
   const f = cfgFilter;
   return `
     <div class="cfg-hd">
-      <div><div class="cfg-title">Sync Logs</div><div class="cfg-sub">Records created and changed, newest first. Times are Philippine time.</div></div>
+      <div><div class="cfg-title">Change Log</div><div class="cfg-sub">Users, job orders, agencies, clients and stages created, changed or deleted, newest first. Times are Philippine time.</div></div>
       <div class="cfg-count" id="cfgCount"></div>
     </div>
     <div class="cfg-filters">
       <input class="cfg-input cfg-search" placeholder="Search description, record ID or value" value="${escHTML(f.q)}" oninput="cfgSet('q', this.value)">
-      <select class="cfg-input" onchange="cfgSet('module', this.value)">${opts(['Users','Companies','Job Orders','Tasks','Activity','Sync'], f.module, 'All modules')}</select>
+      <select class="cfg-input" onchange="cfgSet('module', this.value)">${opts(['Users','Kumiai','Companies','Job Orders','Stages','Tasks','Activity','Sync'], f.module, 'All modules')}</select>
       <select class="cfg-input" onchange="cfgSet('action', this.value)">${opts(actions, f.action, 'All actions')}</select>
       <select class="cfg-input" onchange="cfgSet('status', this.value)">${opts(['Success','Failed','Pending'], f.status, 'All statuses')}</select>
       <button class="cfg-clear" onclick="cfgClear()">Clear filters</button>

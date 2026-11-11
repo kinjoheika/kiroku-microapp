@@ -4,7 +4,7 @@
 -- j1-TIO-0) so existing data and the UI can map over without remapping.
 --
 -- Run once in: Supabase dashboard > SQL Editor > New query > paste > Run.
--- Then run 02_seed.sql (sample data) OR let apps-script/Sync.gs load the real sheets.
+-- Then let apps-script/Sync.gs load the real sheets (03_sync.sql).
 
 -- ---------------------------------------------------------------- users
 create table public.users (

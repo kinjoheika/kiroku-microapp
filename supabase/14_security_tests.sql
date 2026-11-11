@@ -26,7 +26,10 @@ declare
   v_has15  boolean := to_regclass('public.stage_config') is not null;   -- 15_entries_stages.sql installed?
   v_co     text;
   v_jo_not_mine text;
+  v_has16  boolean := to_regprocedure('public.admin_save_user(text,text,text,text,text)') is not null;   -- 16_no_sheets.sql?
+  v_jo_act text;
 begin
+  select jo_id into v_jo_act from public.activity_logs order by activity_id limit 1;
   select task_id into v_any from public.tasks order by task_id limit 1;
   select jo_id   into v_jo  from public.tasks where task_id = v_any;
   select company_id into v_co from public.companies order by company_id limit 1;
@@ -121,7 +124,34 @@ begin
                 then (select format('select public.update_job_order(%L, %L, %L, %L, %L, %L::date)',
                             'u6', j.jo_id, j.jo_number, j.company_id, j.worker_name, j.target_deployment_date + 1)
                         from public.job_orders j where j.jo_id = v_jo_not_mine) end,
-           case when p.role = 'Admin' then 'allowed' else 'refused' end)
+           case when p.role = 'Admin' then 'allowed' else 'refused' end),
+        -- 16_no_sheets.sql (skipped until it is installed)
+        ('add a user, claiming to be u6',
+           case when v_has16 then 'select public.admin_save_user(''u6'', null, ''Security Test'', ''Doc Officer'', null)' end,
+           case when p.role = 'Admin' then 'allowed' else 'refused' end),
+        ('make myself Admin (function)',
+           case when v_has16 then (select format('select public.admin_save_user(null, %L, %L, %L, %L)',
+                                          u.user_id, u.name, 'Admin', u.email)
+                                     from public.users u where u.user_id = coalesce(p.user_id, 'u1')) end,
+           case when p.role = 'Admin' then 'allowed' else 'refused' end),
+        ('remove the last Admin (u6 becomes CEO)',
+           case when v_has16 and (select count(*) from public.users where role = 'Admin') = 1
+                then 'select public.admin_save_user(''u6'', ''u6'', ''Admin'', ''CEO'', null)' end,
+           'refused'),
+        ('archive a job order I have no task on, claiming to be u6',
+           case when v_has16 and v_jo_not_mine is not null
+                then format('select public.set_job_order_active(%L, %L, false)', 'u6', v_jo_not_mine) end,
+           case when p.role = 'Admin' then 'allowed' else 'refused' end),
+        ('delete a job order (create, archive, delete), claiming to be u6',
+           case when v_has16 then format('select public.admin_delete_job_order(%L, a.j) from (select x.j, public.set_job_order_active(%L, x.j, false) '
+                                         'from (select public.create_job_order(%L, %L, %L, %L, current_date + 60) as j) x) a',
+                                         'u6', 'u6', 'u6', 'SECTEST-2', v_co, 'Security Test') end,
+           case when p.role = 'Admin' then 'allowed' else 'refused' end),
+        ('delete a job order that has activity (kept permanently)',
+           case when v_has16 and v_jo_act is not null
+                then format('select public.admin_delete_job_order(%L, a.j) from (select %L::text as j, public.set_job_order_active(%L, %L, false)) a',
+                            'u6', v_jo_act, 'u6', v_jo_act) end,
+           'refused')
       ) as x(label, sql, expected)
     loop
       continue when t.sql is null;
