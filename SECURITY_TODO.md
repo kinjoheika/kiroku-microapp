@@ -1,30 +1,33 @@
 # Kiroku — what is left to fix
 
-Updated 2026-11-09. Work top to bottom. The first three are **urgent**: each one alone is a way into Kiroku.
+Updated 2026-11-11. Work top to bottom. The first three are **urgent**: each one alone is a way into Kiroku.
 
-**Plan change 2026-11-11: no Google Sheets.** Follow `supabase/SETUP.md`, "No Google Sheets: Kiroku only". It
-**deletes** the secret key instead of replacing it (item 1), and makes items 4 and 6 (Apps Script) unnecessary.
+**Kiroku no longer uses Google Sheets.** Supabase holds every record; the website (GitHub Pages) is the only way in.
+Admin manages users, job orders and stages in Kiroku, and gets a spreadsheet with **Configuration → Download Excel**.
 
 **Already done and verified on live:**
-* database locked (160/160 tests passed)
+* database locked (security tests: every row PASS)
 * sign-up off
 * demo login removed
 * automatic sign-out
 * browser cleanup
 * XSS fixes
 * Change password button
+* Users, archive/delete job orders and Download Excel in Kiroku (`16_no_sheets.sql`, pages live 2026-11-11)
 
 ---
 
-## 🔴 1. Replace the Supabase master key (urgent, 5 min) — *you*
-**Why:** most of the key was visible in a screenshot. It bypasses every security rule.
-Do the steps **in this order**, so the sync never stops:
+## 🔴 1. Delete the secret key, the Apps Script and the sheets (urgent, 10 min) — *you*
+**Why:** the secret key bypasses every security rule, most of it was visible in a screenshot, and it is stored in
+the Apps Script. Nothing in Kiroku needs it any more. Do the steps **in this order**:
 
-- [ ] Supabase → **Project Settings → API Keys → Secret keys → Add new secret key** (name: `apps-script-2026-11`). Copy it. **Do not screenshot it.**
-- [ ] Apps Script → **Project Settings → Script Properties → Edit** → replace `SUPABASE_SERVICE_KEY` with the new key → **Save**.
-- [ ] Apps Script editor → choose **`previewTaskSync`** → **Run**. The log should show task counts and no error.
-- [ ] Supabase → **API Keys** → on the **old** secret key: **⋮ → Delete / Revoke**.
-- [ ] If **Legacy API Keys** (`anon` / `service_role`, starting with `eyJ`) are shown, click **Disable legacy API keys**. Kiroku doesn't use them.
+- [ ] Supabase → **Project Settings → API Keys → Secret keys**: delete **every** secret key.
+- [ ] If **Legacy API keys** (`anon` / `service_role`, starting with `eyJ`) are shown: **Disable legacy API keys**.
+- [ ] Reload Kiroku and sign in: it must work as before (it uses only the publishable key).
+- [ ] Supabase → SQL Editor: run `supabase/17_remove_sheet_sync.sql`, then `supabase/14_security_tests.sql` (every row PASS).
+- [ ] Optional: in each Kiroku Google Sheet, **File → Download → Microsoft Excel** to keep a copy.
+- [ ] Google Drive: delete every Kiroku Google Sheet and the Apps Script project (script.google.com). Then **empty the
+      Drive trash**, or the script and its copy of the key stay there for 30 days.
 - [ ] Tell Claude, who checks from outside that the site still works.
 
 ## 🔴 2. Move the 6 logins off `@kiroku.com` (urgent, 10 min) — *you*
@@ -40,7 +43,7 @@ Do the steps **in this order**, so the sync never stops:
   | Doc Officer 3 | u3 | |
   | Doc Officer 4 | u4 | |
 - [ ] Supabase → **Authentication → Users** → click each user → change **Email** → save. Passwords and the link to Kiroku stay the same.
-- [ ] Admin Masterlist → **Users** tab → put the same emails in the **Email** column. That's what Kiroku's Configuration page shows.
+- [ ] Kiroku → **Configuration → Users**: put the same email in each person's **Email** field.
 - [ ] Each person signs in once with the new email to confirm it works.
 
 ## 🔴 3. Everyone changes their password (urgent, 2 min each) — *each person*
@@ -55,30 +58,17 @@ Send this to the team:
 
 - [ ] Admin  - [ ] CEO  - [ ] Doc Officer 1  - [ ] Doc Officer 2 (has **never signed in**)  - [ ] Doc Officer 3  - [ ] Doc Officer 4
 
-## 🟠 4. Check who can open the Apps Script (2 min) — *you*
-**Why:** everyone who can **edit** the project can read the master key.
-
-- [ ] Admin Masterlist → **Share**. Only you and Admin should be **Editor**. Viewers and Commenters are fine. General access: **Restricted**.
-- [ ] **Extensions → Apps Script**: is `Sync.gs` here? If not, find the project at script.google.com and check its **Share** list instead.
-- [ ] Each Doc Officer sheet → **Extensions → Apps Script**: it should contain **no** `Sync.gs` and no key.
-- [ ] If anyone besides Admin was an Editor: remove them (step 1 already replaced the key).
-
-## 🟠 5. Supabase sign-in settings (3 min) — *you*
+## 🟠 4. Supabase sign-in settings (3 min) — *you*
 - [ ] **Authentication → Sign In / Providers → Passwords:** minimum length **12**; turn on **leaked password protection** if shown.
 - [ ] **Authentication → Sessions:** JWT expiry **3600 seconds** or less.
 - [ ] Confirm **"Allow new users to sign up"** is still **OFF**.
 
-## 🟡 6. Update the Apps Script sync code (10 min) — *you, or Claude once you're signed in to Google in the app's browser*
-**Why:** stops formula injection into the sheets, checks roles and emails on the Users tab, and checks Job Order input.
+## 🟠 5. Who can change Kiroku itself (2 min) — *you*
+**Why:** anyone who can push to the GitHub repository or sign in to the Supabase dashboard can change Kiroku.
+- [ ] GitHub → repository **Settings → Collaborators**: only people who must change the code.
+- [ ] Supabase → **Organization → Team**: only you and Admin.
 
-- [ ] Back up the current `Sync.gs` and `JobOrders.gs` (copy each into a Notepad file).
-- [ ] Paste `C:\Kiruko\kiroku-v4-microapp\apps-script\Sync.gs` and `…\JobOrders.gs` over them → **Save**.
-- [ ] Run **`previewTaskSync`** and read the log.
-- [ ] Run **`syncAll`**. No red errors.
-- [ ] **Executions** page: the next 2–3 `scheduledSync` runs say **Completed**.
-- [ ] Old logger project (`Code.gs`, EditLog): paste the retired version, then **Deploy → Manage deployments → Archive**. Skip if it doesn't exist.
-
-## 🟡 7. MFA — authenticator app codes — *Claude builds it, you decide*
+## 🟡 6. MFA — authenticator app codes — *Claude builds it, you decide*
 - [ ] **Decide:** required for **everyone** (recommended) or only Admin and CEO?
 - [ ] Claude builds:
   * the QR set-up screen
@@ -87,8 +77,10 @@ Send this to the team:
 - [ ] Each person installs Google or Microsoft Authenticator and scans their QR once.
 - [ ] Admin keeps a backup (a second device) for their own authenticator.
 
-## 🟡 8. Backups and recovery — *you and Claude*
+## 🟡 7. Backups and recovery — *you and Claude*
+Supabase is now the only copy of the data (the sheets are gone), so this matters more than before.
 - [ ] Tell Claude your Supabase plan: **Free** (no automatic backups) or **Pro** (daily backups).
+- [ ] Until then: Admin clicks **Configuration → Download Excel** once a week and keeps the file somewhere safe.
 - [ ] Claude writes an export script (all tables to dated files) and a restore guide.
 - [ ] Do one test restore into a spare project, and note the date here.
 
@@ -97,10 +89,10 @@ Send this to the team:
 ## Phase 2 — reliability (after security)
 - [ ] **Overdue dates:** the page now uses today's Philippine date. Claude reviews every overdue calculation.
 - [ ] **Gate order — decide:** must earlier gates be **Completed** before a later one can be marked done? Can Admin override? Claude then enforces it in the database.
-- [ ] **Audit logs:** after a normal day of use, check the activity and event logs show who did what. Claude can write the check query.
-- [ ] **Backup restore test:** see 8.
+- [ ] **Audit logs:** after a normal day of use, check the activity and change logs show who did what. Claude can write the check query.
+- [ ] **Backup restore test:** see 7.
 
 ## Rules from now on
 * Never screenshot or paste a **password** or **key**. Cover the value first.
-* When someone leaves: remove their login (Authentication → Users), their row's access, and their sheet sharing on the same day.
+* When someone leaves: delete their login (Supabase → Authentication → Users) on the same day.
 * After any database change, run `supabase/14_security_tests.sql`. Every row must say **PASS**.

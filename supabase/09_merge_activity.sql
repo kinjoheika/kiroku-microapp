@@ -1,3 +1,5 @@
+-- OUTDATED (2026-11-11): the one-time merge is done, and 17_remove_sheet_sync.sql removed the sheet-import functions
+-- this file created (import_sheet_activity and its helpers). Kept as a record. Do not run it.
 -- Kiroku V4 — merge the old activity table into activity_logs.
 -- Run once in: Supabase dashboard > SQL Editor > New query > paste > Run.
 -- Run after 06_activity_logs.sql. Then re-run 03_sync.sql (the sync no longer sends activity)

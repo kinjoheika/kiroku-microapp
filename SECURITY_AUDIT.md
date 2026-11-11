@@ -1,3 +1,6 @@
+> **Note (2026-11-11):** this audit is a record of 2026-11-09. Since then Kiroku stopped using Google Sheets:
+> `config.html`, `apps-script/` and the sync functions were removed. Current status: `SECURITY_TODO.md`.
+
 # Kiroku security audit — stage 1: findings
 
 Date: 2026-11-09. Scope: `index.html`, `config.html`, `apps-script/*.gs`, `supabase/01–12*.sql`.

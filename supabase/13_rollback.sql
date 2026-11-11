@@ -1,3 +1,5 @@
+-- OBSOLETE (2026-11-11): do not run. It restores the insecure state of 2026-11-09, and after 17_remove_sheet_sync.sql
+-- it would stop with an error anyway. Kept only as a record.
 -- Kiroku — 13_rollback.sql: undo 13_security_hardening.sql.
 -- Puts every grant, policy, function and trigger back EXACTLY as 00_security_check.sql found them on 2026-11-09.
 -- WARNING: that state is the INSECURE one (anon reads users and activity_logs, anyone can upload files,

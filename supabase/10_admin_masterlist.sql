@@ -1,3 +1,5 @@
+-- PARTLY OUTDATED (2026-11-11): the sheet-sync parts (sheet_sync_state) were removed by 17_remove_sheet_sync.sql.
+-- The rest is still in use: users.email, the login checks and Mark Done updating the task. Do not run it again.
 -- Kiroku V4 — Admin Masterlist, two-way task sync and logins: the parts that break nothing.
 -- Run once in: Supabase dashboard > SQL Editor > New query > paste > Run.
 -- Run after 09_merge_activity.sql, BEFORE the new index.html and Sync.gs go live.

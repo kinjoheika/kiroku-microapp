@@ -1,3 +1,5 @@
+-- NOTE (2026-11-11): applied on live. Do not run it again after 17_remove_sheet_sync.sql: it names the sync tables
+-- and functions that 17 removed, so it would stop with an error (and change nothing).
 -- Kiroku — 13_security_hardening.sql
 -- Locks Supabase down so that every rule is enforced by the database, not by the page.
 --

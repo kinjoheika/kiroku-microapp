@@ -1,3 +1,4 @@
+-- OUTDATED (2026-11-11): a one-time repair from the Google Sheets days, already applied. Kept as a record. Do not run it.
 -- Kiroku V4 — repair: make event_logs the full event log again.
 --
 -- When to run: the event_logs table has the OLD columns (event_id, occurred_at, actor,

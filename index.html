@@ -1118,7 +1118,6 @@ table.sheet td.ro{padding:8px 10px; color:var(--ink-2); white-space:nowrap;}
 <div class="env-bar">
   <div class="grp"><button onclick="resetSampleData()">↺ Reload data</button></div>
   <span class="tag" id="dbTag"></span>
-  <span class="tag" id="logTag"></span>
 </div>
 
 <!-- SCREEN 1: My Tasks (Template A) -->
@@ -1170,7 +1169,7 @@ const STORAGE_KEY = 'kiroku_sample_db_v2';
    Supabase is the only data source. The built-in sample is used only when Supabase is unreachable or empty. */
 const SUPABASE_URL = 'https://epslvipdnpsqgonaxzbd.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_O4Ii-EGo57qt0fDI0LT_7A_lfs2afiq';
-// Activity comes from activity_logs (loadActivityLogs), which holds the sheets' activity too.
+// Activity comes from activity_logs (loadActivityLogs), including older rows imported from the retired sheets.
 const SUPABASE_TABLES = {Users:'users', Kumiai:'kumiai', Companies:'companies',
   JobOrders:'job_orders', Tasks:'tasks'};
 let SOURCE_LABEL = '';
@@ -1325,60 +1324,8 @@ const WORK_CATEGORIES = ['Construction','Caregiving','Manufacturing','Agricultur
 const PROGRAM_TYPES = ['SSW1','SSW2','TITP1','TITP2','TITP3'];
 
 function saveDB(){
-  // The data is no longer copied into localStorage: it stayed on shared PCs after sign-out.
-  const after = JSON.parse(JSON.stringify(DB));
-  const changes = lastSnapshot ? diffForLog(lastSnapshot, after) : [];
-  lastSnapshot = after;
-  if(changes.length) sendLog(changes);
-}
-
-/* ---------- Edit log → Google Sheet (EditLog tab) ----------
-   Every saveDB() call is diffed against the previous state, so any UI edit
-   (done toggles, activity, JO create/edit/archive/delete) is captured without
-   touching each handler. Sent to the Apps Script web app in apps-script/Code.gs.
-   Leave LOG_URL blank to turn logging off. */
-const LOG_URL = '';
-let lastSnapshot = null;
-const LOG_COLLECTIONS = {Task:'tasks', JobOrder:'jobOrders', Company:'companies', Kumiai:'kumiai', User:'users'};
-function labelFor(x){
-  if(x.track) return `${x.track} · ${x.name}`;
-  return x.jo || x.name || x.id;
-}
-function diffForLog(before, after){
-  const out = [];
-  const actor = (getUser(currentUserId)||{}).name || currentUserId;
-  for(const [entity,key] of Object.entries(LOG_COLLECTIONS)){
-    const b = new Map((before[key]||[]).map(x=>[x.id,x]));
-    const a = new Map((after[key]||[]).map(x=>[x.id,x]));
-    for(const [id,x] of a){
-      const y = b.get(id);
-      if(!y){ out.push({user:actor, entity, entityId:id, field:'(created)', oldValue:'', newValue:labelFor(x)}); continue; }
-      for(const k of Object.keys(x)){
-        if(k==='activity') continue;
-        if(JSON.stringify(y[k]??null)!==JSON.stringify(x[k]??null))
-          out.push({user:actor, entity, entityId:id, field:k, oldValue:typeof y[k]==='object'?JSON.stringify(y[k]):(y[k]??''), newValue:typeof x[k]==='object'?JSON.stringify(x[k]):(x[k]??'')});
-      }
-      for(const act of (x.activity||[]).slice((y.activity||[]).length))
-        out.push({user:actor, entity, entityId:id, field:'activity', oldValue:'', newValue:`${act.type} ${act.date} ${act.time}`});
-    }
-    for(const [id,y] of b) if(!a.has(id)) out.push({user:actor, entity, entityId:id, field:'(deleted)', oldValue:labelFor(y), newValue:''});
-  }
-  return out;
-}
-function setLogStatus(text){ const el = document.getElementById('logTag'); if(el) el.textContent = text; }
-async function sendLog(changes){
-  if(!LOG_URL){ setLogStatus('logging off'); return; }
-  setLogStatus(`logging ${changes.length}…`);
-  try{
-    const res = await fetch(LOG_URL, {method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
-      body: JSON.stringify({changes})});
-    const j = await res.json();
-    if(!j.ok) throw new Error(j.error || 'rejected');
-    setLogStatus(`✓ logged ${j.written} to Sheet`);
-  }catch(e){
-    console.warn('Edit log failed', e);
-    setLogStatus(`⚠ log failed: ${e.message}`);
-  }
+  // Nothing to do: every change is saved in Supabase by the function that makes it. The data is not copied
+  // into localStorage either (it stayed on shared PCs after sign-out).
 }
 
 function getUser(id){ return DB.users.find(u=>u.id===id); }
@@ -1635,8 +1582,7 @@ function toggleTask(taskId, pageContext){
     showUndoToast(`${t.done?'Marked':'Reopened'} "${t.name}" for JO# ${getJO(t.joId).jo} as ${t.done?'done':'open'}.`, ()=>toggleTask(taskId, pageContext)); } });
 }
 /* ---------- Editing a task (update_task_fields in supabase/12_task_status.sql) ----------
-   Saved straight to Supabase, which checks who may change what and logs every change. The sync
-   then copies it to the Google Sheets. If the task changed since this page read it, nothing is
+   Saved straight to Supabase, which checks who may change what and logs every change. If the task changed since this page read it, nothing is
    saved and the user is told, so an old screen cannot overwrite a newer edit. */
 const TASK_STATUSES = ['Pending','In Progress','Completed'];
 const TASK_FIELD_LABEL = {task_name:'Task Description', due_date:'Due Date', status:'Status', editor_id:'Assigned Officer', remarks:'Remarks'};
@@ -2127,23 +2073,7 @@ async function resetSampleData(){
   enterAs(currentUserId);
 }
 
-/* ---------- Google Sheet / CSV loader ---------- */
-function parseCSV(text){
-  const rows = []; let row = [], cell = '', q = false;
-  for(let i=0;i<text.length;i++){
-    const c = text[i];
-    if(q){
-      if(c==='"' && text[i+1]==='"'){ cell+='"'; i++; }
-      else if(c==='"') q=false;
-      else cell+=c;
-    } else if(c==='"') q=true;
-    else if(c===','){ row.push(cell); cell=''; }
-    else if(c==='\n'){ row.push(cell); rows.push(row); row=[]; cell=''; }
-    else if(c!=='\r') cell+=c;
-  }
-  if(cell.length || row.length){ row.push(cell); rows.push(row); }
-  return rows;
-}
+/* ---------- Supabase rows → Kiroku's data ---------- */
 function tabToObjects(rows){
   const hdr = rows[0].map(h=>h.trim());
   return rows.slice(1).filter(r=>r.some(c=>c.trim()!==''))
@@ -2211,7 +2141,7 @@ async function loadFromSupabase(){
 }
 async function loadFromSource(){
   EVENT_LOGS = null;
-  // Supabase only. The old fallback read the Google Sheets directly, which only worked while they were public.
+  // Supabase is the only data source.
   const db = await loadFromSupabase();
   if(!db) throw new Error('Kiroku has no data yet, or this account may not read it.');
   return db;
@@ -2224,7 +2154,6 @@ async function reloadFromSource(){
     throw e;
   }
   await loadActivityLogs();
-  lastSnapshot = null;
   saveDB();
   document.getElementById('dbTag').textContent = `${DB.tasks.length} tasks · ${DB.users.length} users · source: ${SOURCE_LABEL}`;
 }
@@ -3554,7 +3483,7 @@ function renderAllScreens(){
 }
 
 /* ---------- Configuration: event logs (table event_logs) ---------- */
-let EVENT_LOGS = null;               // null = not loaded from Supabase (sheet / CSV mode)
+let EVENT_LOGS = null;               // null = not loaded (not Admin, or the read failed)
 const cfgFilter = {q:'', module:'', action:'', status:''};
 
 async function fetchEventLogs(){

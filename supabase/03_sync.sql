@@ -1,3 +1,5 @@
+-- OUTDATED (2026-11-11): Kiroku no longer uses Google Sheets. 17_remove_sheet_sync.sql removed the functions
+-- this file created. Kept only as the record of how the database was built. Do not run it.
 -- Kiroku V4 — sync from Google Sheets into Supabase.
 -- Run after 01_schema.sql and 04_event_logs.sql (in the SQL Editor), before the first sync.
 --
