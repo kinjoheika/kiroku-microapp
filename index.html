@@ -1775,17 +1775,12 @@ button, .act-btn, .dg-btn, .signout-btn, .mt-resume, .tab, .card-tab, .cfg-tab{f
 .kf-track{flex:1; height:4px; border-radius:2px; background:var(--kh-line); overflow:hidden; min-width:60px;}
 .kf-track i{display:block; height:100%; background:var(--kh-navy); border-radius:2px;}
 :root[data-theme="dark"] .kf-track i{background:#7FA6D9;}
-.kf-stats{display:inline-flex; flex-wrap:wrap;}
-.kf-stats > span{padding:0 10px; border-left:1px solid var(--kh-line);}
-.kf-stats > span:first-child{padding-left:0; border-left:0;}
-.kf-od, .kf-od b{color:var(--kh-red);}
 .kf-copy{margin-left:auto; font-size:0.8125rem; color:var(--kh-soft); white-space:nowrap;}
 @media (max-width:820px){
-  .kf{display:grid; grid-template-columns:auto minmax(0,1fr); grid-template-areas:"stats stats" "prog prog" "date copy"; padding:6px 16px; gap:4px 12px;}
-  .kf-stats{grid-area:stats;} .kf-prog{grid-area:prog; max-width:none; min-width:0;} .kf-date{grid-area:date;}
+  .kf{display:grid; grid-template-columns:auto minmax(0,1fr); grid-template-areas:"prog prog" "date copy"; padding:6px 16px; gap:4px 12px;}
+  .kf-prog{grid-area:prog; max-width:none; min-width:0;} .kf-date{grid-area:date;}
   .kf-copy{grid-area:copy; margin-left:0; text-align:right; white-space:normal;}
   .kf-wd, .kf-yr{display:none;}
-  .kf-stats > span{padding:0 8px;}
 }
 /* ===== Centered layout =====
    Desktop (1440px and wider): the app sits in the middle 60%, 20% blank on each side.
@@ -3442,13 +3437,11 @@ function footerHTML(){
   if(!user) return '';
   const my = tasksForUser(user.id);
   const done = my.filter(t=>t.done).length, total = my.length, pct = total ? Math.round(done/total*100) : 0;
-  const overdue = my.filter(t=>computeStatus(t)==='flagged').length, open = my.filter(t=>!t.done).length;
   const now = new Date();
   const wd = now.toLocaleDateString('en-US', {weekday:'short'}), md = now.toLocaleDateString('en-US', {month:'short', day:'numeric'});
   return `<footer class="kf" aria-label="Overview">
     <span class="kf-date"><span class="kf-wd">${wd}, </span>${md}<span class="kf-yr">, ${now.getFullYear()}</span></span>
     <span class="kf-prog"><span class="kf-track" role="progressbar" aria-label="Your tasks done" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><i style="width:${pct}%"></i></span><span><b>${done}</b> of ${total} done · ${pct}%</span></span>
-    <span class="kf-stats"><span class="${overdue ? 'kf-od' : ''}"><b>${overdue}</b> overdue</span><span><b>${open}</b> open</span><span><b>${DB.tasks.length}</b> in database</span></span>
     <span class="kf-copy">© ${new Date().getFullYear()} Kiroku. All rights reserved.</span>
   </footer>`;
 }
