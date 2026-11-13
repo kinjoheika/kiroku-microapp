@@ -1229,6 +1229,23 @@ table.sheet td.ro{padding:8px 10px; color:var(--ink-2); white-space:nowrap;}
 :root[data-theme="dark"] ::-webkit-scrollbar-thumb{background:var(--dk-scroll) !important; background-clip:padding-box !important;}
 :root[data-theme="dark"] ::-webkit-scrollbar-thumb:hover{background:var(--dk-scroll-hover) !important; background-clip:padding-box !important;}
 
+/* ===== My Tasks: compact recent lists with a details tooltip ===== */
+.ri-row{align-items:center; padding:6px 15px;}
+.ri-row .ck{margin-top:0; width:16px; display:inline-flex; justify-content:center; flex-shrink:0;}
+.ri-row .ck-act{color:var(--ink-soft);}
+.ri-row .ck svg{width:14px; height:14px;}
+.ri-jo{border:0; background:none; padding:2px 4px; margin-left:-4px; border-radius:4px; font:inherit; font-size:0.8438rem; font-weight:700; color:var(--ink); cursor:pointer; text-decoration:underline dotted var(--ink-3); text-underline-offset:3px; min-height:28px;}
+.ri-jo:hover, .ri-jo[aria-expanded="true"]{background:var(--hover);}
+.ri-jo:focus-visible{outline:2px solid var(--focus); outline-offset:1px;}
+.ri-tip{position:fixed; z-index:60; width:max-content; max-width:min(300px, calc(100vw - 16px)); padding:10px 12px; border:1px solid var(--line); border-radius:8px; background:var(--card); color:var(--ink); box-shadow:0 8px 24px rgba(16,18,22,.16); font-size:0.75rem; line-height:1.45; pointer-events:auto;}
+.ri-tip[hidden]{display:none;}
+.ri-tip-jo{font-weight:700; font-size:0.8125rem;}
+.ri-tip-org{color:var(--ink-soft); margin-bottom:6px;}
+.ri-tip dl{display:grid; grid-template-columns:auto 1fr; gap:2px 10px; margin:0;}
+.ri-tip dt{color:var(--ink-soft);}
+.ri-tip dd{margin:0; font-weight:500; overflow-wrap:anywhere;}
+:root[data-theme="dark"] .ri-tip{background:var(--dk-raised); border-color:var(--dk-border-strong); box-shadow:0 12px 32px rgba(0,0,0,.45);}
+@media (pointer:coarse){ .ri-jo{min-height:36px; padding:4px 8px; margin-left:-8px;} }
 /* ===== Centered layout =====
    Desktop (1440px and wider): the app sits in the middle 60%, 20% blank on each side.
    Smaller screens widen it so the three Due Gates columns stay usable; phones keep a 16px gutter. */
@@ -2793,6 +2810,70 @@ function navHTML(activeTab){
 }
 
 /* ================= SCREEN 1 : My Tasks ================= */
+/* My Tasks: Recently Completed and Recent Actions show only the icon and JO#. The client, track and step,
+   what happened and when appear in one shared tooltip: on hover or keyboard focus with a mouse, on tap on a phone. */
+function recentRowHTML(iconHTML, task, what, when){
+  const jo = getJO(task.joId);
+  const org = [agencyOf(jo), clientOf(jo)].filter(Boolean).join(' · ');
+  return `<div class="done-row ri-row">${iconHTML}<button type="button" class="ri-jo" aria-expanded="false" aria-describedby="riTip"
+    data-org="${escAttr(org)}" data-track="${escAttr(task.track + ' · ' + task.name)}" data-what="${escAttr(what)}" data-when="${escAttr(when)}">JO# ${escHTML(jo.jo)}</button></div>`;
+}
+let riOpenBtn = null, riPinned = false;
+function riTipEl(){
+  let el = document.getElementById('riTip');
+  if(!el){
+    el = document.createElement('div');
+    el.id = 'riTip'; el.className = 'ri-tip'; el.setAttribute('role', 'tooltip'); el.hidden = true;
+    document.body.appendChild(el);
+  }
+  return el;
+}
+function showRecentTip(btn, pinned){
+  const tip = riTipEl();
+  if(riOpenBtn && riOpenBtn !== btn) riOpenBtn.setAttribute('aria-expanded', 'false');
+  const d = btn.dataset;
+  tip.innerHTML = `<div class="ri-tip-jo">${escHTML(btn.textContent)}</div>
+    ${d.org ? `<div class="ri-tip-org">${escHTML(d.org)}</div>` : ''}
+    <dl>
+      <dt>Track</dt><dd>${escHTML(d.track)}</dd>
+      <dt>${d.what==='Completed' ? 'Status' : 'Action'}</dt><dd>${escHTML(d.what)}</dd>
+      ${d.when ? `<dt>When</dt><dd>${escHTML(d.when)}</dd>` : ''}
+    </dl>`;
+  tip.hidden = false;
+  riOpenBtn = btn; riPinned = !!pinned;
+  btn.setAttribute('aria-expanded', 'true');
+  // Below the JO#, or above when there is no room; kept inside the window.
+  const r = btn.getBoundingClientRect(), w = tip.offsetWidth, h = tip.offsetHeight, gap = 6;
+  const left = Math.max(8, Math.min(r.left, window.innerWidth - w - 8));
+  const top = r.bottom + gap + h <= window.innerHeight - 8 ? r.bottom + gap : Math.max(8, r.top - gap - h);
+  tip.style.left = left + 'px'; tip.style.top = top + 'px';
+}
+function hideRecentTip(){
+  const tip = document.getElementById('riTip');
+  if(tip) tip.hidden = true;
+  if(riOpenBtn) riOpenBtn.setAttribute('aria-expanded', 'false');
+  riOpenBtn = null; riPinned = false;
+}
+document.addEventListener('pointerover', e=>{
+  const b = e.target.closest && e.target.closest('.ri-jo');
+  if(b && e.pointerType === 'mouse' && !riPinned) showRecentTip(b, false);
+});
+document.addEventListener('pointerout', e=>{
+  const b = e.target.closest && e.target.closest('.ri-jo');
+  if(b && e.pointerType === 'mouse' && !riPinned && !b.contains(e.relatedTarget)) hideRecentTip();
+});
+document.addEventListener('focusin', e=>{ if(e.target.classList && e.target.classList.contains('ri-jo') && e.target.matches(':focus-visible')) showRecentTip(e.target, false); });
+document.addEventListener('focusout', e=>{ if(e.target.classList && e.target.classList.contains('ri-jo') && !riPinned) hideRecentTip(); });
+// Tap or click: keeps the details open until the next tap elsewhere, Escape, or scrolling.
+document.addEventListener('click', e=>{
+  const b = e.target.closest && e.target.closest('.ri-jo');
+  if(b){ if(riOpenBtn === b && riPinned) hideRecentTip(); else showRecentTip(b, true); return; }
+  if(riOpenBtn && !(e.target.closest && e.target.closest('#riTip'))) hideRecentTip();
+});
+document.addEventListener('keydown', e=>{ if(e.key === 'Escape' && riOpenBtn){ const b = riOpenBtn; hideRecentTip(); b.focus(); } });
+document.addEventListener('scroll', ()=>{ if(riOpenBtn) hideRecentTip(); }, true);
+window.addEventListener('resize', ()=>{ if(riOpenBtn) hideRecentTip(); });
+
 function buildScreen1(){
   const user = getUser(currentUserId);
   const my = tasksForUser(user.id);
@@ -2860,14 +2941,14 @@ function buildScreen1(){
           <div class="card">
             <div class="card-hd"><span class="t">My Recently Completed</span><span class="hd-count">${doneList.length}</span></div>
             <div class="card-list">${doneList.length ? doneList.map(t=>{
-              return `<div class="done-row"><span class="ck">✓</span><div class="ci-body">${joNametagHTML(t.joId, t.track, t.name)}<div class="ci-badges"><span class="badge-done">Completed · ${fmtStamp(t.doneAt)}</span></div></div></div>`;
+              return recentRowHTML('<span class="ck">✓</span>', t, 'Completed', t.doneAt ? fmtStamp(t.doneAt) : '');
             }).join('') : '<div class="empty-note">Nothing completed yet.</div>'}</div>
           </div>
           <div class="card">
             <div class="card-hd"><span class="t">My Recent Actions</span><span class="hd-count">${myActivity.length}</span></div>
             <div class="card-list">${myActivity.length ? myActivity.map(a=>{
               const meta = ACTION_META[a.type];
-              return `<div class="done-row"><span class="ck" style="color:var(--ink-soft);">${svgIcon(meta.icon)}</span><div class="ci-body">${joNametagHTML(a.task.joId, a.task.track, a.task.name)}<div class="ci-badges"><span class="badge-followup">${meta.label} · ${fmtStamp(a)}</span></div></div></div>`;
+              return recentRowHTML(`<span class="ck ck-act" title="${escAttr(meta.label)}">${svgIcon(meta.icon)}</span>`, a.task, meta.label, fmtStamp(a));
             }).join('') : '<div class="empty-note">No actions logged yet.</div>'}</div>
           </div>
         </div>
