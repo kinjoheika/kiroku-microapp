@@ -1782,6 +1782,99 @@ button, .act-btn, .dg-btn, .signout-btn, .mt-resume, .tab, .card-tab, .cfg-tab{f
   .kf-copy{grid-area:copy; margin-left:0; text-align:right; white-space:normal;}
   .kf-wd, .kf-yr{display:none;}
 }
+/* ===== Due Gates, simplified =====
+   Neutral surfaces, navy as the one accent, red only for overdue, amber only for follow-ups. */
+:root{ --dg-accent:#2E4A6E; --dg-accent-tint:#E9EEF5; --dg-accent-line:#C9D5E5; --dg-fu:#8A6516; }
+:root[data-theme="dark"]{ --dg-accent:#8FB0DC; --dg-accent-tint:#223249; --dg-accent-line:#33496A; --dg-fu:#DDBB66; }
+
+/* Job Orders */
+.col-workers .dg-jo{padding:10px 12px;}
+.dg-jo.on{background:var(--dg-accent-tint); border-color:var(--dg-accent-line); box-shadow:inset 3px 0 0 var(--dg-accent);}
+:root[data-theme="dark"] .dg-jo.on{background:var(--dg-accent-tint); border-color:var(--dg-accent-line);}
+.dg-jo-top a{font-size:0.875rem; font-weight:600;}
+.dg-od{font-size:0.8125rem; font-weight:600; color:var(--red);}
+.dg-jo-prog{display:flex; align-items:center; gap:8px; margin-top:8px; font-size:0.8125rem; color:var(--ink-3); font-variant-numeric:tabular-nums;}
+.dg-jo-prog .dg-bar{flex:1;}
+
+/* Bars: one slim style everywhere */
+.dg-bar{height:4px; border-radius:2px; background:var(--line-2);}
+.dg-bar i{background:var(--dg-accent);}
+:root[data-theme="dark"] .dg-bar{background:#333C48;}
+
+/* Tracks */
+.dg-trk{background:var(--card); border:1px solid var(--line); border-radius:8px; padding:10px 12px;}
+:root[data-theme="dark"] .dg-trk{background:var(--dk-raised); border-color:var(--line);}
+.dg-trk:hover{background:var(--hover);}
+.dg-trk.on, :root[data-theme="dark"] .dg-trk.on{background:var(--dg-accent-tint); border-color:var(--dg-accent-line); box-shadow:inset 3px 0 0 var(--dg-accent);}
+.dg-trk.on .dg-bar{background:var(--card);}
+:root[data-theme="dark"] .dg-trk.on .dg-bar{background:#2C3440;}
+.dg-trk-name{font-size:0.875rem; font-weight:600; letter-spacing:0;}
+.dg-trk-count{font-size:0.8125rem; font-weight:500; color:var(--ink-3); font-variant-numeric:tabular-nums;}
+.dg-trk .dg-bar{margin-top:8px;}
+
+/* Task details header: JO heading + save control, compact count and bar */
+.dg-ck-hd{display:flex; flex-wrap:wrap; align-items:center; gap:10px 20px; padding:14px 20px; border-bottom:1px solid var(--line-2);}
+.dg-ck-title{flex:1 1 260px; min-width:0;}
+.dg-ck-jo{display:flex; flex-wrap:wrap; align-items:center; gap:8px 10px; font-size:1.0625rem; font-weight:600;}
+.dg-tag{background:var(--neutral-bg); color:var(--ink-2);}
+.dg-ck-meta{margin-top:2px;}
+.dg-ck-prog{display:flex; flex-direction:column; gap:6px; flex:0 1 220px; min-width:160px;}
+.dg-ck-count{font-size:0.8125rem; color:var(--ink-3);}
+.dg-ck-count b{font-weight:600; color:var(--ink);}
+.dg-ck-od{color:var(--red); font-weight:600;}
+
+/* Rows: checkbox, name, officer, due date */
+.dg-rows{padding:4px 12px 12px;}
+.dg-grp{display:block; width:100%; margin-top:10px; padding:8px 8px 4px; border:0; background:none; text-align:left; font:inherit; font-size:0.8125rem; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-3); cursor:pointer;}
+.dg-grp:first-child{margin-top:0;}
+.dg-grp:hover{color:var(--ink);}
+.dg-row{grid-template-columns:22px minmax(0,1fr) auto; align-items:start; gap:12px; padding:10px 8px; border-radius:8px; border-bottom:1px solid var(--line-2);}
+.dg-row:last-child{border-bottom:0;}
+.dg-row-name{font-size:0.875rem; font-weight:600; color:var(--ink);}
+.dg-row.is-done .dg-row-name{font-weight:500; color:var(--ink-3);}
+.dg-row-sub{gap:0; margin-top:2px; font-size:0.8125rem; color:var(--ink-3);}
+.dg-row-sub > span+span::before, .dg-row-sub > span + button::before{content:none;}
+.dg-lead{padding-top:1px;}
+.dg-cb{width:20px; height:20px; padding:0; border:1.5px solid var(--ink-3); border-radius:5px; background:var(--card); color:#fff; cursor:pointer; transition:background .15s ease, border-color .15s ease;}
+.dg-cb svg{width:14px; height:14px;}
+.dg-cb:hover{border-color:var(--dg-accent);}
+.dg-cb.on{background:var(--dg-accent); border-color:var(--dg-accent);}
+:root[data-theme="dark"] .dg-cb.on{color:#0F1216;}
+.dg-cb:focus-visible{outline:2px solid var(--focus); outline-offset:2px;}
+.dg-cb.ro{cursor:default; opacity:.55;}
+.dg-cb.ro:hover{border-color:var(--ink-3);}
+.dg-cb.ro.on:hover{border-color:var(--dg-accent);}
+.dg-due{padding-top:1px; font-size:0.8125rem; font-weight:500; color:var(--ink-2); white-space:nowrap; font-variant-numeric:tabular-nums;}
+.dg-due.is-over{color:var(--red); font-weight:600;}
+.dg-due.is-done{color:var(--ink-3);}
+.dg-more{display:inline-flex; align-items:center; gap:2px; margin-left:10px; padding:0 4px; border:0; border-radius:4px; background:none; color:var(--dg-accent); font:inherit; font-size:0.8125rem; font-weight:600; cursor:pointer;}
+.dg-more svg{width:14px; height:14px; transition:transform .15s ease;}
+.dg-more[aria-expanded="true"] svg{transform:rotate(180deg);}
+.dg-more:hover{background:var(--dg-accent-tint);}
+.dg-more:focus-visible{outline:2px solid var(--focus); outline-offset:1px;}
+.dg-more-panel{display:flex; flex-direction:column; gap:3px; margin-top:6px; padding:8px 10px; border-radius:6px; background:var(--surface-subtle); border:1px solid var(--line-2); font-size:0.8125rem; color:var(--ink-2);}
+.dg-more-panel[hidden]{display:none;}
+.dg-x-fu{color:var(--dg-fu); font-weight:600;}
+.dg-x-rem{overflow-wrap:anywhere;}
+
+/* Compact save control (beside the JO heading, and in Gate details) */
+.save-bar{display:inline-flex; align-items:center; gap:6px; margin:0; padding:0; border:0; background:none; font-size:0.8125rem; font-weight:500; white-space:nowrap; color:var(--ink-3); flex-basis:auto;}
+.save-bar.idle{display:none;}
+.save-bar .sv-ico{display:inline-flex; width:14px; height:14px;}
+.save-bar .sv-ico svg{width:14px; height:14px;}
+.save-bar .save-spin{width:12px; height:12px; margin:1px;}
+.save-bar.pending{color:var(--ink-2);}
+.save-bar.pending .sv-ico{color:var(--dg-accent);}
+.save-bar.saved{color:var(--green);}
+.save-bar.error{color:var(--red); font-weight:600; flex-basis:auto; padding:0; border:0; background:none;}
+.sv-btn{display:inline-flex; align-items:center; justify-content:center; height:26px; border-radius:6px; font:inherit; font-size:0.8125rem; font-weight:600; cursor:pointer;}
+.sv-icon{width:26px; padding:0; border:1px solid var(--dg-accent-line); background:var(--dg-accent-tint); color:var(--dg-accent);}
+.sv-icon svg{width:15px; height:15px;}
+.sv-icon:hover{border-color:var(--dg-accent);}
+.sv-retry{padding:0 10px; border:1px solid var(--red-line); background:var(--red-soft); color:var(--red);}
+.sv-retry:hover{border-color:var(--red);}
+.sv-btn:focus-visible{outline:2px solid var(--focus); outline-offset:2px;}
+.tf-head .save-bar{margin-left:auto;}
 /* ===== Centered layout =====
    Desktop (1440px and wider): the app sits in the middle 60%, 20% blank on each side.
    Smaller screens widen it so the three Due Gates columns stay usable; phones keep a 16px gutter. */
@@ -2306,9 +2399,11 @@ function startActivityRealtime(){
 function statusLabel(t){ return {done:'Done', flagged:'Overdue', pending:'Due Soon', none:'Open'}[computeStatus(t)]; }
 
 /* ---------- mutations ---------- */
-function toggleTask(taskId, pageContext){
+async function toggleTask(taskId, pageContext){
   const t = DB.tasks.find(x=>x.id===taskId);
   if(!canEditInContext(t, pageContext)) return;
+  if(logInFlight.has(`${taskId}|done`)) return false;          // a second click while the first is saving is ignored
+  while(taskSaving.has(taskId)) await new Promise(r=>setTimeout(r, 40));
   const entry = logEntry(t.done ? 'Status Change' : 'Mark Done', {taskId,
     details: t.done ? 'Task reopened' : 'Task marked done', prev: statusLabel(t), next: statusLabel({...t, done:!t.done})});
   const want = !t.done;
@@ -2388,16 +2483,41 @@ function setSaveUI(kind, text){
   saveUI = {kind, text};
   updateSaveBars();
 }
+const SV_ICONS = {
+  save:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h11l3 3v12a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4z"/><path d="M8 4v5h7V4M8 20v-6h8v6"/></svg>',
+  ok:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
+  warn:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.5h.01"/></svg>',
+  dot:'<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.5" fill="currentColor"/></svg>'
+};
+function saveBusy(){ return saveUI.kind==='saving' || taskSaving.size > 0 || [...logInFlight].some(k=>k.endsWith('|done')); }
+function hasPendingSaves(){ return unsavedCount() > 0 || saveBusy(); }
+// One small control beside the JO heading: Unsaved changes (+ Save) / Saving… / Saved / Save failed (+ Retry).
 function saveBarHTML(){
   const n = unsavedCount();
-  const busy = taskSaving.size > 0;
-  return `<div class="save-bar ${saveUI.kind}" role="group" aria-label="Saving">
-    <span class="save-state" role="status" aria-live="polite">${saveUI.kind==='saving' ? '<i class="save-spin" aria-hidden="true"></i>' : ''}${escHTML(saveUI.text || (n ? `${n} unsaved change${n>1?'s':''}` : 'All changes saved'))}</span>
-    <button type="button" class="dg-btn primary save-now" onclick="saveAllNow()" ${n && !busy ? '' : 'disabled'}>Save</button>
-  </div>`;
+  let kind, text, icon, action = '';
+  if(saveBusy()){ kind = 'saving'; text = 'Saving…'; icon = '<i class="save-spin" aria-hidden="true"></i>'; }
+  else if(saveUI.kind==='error'){ kind = 'error'; text = 'Save failed'; icon = SV_ICONS.warn;
+    if(n) action = '<button type="button" class="sv-btn sv-retry" onclick="event.stopPropagation(); saveAllNow()">Retry</button>'; }
+  else if(n){ kind = 'pending'; text = `Unsaved change${n>1?'s':''}`; icon = SV_ICONS.dot;
+    action = `<button type="button" class="sv-btn sv-icon" onclick="event.stopPropagation(); saveAllNow()" title="Save now" aria-label="Save now">${SV_ICONS.save}</button>`; }
+  else if(saveUI.kind==='saved'){ kind = 'saved'; text = 'Saved'; icon = SV_ICONS.ok; }
+  else return '<span class="save-bar idle" role="status" aria-live="polite"></span>';
+  const why = kind==='error' ? escAttr(saveUI.text || '') : '';
+  return `<span class="save-bar ${kind}" role="status" aria-live="polite" ${why ? `title="${why}"` : ''}><span class="sv-ico">${icon}</span><span class="sv-text">${text}</span>${action}</span>`;
 }
 function updateSaveBars(){
   document.querySelectorAll('.save-bar').forEach(el=>{ el.outerHTML = saveBarHTML(); });
+}
+function installNavGuards(){
+  ['showScreenById','showScreen','selectS2JO','selectS3JO','selectS2Track','selectS3Track','openDueGatesTaskDetail','closeS2Detail','closeS3Detail',
+   'openS2Profile','closeS2Profile','openS3Profile','closeS3Profile','openS2Archived','closeS2Archived','openTaskDetail','closeTaskDetail',
+   'openDetailFor','openNotif','openDiscussJo','closeDiscussJo','openS2Form','viewArchivedJO','signOut'].forEach(name=>{
+    const f = window[name];
+    if(typeof f !== 'function' || f._guarded) return;
+    const g = function(...args){ if(!hasPendingSaves()) return f.apply(this, args); guardedNav(()=>f.apply(this, args)); };
+    g._guarded = true;
+    window[name] = g;
+  });
 }
 window.addEventListener('beforeunload', e=>{ if(unsavedCount()){ e.preventDefault(); e.returnValue = ''; } });
 
@@ -2423,7 +2543,7 @@ async function saveTaskDrafts(taskId, isUndo){
   const t = getTaskById(taskId);
   const d = taskDrafts[taskId];
   if(!t || !d) return true;
-  if(taskSaving.has(taskId)){ draftTimers[taskId] = setTimeout(()=>saveTaskDrafts(taskId, isUndo), 300); return false; }
+  if(taskSaving.has(taskId) || logInFlight.has(`${taskId}|done`)){ draftTimers[taskId] = setTimeout(()=>saveTaskDrafts(taskId, isUndo), 300); return false; }
   const fields = {}, prev = {};
   for(const f of Object.keys(d)){
     const next = String(d[f]).trim();
@@ -2471,8 +2591,43 @@ async function saveAllNow(){
     if(!t || t.done === p.done){ pendingToggles.delete(id); continue; }
     await toggleTask(id, p.pageContext);
   }
-  if(!unsavedCount() && saveUI.kind!=='error' && saveUI.kind!=='saved') setSaveUI('saved', 'Saved');
-  else updateSaveBars();
+  updateSaveBars();
+  return !unsavedCount();
+}
+/* Leaving a page (tab, JO, track, task, notification…) first saves anything pending and waits for the server.
+   If that fails, the edits stay and the person decides: stay (and Retry) or leave and discard them. */
+// Waits while a save is running; gives up after 20 s so leaving a page can never hang.
+async function waitSaves(){ const t0 = Date.now(); while(saveBusy() && Date.now() - t0 < 20000) await new Promise(r=>setTimeout(r, 40)); }
+async function flushSaves(){
+  for(let round = 0; round < 4; round++){
+    Object.values(draftTimers).forEach(clearTimeout);
+    await waitSaves();
+    if(!unsavedCount()) return true;
+    if(saveUI.kind==='error' && round > 0) break;
+    await saveAllNow();
+  }
+  await waitSaves();
+  return !unsavedCount() && !saveBusy();
+}
+function discardPendingSaves(){
+  Object.values(draftTimers).forEach(clearTimeout);
+  Object.keys(taskDrafts).forEach(k=>delete taskDrafts[k]);
+  pendingToggles.clear();
+  saveUI = {kind:'idle', text:''};
+}
+let navGuardBusy = false;
+async function guardedNav(go){
+  if(navGuardBusy) return;
+  navGuardBusy = true;
+  try {
+    updateSaveBars();
+    const ok = await flushSaves();
+    if(ok){ go(); return; }
+    const why = saveUI.text || 'The server did not confirm the save.';
+    if(confirm(`Your changes are not saved.\n\n${why}\n\nPress Cancel to stay here and use Retry, or OK to leave and discard them.`)){
+      discardPendingSaves(); go();
+    } else updateSaveBars();
+  } finally { navGuardBusy = false; }
 }
 function renderKeepingFocus(){
   const a = document.activeElement;
@@ -4051,6 +4206,11 @@ const DG_ICONS = {
   note:'<path d="M4 20h4L19 9l-4-4L4 16zM13.5 6.5l4 4"/>',
   x:'<path d="M6 6l12 12M18 6L6 18"/>'
 };
+function dgToggleMore(btn){
+  const panel = btn.closest('.dg-row-body').querySelector('.dg-more-panel');
+  const open = panel.hidden;
+  panel.hidden = !open; btn.setAttribute('aria-expanded', open);
+}
 function dgIcon(name){ return `<svg class="dg-i" viewBox="0 0 24 24" aria-hidden="true">${DG_ICONS[name]}</svg>`; }
 function dgInd(st, fu, cls=''){
   const label = st==='flagged' ? 'Overdue' : st==='done' ? 'Done' : st==='empty' ? 'No tasks' : 'Not started / not overdue';
@@ -4095,14 +4255,15 @@ function buildDueGatesScreen(scope){
   });
 
   const workerRows = filteredJoList.map(j=>{
-    const co = getCompany(j.companyId), ku = getKumiai(co.kumiaiId);
-    const joTasks = tasksForJO(j.id);
-    const overdue = joTasks.filter(t=>trackList.some(x=>x.key===t.track) && computeStatus(t)==='flagged').length;
-    const pills = trackList.map(td=>`<span class="dg-pill">${dgTrackInd(joTasks.filter(t=>t.track===td.key))}${td.key}</span>`).join('');
-    return `<div class="dg-jo ${j.id===selJOId?'on':''}" role="button" tabindex="0" onclick="${isMine?'selectS2JO':'selectS3JO'}('${j.id}')" title="${escHTML(ku.name)} · ${escHTML(co.name)}">
+    const co = getCompany(j.companyId);
+    const joTasks = tasksForJO(j.id).filter(t=>trackList.some(x=>x.key===t.track));
+    const overdue = joTasks.filter(t=>computeStatus(t)==='flagged').length;
+    const done = joTasks.filter(t=>t.done).length, pct = joTasks.length ? Math.round(done/joTasks.length*100) : 0;
+    const on = j.id===selJOId;
+    return `<div class="dg-jo ${on?'on':''}" role="button" tabindex="0" aria-pressed="${on}" data-key-activate onclick="${isMine?'selectS2JO':'selectS3JO'}('${j.id}')" title="${escAttr(co.name)}">
       <div class="dg-jo-top"><a onclick="event.stopPropagation(); ${isMine?'openS2Profile':'openS3Profile'}('${j.id}')" title="Open JO profile">JO# ${escHTML(j.jo)}</a>${overdue?`<span class="dg-od">${overdue} overdue</span>`:''}</div>
       <div class="dg-jo-co">${escHTML(co.name)}</div>
-      <div class="dg-pills">${pills}</div>
+      <div class="dg-jo-prog"><span class="dg-bar"><i style="width:${pct}%"></i></span><span>${done}/${joTasks.length}</span></div>
     </div>`;
   }).join('') || `<div class="empty-note" style="padding:15px;">${searchTerm ? 'No Job Orders match your search.' : 'No Job Orders with open items in this track.'}</div>`;
 
@@ -4135,8 +4296,9 @@ function buildDueGatesScreen(scope){
     const tks = selJOId ? tasksForJO(selJOId).filter(t=>t.track===tr.key) : tasksInTrackAcrossActiveJOs(tr.key);
     const doneN = tks.filter(t=>t.done).length;
     const pct = tks.length ? Math.round(doneN/tks.length*100) : 0;
-    return `<button type="button" class="dg-trk ${tr.key===trackKey?'on':''}" onclick="${selectTrackFn}('${tr.key}')" aria-pressed="${tr.key===trackKey}" title="${tr.key===trackKey?'Click again to show every track':`Show only ${tr.name} stages`}">
-      <span class="dg-trk-top">${dgTrackInd(tks,'md')}<span class="dg-trk-name">${tr.name}</span><span class="dg-trk-count">${tks.length ? doneN+'/'+tks.length : ''}</span></span>
+    const on = tr.key===trackKey;
+    return `<button type="button" class="dg-trk ${on?'on':''}" onclick="${selectTrackFn}('${tr.key}')" aria-pressed="${on}" title="${on?'Show every track':`Show only ${tr.name}`}">
+      <span class="dg-trk-top"><span class="dg-trk-name">${tr.name}</span><span class="dg-trk-count">${tks.length ? doneN+'/'+tks.length : '—'}</span></span>
       <span class="dg-bar"><i style="width:${pct}%"></i></span>
     </button>`;
   }).join('');
@@ -4150,47 +4312,47 @@ function buildDueGatesScreen(scope){
     const doneCount = tasks.filter(t=>t.done).length, total = tasks.length;
     const pct = total ? Math.round(doneCount/total*100) : 0;
     const overdueCount = tasks.filter(t=>computeStatus(t)==='flagged').length;
-    const followedCount = tasks.filter(t=>(t.activity||[]).some(a=>a.type==='followup')).length;
     const rowHTML = t=>{
       const editable = canEditInContext(t, pageContext);
-      const fus = (t.activity||[]).filter(a=>a.type==='followup').length;
-      const fu = lastActivityDate(t,'followup');
-      const up = lastActivityDate(t,'upload');
+      const st = computeStatus(t), dd = diffDays(t.due);
+      const officer = getUser(getEditor(t));
+      const fus = (t.activity||[]).filter(a=>a.type==='followup');
+      const fu = lastActivityDate(t,'followup'), up = lastActivityDate(t,'upload');
       const notes = (t.activity||[]).filter(a=>a.type==='note').length;
-      const meta = [];
-      if(!editable || isAdmin(getUser(currentUserId))) meta.push(`<span>${escHTML(getUser(getEditor(t)).name)}</span>`);
-      if(fu) meta.push(`<span class="dg-fu" title="Followed up · ${fmtFullDate(fu)}"><i></i>${fus>1?fus+'× · ':''}${fmtDate(fu)}</span>`);
-      if(up) meta.push(`<span title="Document uploaded · ${fmtFullDate(up)}">${dgIcon('clip')}${fmtDate(up)}</span>`);
-      if(notes) meta.push(`<span title="Notes">${dgIcon('note')}${notes}</span>`);
-      if(t.status==='In Progress') meta.push('<span class="st-pill st-In-Progress">In Progress</span>');
-      if(t.remarks) meta.push(`<span class="dg-remark" title="${escAttr(t.remarks)}">${escHTML(t.remarks)}</span>`);
-      const lead = !isMine ? dgInd(trackClass(computeStatus(t)))
-        : editable ? `<span class="dg-cb ${t.done?'on':''}" role="checkbox" aria-checked="${t.done}" title="${t.done?'Mark open':'Mark done'}" onclick="event.stopPropagation(); toggleTask('${t.id}','${pageContext}')">${t.done?'✓':''}</span>`
-        : `<span class="dg-lock" title="Assigned to ${escHTML(getUser(getEditor(t)).name)}. Only they can change this step.">${dgIcon('lock')}</span>`;
-      return `<div class="dg-row ${t.done?'is-done':''}" role="button" tabindex="0" onclick="openDueGatesTaskDetail('${t.id}','${pageContext}')">
-        <span class="dg-lead">${lead}</span>
-        <div class="dg-row-body"><div class="dg-row-name">${escHTML(t.name)}</div>${meta.length?`<div class="dg-row-sub">${meta.join('')}</div>`:''}</div>
-        ${dueBadgeHTML(t)}
+      const extra = [];
+      if(fus.length) extra.push(`<span class="dg-x-fu">Followed up${fus.length>1?` ${fus.length}×`:''} · last ${fmtDate(fu)}</span>`);
+      if(up) extra.push(`<span>Document uploaded · ${fmtDate(up)}</span>`);
+      if(notes) extra.push(`<span>${notes} note${notes>1?'s':''}</span>`);
+      if(t.status==='In Progress') extra.push('<span>Status: In Progress</span>');
+      if(t.remarks) extra.push(`<span class="dg-x-rem">Remarks: ${escHTML(t.remarks)}</span>`);
+      const due = t.done ? `<span class="dg-due is-done">Done${t.doneAt ? ' ' + fmtDate(t.doneAt.date) : ''}</span>`
+        : st==='flagged' ? `<span class="dg-due is-over">${-dd} day${dd===-1?'':'s'} overdue</span>`
+        : `<span class="dg-due">${dd===0 ? 'Due today' : 'Due ' + fmtDate(t.due)}</span>`;
+      const box = editable
+        ? `<button type="button" class="dg-cb ${t.done?'on':''}" role="checkbox" aria-checked="${t.done}" aria-label="${t.done?'Mark open':'Mark done'}: ${escAttr(t.name)}" title="${t.done?'Mark open':'Mark done'}" onclick="event.stopPropagation(); toggleTask('${t.id}','${pageContext}')">${t.done?SV_ICONS.ok:''}</button>`
+        : `<span class="dg-cb ro ${t.done?'on':''}" role="img" aria-label="${t.done?'Done':'Not done'}" title="${isMine ? `Assigned to ${escAttr(officer ? officer.name : '')}. Only they can change it.` : (t.done?'Done':'Not done')}">${t.done?SV_ICONS.ok:''}</span>`;
+      return `<div class="dg-row ${t.done?'is-done':''}" role="button" tabindex="0" data-key-activate onclick="openDueGatesTaskDetail('${t.id}','${pageContext}')">
+        <span class="dg-lead">${box}</span>
+        <div class="dg-row-body">
+          <div class="dg-row-name">${escHTML(t.name)}</div>
+          <div class="dg-row-sub"><span>${escHTML(officer ? officer.name : '—')}</span>${extra.length ? `<button type="button" class="dg-more" aria-expanded="false" onclick="event.stopPropagation(); dgToggleMore(this)">Details<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>` : ''}</div>
+          ${extra.length ? `<div class="dg-more-panel" hidden>${extra.join('')}</div>` : ''}
+        </div>
+        ${due}
       </div>`;
     };
     const groupsOn = !trackKey && shownTracks.length>1;
     const items = shownTracks.map(tr=>{
-      const part = tasks.filter(t=>t.track===tr.key), partDone = part.filter(t=>t.done).length;
-      const partPct = part.length ? Math.round(partDone/part.length*100) : 0;
-      const grp = groupsOn ? `<div class="dg-grp" onclick="${selectTrackFn}('${tr.key}')" title="Show only ${tr.name} stages">${dgTrackInd(part)}<span>${tr.name}</span><span class="dg-bar"><i style="width:${partPct}%"></i></span><span class="dg-grp-n">${partDone}/${part.length}</span></div>` : '';
+      const part = tasks.filter(t=>t.track===tr.key);
+      const grp = groupsOn ? `<button type="button" class="dg-grp" onclick="${selectTrackFn}('${tr.key}')" title="Show only ${tr.name}">${tr.name}</button>` : '';
       return grp + part.map(rowHTML).join('');
     }).join('');
     checklistHTML = `<div class="dg-ck-hd">
         <div class="dg-ck-title">
-          <div class="dg-ck-jo">JO# ${escHTML(jo.jo)}${trackKey?`<button type="button" class="dg-tag" onclick="${selectTrackFn}('${trackKey}')" title="Show every track">${trackKey} ${dgIcon('x')}</button>`:''}</div>
-          <div class="dg-ck-meta"><span title="${escHTML(ku.name)}">${escHTML(co.name)}</span><span>Deploy <b>${fmtFullDate(jo.targetDeploymentDate)}</b></span></div>
+          <div class="dg-ck-jo"><span>JO# ${escHTML(jo.jo)}</span>${trackKey?`<button type="button" class="dg-tag" onclick="${selectTrackFn}('${trackKey}')" title="Show every track">${trackKey} ${dgIcon('x')}</button>`:''}${isMine ? saveBarHTML() : ''}</div>
+          <div class="dg-ck-meta"><span>${escHTML(co.name)}</span><span>Deploy ${fmtFullDate(jo.targetDeploymentDate)}</span></div>
         </div>
-        <div class="dg-final">
-          <div class="dg-ring ${followedCount?'fu':''}" style="background:conic-gradient(var(--blue) 0 ${pct}%, var(--line-2) ${pct}% 100%)"><div class="dg-hole" style="${overdueCount?'color:var(--red)':''}">${doneCount}/${total}</div></div>
-          <div class="dg-final-txt"><b>${doneCount} of ${total} done</b><span>${trackKey ? trackKey+' stages' : 'All tracks'}</span></div>
-        </div>
-        ${isMine ? saveBarHTML() : ''}
-        <div class="dg-sum"><span>${dgInd('done')}<b>${doneCount}</b> done</span><span>${dgInd('flagged')}<b>${overdueCount}</b> overdue</span><span>${dgInd('none')}<b>${tasks.filter(t=>!t.done && computeStatus(t)!=='flagged' && t.status!=='In Progress').length}</b> not started</span><span>${dgInd('none',true)}<b>${followedCount}</b> followed up</span></div>
+        <div class="dg-ck-prog"><span class="dg-ck-count"><b>${doneCount}</b> of ${total} done${overdueCount ? ` · <span class="dg-ck-od">${overdueCount} overdue</span>` : ''}</span><span class="dg-bar"><i style="width:${pct}%"></i></span></div>
       </div><div class="tri-body dg-rows">${items}</div>`;
   }
 
@@ -4198,7 +4360,7 @@ function buildDueGatesScreen(scope){
     `<div class="tri">
       ${col1HTML}
       <div class="tri-col col-tracks">
-        <div class="tri-hd dg-hd"><span>${isMine?'Your tracks':'Tracks'}</span>${dgLegendHTML()}</div>
+        <div class="tri-hd dg-hd"><span>${isMine?'Your tracks':'Tracks'}</span></div>
         <div class="tri-body">${trackRows}</div>
       </div>
       <div class="tri-col col-checklist">${checklistHTML}</div>
@@ -5332,6 +5494,7 @@ const signedOutReason = new URLSearchParams(location.search).get('signedout');
 try { Object.keys(localStorage).filter(k=>/^sb-/.test(k) || ['kiroku_sample_db_v2','kiroku_mock_user','kiroku_signin_email'].includes(k))
   .forEach(k=>localStorage.removeItem(k)); } catch(e){}
 if(signedOutReason) history.replaceState(null, '', location.pathname);
+installNavGuards();
 showSignIn('wait');   // covers the empty page until Kiroku knows whether someone is signed in
 window.addEventListener('load', async ()=>{
   showLoader('Loading Kiroku…');
