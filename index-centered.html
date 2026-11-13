@@ -1886,10 +1886,10 @@ button, .act-btn, .dg-btn, .signout-btn, .mt-resume, .tab, .card-tab, .cfg-tab{f
 .save-bar.idle{display:none;}
 .sv-ic{display:inline-grid; place-items:center; width:28px; height:28px; padding:0; border:0; border-radius:6px; background:none; cursor:pointer; transition:background .15s ease, color .15s ease;}
 .sv-ic svg{width:18px; height:18px;}
-.sv-save{color:var(--blue);}
-.sv-save:hover{background:var(--blue-light);}
-.sv-discard{color:var(--ink-2);}
-.sv-discard svg{width:15px; height:15px;}
+.sv-save{color:var(--ink);}
+.sv-save:hover{background:var(--hover);}
+.sv-discard{color:var(--ink);}
+.sv-discard svg{width:14px; height:14px;}
 .sv-discard:hover{background:var(--hover); color:var(--ink);}
 .sv-ok{color:var(--green); cursor:default;}
 .sv-warn{color:var(--red); cursor:help;}
@@ -2561,9 +2561,9 @@ function saveBarHTML(){
     return `<span class="save-bar saving" role="status" aria-live="polite"><span class="sv-ic sv-wait" aria-hidden="true"><i class="save-spin"></i></span><span class="sv-sr">Saving…</span></span>`;
   if(saveUI.kind==='error'){
     const why = escAttr(saveUI.text || 'Save failed');
-    return `<span class="save-bar error" role="status" aria-live="polite"><span class="sv-ic sv-warn" tabindex="0" data-tip="Save failed. ${why}" aria-label="Save failed: ${why}">${SV_ICONS.warn}</span>${n ? btn('sv-save', 'Retry save', SV_ICONS.cloud, 'saveAllNow()') + btn('sv-discard', 'Discard changes', SV_ICONS.x, 'discardChanges()') : ''}</span>`;
+    return `<span class="save-bar error" role="status" aria-live="polite"><span class="sv-ic sv-warn" tabindex="0" data-tip="Save failed. ${why}" aria-label="Save failed: ${why}">${SV_ICONS.warn}</span>${n ? btn('sv-save', 'Save changes', SV_ICONS.cloud, 'saveAllNow()') + btn('sv-discard', 'Discard changes', SV_ICONS.x, 'discardChanges()') : ''}</span>`;
   }
-  if(n) return `<span class="save-bar pending" role="status" aria-live="polite">${btn('sv-save', 'Save', SV_ICONS.cloud, 'saveAllNow()')}${btn('sv-discard', 'Discard changes', SV_ICONS.x, 'discardChanges()')}</span>`;
+  if(n) return `<span class="save-bar pending" role="status" aria-live="polite">${btn('sv-save', 'Save changes', SV_ICONS.cloud, 'saveAllNow()')}${btn('sv-discard', 'Discard changes', SV_ICONS.x, 'discardChanges()')}</span>`;
   if(saveUI.kind==='saved')
     return `<span class="save-bar saved" role="status" aria-live="polite"><span class="sv-ic sv-ok" aria-hidden="true">${SV_ICONS.ok}</span><span class="sv-sr">Saved</span></span>`;
   return '<span class="save-bar idle" role="status" aria-live="polite"></span>';
