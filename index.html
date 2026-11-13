@@ -1652,6 +1652,45 @@ button, .act-btn, .dg-btn, .signout-btn, .mt-resume, .tab, .card-tab, .cfg-tab{f
   #s1 .mt-bar{grid-template-columns:1fr; grid-template-areas:"date" "stats" "prog";}
   #s1 .mt-bar-stats{justify-self:start;}
 }
+/* "+N more": a small text control under the JO boxes */
+#s1 .ri-more{display:inline-flex; align-items:center; min-height:24px; margin:0 0 0 -6px; padding:0 6px; border:0; border-radius:6px; background:none; color:var(--hx-navy); font:inherit; font-size:0.8125rem; font-weight:600; text-decoration:none; cursor:pointer;}
+:root[data-theme="dark"] #s1 .ri-more{color:#9DB7DD;}
+#s1 .ri-more:hover, #s1 .ri-more[aria-expanded="true"]{background:var(--kh-hover); text-decoration:underline; text-underline-offset:3px;}
+#s1 .ri-more:focus-visible{outline:2px solid var(--focus); outline-offset:2px;}
+/* Shorter windows (laptops at 100% zoom): tighter header and top area, so at least 3 JO boxes show */
+@media (min-width:1100px) and (max-height:720px){
+  .kh-row{padding-top:8px; padding-bottom:8px;}
+  .kh.stack .kh-row{padding:8px 20px 6px;}
+  .kh.stack .kh-nav{padding-top:6px;}
+  .kh-tab{min-height:32px;}
+  #s1 .mt-bar{padding-top:7px; padding-bottom:7px;}
+  #s1 .mt-main{padding:14px 24px; gap:12px;}
+  #s1 .mt-hello-title{font-size:1.375rem;}
+  #s1 .mt-hello-sub{margin-top:0; font-size:0.875rem;}
+  #s1 .mt-fx{padding:10px 14px;}
+  #s1 .mt-fx-jo{font-size:1.125rem; margin-top:2px;}
+  #s1 .mt-fx-meta{margin-top:6px; padding-top:6px;}
+  #s1 .mt-fx-resume{min-height:34px;}
+  #s1 .mt-stats{gap:6px;}
+  #s1 .mt-stat{padding:3px 12px;}
+  #s1 .mt-stat-n{font-size:1.125rem;}
+  #s1 .mt-panel .mt-h3{padding:8px 12px;}
+  #s1 .mt-boxes{padding:6px 8px; gap:4px;}
+  #s1 .ri-box{min-height:30px; padding:3px 8px;}
+  #s1 .ri-box .ck{width:20px; height:20px;}
+}
+/* Very short windows (600px or less): greeting and count on one line, client and track on one line */
+@media (min-width:1100px) and (max-height:600px){
+  #s1 .mt-hello{display:flex; align-items:baseline; flex-wrap:wrap; gap:4px 12px;}
+  #s1 .mt-hello-title{font-size:1.25rem;}
+  #s1 .mt-fx-meta{grid-template-columns:auto minmax(0,1fr) auto auto; align-items:baseline; gap:2px 10px;}
+  #s1 .mt-fx-meta dd{margin-right:8px;}
+  #s1 .mt-fx-meta div:last-child dd{white-space:nowrap; margin-right:0;}
+  #s1 .mt-stat{padding:2px 12px;}
+  #s1 .mt-stats{gap:4px;}
+  #s1 .mt-main{gap:10px; padding-top:12px; padding-bottom:12px;}
+  #s1 .ri-more{min-height:22px;}
+}
 /* ===== Centered layout =====
    Desktop (1440px and wider): the app sits in the middle 60%, 20% blank on each side.
    Smaller screens widen it so the three Due Gates columns stay usable; phones keep a 16px gutter. */
@@ -3341,18 +3380,38 @@ function showRecentTip(btn, pinned){
 }
 // Desktop My Tasks has no page scroll: when a panel is too short for every JO box, the last ones fold into "+N more".
 function fitRecentBoxes(){
-  document.querySelectorAll('#s1 .mt-boxes').forEach(list=>{
-    const old = list.querySelector('.ri-more'); if(old) old.closest('li').remove();
+  const lists = [...document.querySelectorAll('#s1 .mt-boxes')];
+  lists.forEach(list=>{
+    const old = list.querySelector('.ri-more-li'); if(old) old.remove();
+    [...list.children].forEach(li=>{ li.hidden = false; });
+  });
+  if(!lists.length || !window.matchMedia('(min-width:1100px)').matches) return;
+  // How many boxes fit in each panel, keeping room for the "+N more" line when some are hidden.
+  const MORE_H = window.matchMedia('(max-height:600px)').matches ? 22 : 26;
+  const cap = lists.map(list=>{
     const items = [...list.children];
-    items.forEach(li=>{ li.hidden = false; });
-    if(!window.matchMedia('(min-width:1100px)').matches || list.scrollHeight <= list.clientHeight + 1) return;
+    if(!items.length) return Infinity;
+    const cs = getComputedStyle(list);
+    const limit = list.getBoundingClientRect().bottom - parseFloat(cs.paddingBottom);
+    if(items[items.length-1].getBoundingClientRect().bottom <= limit + 0.5) return Infinity;
+    const gap = parseFloat(cs.rowGap) || 0;
+    let k = 0;
+    for(const li of items){ if(li.getBoundingClientRect().bottom + gap + MORE_H <= limit + 0.5) k++; else break; }
+    return k;
+  });
+  const k = Math.min(...cap);   // the same number in both panels, so they line up
+  if(k === Infinity) return;
+  lists.forEach(list=>{
+    const items = [...list.children];
+    if(items.length <= k) return;
+    const hidden = items.slice(k);
+    hidden.forEach(li=>{ li.hidden = true; });
     const li = document.createElement('li');
-    li.innerHTML = '<button type="button" class="ri-jo ri-box ri-more" aria-expanded="false" aria-describedby="riTip"><span class="ri-no"></span></button>';
+    li.className = 'ri-more-li';
+    li.innerHTML = '<button type="button" class="ri-jo ri-more" aria-expanded="false" aria-describedby="riTip"></button>';
     list.appendChild(li);
-    const hidden = [];
-    for(let i = items.length - 1; i >= 0 && list.scrollHeight > list.clientHeight + 1; i--){ items[i].hidden = true; hidden.unshift(items[i]); }
     const btn = li.firstElementChild;
-    btn.querySelector('.ri-no').textContent = `+${hidden.length} more`;
+    btn.textContent = `+${hidden.length} more`;
     btn.setAttribute('aria-label', `${hidden.length} more: ` + hidden.map(h=>h.querySelector('.ri-jo').dataset.jo).join(', '));
     btn._hidden = hidden.map(h=>h.querySelector('.ri-jo').dataset);
   });
