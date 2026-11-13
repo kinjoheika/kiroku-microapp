@@ -1934,6 +1934,21 @@ button, .act-btn, .dg-btn, .signout-btn, .mt-resume, .tab, .card-tab, .cfg-tab{f
 .dg-cnt-row b{min-width:2ch; text-align:right; font-weight:600; color:var(--ink); font-variant-numeric:tabular-nums;}
 .dg-cnt-row b.is-over{color:var(--red);}
 .dg-cnt-row b.is-fu{color:var(--gold-ink);}
+/* Task-row Details: hover popover */
+.dg-more{cursor:default;}
+.dg-more svg{display:none;}
+.dg-more-panel{display:none !important;}
+.dg-tip{position:fixed; z-index:60; display:flex; flex-direction:column; gap:4px; max-width:min(320px, calc(100vw - 16px)); padding:9px 12px; border:1px solid var(--line); border-radius:10px; background:var(--card); color:var(--ink-2); box-shadow:0 10px 28px rgba(16,18,22,.14); font-size:0.8125rem; font-weight:500; line-height:1.45; pointer-events:none;}
+.dg-tip[hidden]{display:none;}
+:root[data-theme="dark"] .dg-tip{background:var(--dk-raised); border-color:var(--dk-border-strong); box-shadow:0 14px 34px rgba(0,0,0,.45);}
+.dg-tip .dg-x-fu{color:var(--gold-ink); font-weight:600;}
+.dg-tip .dg-x-rem{overflow-wrap:anywhere;}
+/* ⓘ and the save / discard icons side by side under the JO details */
+.dg-ck-tools{display:flex; align-items:center; gap:2px; margin-top:6px; margin-left:-3px; min-height:28px;}
+.dg-ck-tools .dg-cnt{margin:0;}
+.dg-ck-tools .save-bar{position:relative; gap:0;}
+.dg-ck-tools .save-bar.idle{display:none;}
+.dg-ck-tools .sv-ic[data-tip]::after{left:0; transform:none;}
 /* ===== Centered layout =====
    Desktop (1440px and wider): the app sits in the middle 60%, 20% blank on each side.
    Smaller screens widen it so the three Due Gates columns stay usable; phones keep a 16px gutter. */
@@ -4286,11 +4301,28 @@ function toggleDgCounts(btn){
 }
 document.addEventListener('click', e=>{ if(!(e.target.closest && e.target.closest('.dg-cnt'))) document.querySelectorAll('.dg-cnt.open').forEach(b=>{ b.classList.remove('open'); b.querySelector('button').setAttribute('aria-expanded','false'); }); });
 document.addEventListener('keydown', e=>{ if(e.key==='Escape') document.querySelectorAll('.dg-cnt.open').forEach(b=>b.classList.remove('open')); });
-function dgToggleMore(btn){
-  const panel = btn.closest('.dg-row-body').querySelector('.dg-more-panel');
-  const open = panel.hidden;
-  panel.hidden = !open; btn.setAttribute('aria-expanded', open);
+// Details on a task row: shown while the pointer is on "Details" (or it has keyboard focus); never expands the row.
+function dgTipEl(){
+  let el = document.getElementById('dgTip');
+  if(!el){ el = document.createElement('div'); el.id = 'dgTip'; el.className = 'dg-tip'; el.setAttribute('role','tooltip'); el.hidden = true; document.body.appendChild(el); }
+  return el;
 }
+function dgShowTip(btn){
+  const src = btn.closest('.dg-row-body').querySelector('.dg-more-panel');
+  if(!src) return;
+  const tip = dgTipEl();
+  tip.innerHTML = src.innerHTML; tip.hidden = false;
+  const r = btn.getBoundingClientRect(), w = tip.offsetWidth, h = tip.offsetHeight, gap = 6;
+  tip.style.left = Math.max(8, Math.min(r.left, innerWidth - w - 8)) + 'px';
+  tip.style.top = (r.bottom + gap + h <= innerHeight - 8 ? r.bottom + gap : Math.max(8, r.top - gap - h)) + 'px';
+}
+function dgHideTip(){ const t = document.getElementById('dgTip'); if(t) t.hidden = true; }
+document.addEventListener('pointerover', e=>{ const b = e.target.closest && e.target.closest('.dg-more'); if(b) dgShowTip(b); });
+document.addEventListener('pointerout', e=>{ const b = e.target.closest && e.target.closest('.dg-more'); if(b && !b.contains(e.relatedTarget)) dgHideTip(); });
+document.addEventListener('focusin', e=>{ if(e.target.classList && e.target.classList.contains('dg-more')) dgShowTip(e.target); });
+document.addEventListener('focusout', e=>{ if(e.target.classList && e.target.classList.contains('dg-more')) dgHideTip(); });
+document.addEventListener('scroll', dgHideTip, true);
+document.addEventListener('keydown', e=>{ if(e.key==='Escape') dgHideTip(); });
 function dgIcon(name){ return `<svg class="dg-i" viewBox="0 0 24 24" aria-hidden="true">${DG_ICONS[name]}</svg>`; }
 function dgInd(st, fu, cls=''){
   const label = st==='flagged' ? 'Overdue' : st==='done' ? 'Done' : st==='empty' ? 'No tasks' : 'Not started / not overdue';
@@ -4402,7 +4434,6 @@ function buildDueGatesScreen(scope){
       const extra = [];
       if(fus.length) extra.push(`<span class="dg-x-fu">Followed up${fus.length>1?` ${fus.length}×`:''} · last ${fmtDate(fu)}</span>`);
       const marks = [];
-      if(fu) marks.push(`<span class="dg-fu" title="Followed up · ${fmtFullDate(fu)}"><i></i>${fus.length>1?fus.length+'× · ':''}${fmtDate(fu)}</span>`);
       if(t.status==='In Progress') marks.push('<span class="st-pill st-In-Progress">In Progress</span>');
       if(up) extra.push(`<span>Document uploaded · ${fmtDate(up)}</span>`);
       if(notes) extra.push(`<span>${notes} note${notes>1?'s':''}</span>`);
@@ -4415,7 +4446,7 @@ function buildDueGatesScreen(scope){
         <span class="dg-lead">${box}</span>
         <div class="dg-row-body">
           <div class="dg-row-name">${escHTML(t.name)}</div>
-          <div class="dg-row-sub"><span>${escHTML(officer ? officer.name : '—')}</span>${marks.join('')}${extra.length ? `<button type="button" class="dg-more" aria-expanded="false" onclick="event.stopPropagation(); dgToggleMore(this)">Details<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>` : ''}</div>
+          <div class="dg-row-sub"><span>${escHTML(officer ? officer.name : '—')}</span>${marks.join('')}${extra.length ? `<button type="button" class="dg-more" aria-describedby="dgTip" onclick="event.stopPropagation()">Details<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>` : ''}</div>
           ${extra.length ? `<div class="dg-more-panel" hidden>${extra.join('')}</div>` : ''}
         </div>
         ${due}
@@ -4434,17 +4465,16 @@ function buildDueGatesScreen(scope){
         <div class="dg-ck-title">
           <div class="dg-ck-jo"><span>JO# ${escHTML(jo.jo)}</span>${trackKey?`<button type="button" class="dg-tag" onclick="${selectTrackFn}('${trackKey}')" title="Show every track">${trackKey} ${dgIcon('x')}</button>`:''}</div>
           <div class="dg-ck-meta"><span>${escHTML(co.name)}</span><span>Deploy <b>${fmtFullDate(jo.targetDeploymentDate)}</b></span></div>
-          <span class="dg-cnt">
+          <div class="dg-ck-tools"><span class="dg-cnt">
             <button type="button" class="dg-lg-btn dg-cnt-btn" aria-label="Status counts: ${doneCount} done, ${overdueCount} overdue, ${nsCount} not started, ${fuCount} followed up" aria-expanded="false" onclick="event.stopPropagation(); toggleDgCounts(this)">${dgIcon('info')}</button>
             <div class="dg-cnt-pop" role="tooltip">${cntRow(dgInd('done'), 'Done', doneCount)}${cntRow(dgInd('flagged'), 'Overdue', overdueCount, overdueCount ? 'is-over' : '')}${cntRow(dgInd('none'), 'Not Started', nsCount)}${cntRow(dgInd('none', true), 'Followed Up', fuCount, fuCount ? 'is-fu' : '')}</div>
-          </span>
+          </span>${isMine ? saveBarHTML() : ''}</div>
         </div>
         <div class="dg-ck-side">
           <div class="dg-final">
             <div class="dg-ring ${fuCount?'fu':''}" style="background:conic-gradient(var(--blue) 0 ${pct}%, var(--line-2) ${pct}% 100%)"><div class="dg-hole" style="${overdueCount?'color:var(--red)':''}">${doneCount}/${total}</div></div>
             <div class="dg-final-txt"><b>${doneCount} of ${total} done</b><span>${trackKey ? trackKey+' stages' : 'All tracks'}</span></div>
           </div>
-          ${isMine ? saveBarHTML() : ''}
         </div>
       </div><div class="tri-body dg-rows">${items}</div>`;
   }
