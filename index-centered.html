@@ -1554,11 +1554,11 @@ button, .act-btn, .dg-btn, .signout-btn, .mt-resume, .tab, .card-tab, .cfg-tab{f
    Ivory, charcoal, muted navy; red only for overdue counts and the unread badge. Dark mode: charcoal surfaces. */
 :root{
   --kh-bg:#FBF9F4; --kh-line:#E7E2D8; --kh-ink:#22252A; --kh-soft:#5E636B; --kh-hover:#F1EDE4;
-  --kh-navy:#2E4A6E; --kh-navy-tint:#E7EDF5; --kh-pop:#FFFFFF; --kh-red:#B3261E;
+  --kh-navy:#2E4A6E; --kh-navy-tint:#E7EDF5; --kh-pop:#FFFFFF; --kh-red:#B3261E; --kh-unread:#F2F5FA;
 }
 :root[data-theme="dark"]{
   --kh-bg:#1A1F27; --kh-line:#2C343F; --kh-ink:#E8EBEF; --kh-soft:#A3ACB8; --kh-hover:#242B35;
-  --kh-navy:#A9C1E3; --kh-navy-tint:#223249; --kh-pop:#272F3A; --kh-red:#E5847D;
+  --kh-navy:#A9C1E3; --kh-navy-tint:#223249; --kh-pop:#272F3A; --kh-red:#E5847D; --kh-unread:#25303F;
 }
 .kh{container:kh / inline-size; flex-shrink:0; background:var(--kh-bg); border-bottom:1px solid var(--kh-line); color:var(--kh-ink); font-family:var(--font-head);}
 .kh-row{display:grid; grid-template-columns:auto minmax(0,1fr) auto; grid-template-areas:"brand nav tools"; align-items:center; gap:10px 16px; padding:12px 20px;}
@@ -1692,6 +1692,100 @@ button, .act-btn, .dg-btn, .signout-btn, .mt-resume, .tab, .card-tab, .cfg-tab{f
   #s1 .mt-stats{gap:4px;}
   #s1 .mt-main{gap:10px; padding-top:12px; padding-bottom:12px;}
   #s1 .ri-more{min-height:22px;}
+}
+/* ===== Header v2: tab icons, search, matched tools ===== */
+.kh-tab{display:inline-flex; align-items:center; gap:7px; transition:background .18s ease, color .18s ease, box-shadow .18s ease;}
+.kh-tab-ico{width:16px; height:16px; flex-shrink:0; opacity:.85;}
+.kh-tab.on .kh-tab-ico{opacity:1;}
+.kh-tab.on{box-shadow:inset 0 0 0 1px var(--kh-navy-line, transparent);}
+.kh-nav-sep{width:1px; height:20px; margin:0 6px; align-self:center; background:var(--kh-line);}
+.kh.stack .kh-nav{border-top:0; padding-top:2px;}
+.kh.stack .kh-row{row-gap:6px;}
+
+@container kh (max-width:620px){
+  .kh-tab{gap:5px; padding:0 7px; min-height:32px;}
+  .kh-tab-ico{width:14px; height:14px;}
+  .kh-nav{display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:2px 4px;}
+  .kh-tab{justify-content:flex-start;}
+  .kh-nav-sep{display:none;}
+}
+/* Matched tool sizes */
+.kh-icon, .kh .bell, .kh-profile{height:36px;}
+.kh-icon, .kh .bell{width:36px;}
+.kh-updated{border-right:0; padding-right:0; margin-right:4px;}
+
+/* ===== Notifications panel ===== */
+.kh .notif-pop{width:420px; max-width:calc(100vw - 16px); max-height:min(520px, calc(100vh - 90px)); padding:0; overflow:hidden; flex-direction:column; border:1px solid var(--kh-line); border-radius:12px; background:var(--kh-pop); box-shadow:0 16px 40px rgba(16,18,22,.16);}
+:root[data-theme="dark"] .kh .notif-pop{box-shadow:0 18px 44px rgba(0,0,0,.5);}
+.kh .notif-pop.open{display:flex;}
+.nf-hd{display:flex; align-items:center; gap:10px; padding:14px 16px 8px; flex-shrink:0;}
+.nf-title-hd{display:inline-flex; align-items:center; gap:8px; margin-right:auto; font-size:0.9375rem; font-weight:600; color:var(--kh-ink);}
+.nf-count{min-width:20px; padding:0 7px; border-radius:999px; background:var(--kh-red); color:#fff; font-size:0.8125rem; font-weight:600; line-height:20px; text-align:center;}
+:root[data-theme="dark"] .nf-count{color:#1A0F0E;}
+.nf-markall{border:0; background:none; padding:4px 6px; border-radius:6px; color:var(--kh-navy); font:inherit; font-size:0.8125rem; font-weight:600; cursor:pointer; white-space:nowrap;}
+.nf-markall:hover{background:var(--kh-navy-tint);}
+.nf-filters{display:flex; gap:4px; padding:0 16px 10px; border-bottom:1px solid var(--kh-line); flex-shrink:0;}
+.nf-filter{display:inline-flex; align-items:center; gap:6px; height:30px; padding:0 10px; border:1px solid transparent; border-radius:999px; background:none; color:var(--kh-soft); font:inherit; font-size:0.8125rem; font-weight:500; cursor:pointer; transition:background .15s ease, color .15s ease;}
+.nf-filter span{font-size:0.8125rem; color:inherit; opacity:.8;}
+.nf-filter:hover{background:var(--kh-hover); color:var(--kh-ink);}
+.nf-filter.on{background:var(--kh-navy-tint); color:var(--kh-navy); font-weight:600;}
+.nf-list{flex:1 1 auto; min-height:0; overflow-y:auto; overscroll-behavior:contain;}
+.nf-item{position:relative; display:grid; grid-template-columns:auto minmax(0,1fr) auto; gap:12px; align-items:start; padding:12px 16px; border-bottom:1px solid var(--kh-line); cursor:pointer; transition:background .12s ease;}
+.nf-item:last-child{border-bottom:0;}
+.nf-item:hover{background:var(--kh-hover);}
+.nf-item:focus-visible{outline:2px solid var(--focus); outline-offset:-2px;}
+.nf-item.unread{background:var(--kh-unread);}
+.nf-item.unread:hover{background:var(--kh-navy-tint);}
+.nf-ico{display:grid; place-items:center; width:32px; height:32px; border-radius:8px;}
+.nf-ico svg{width:17px; height:17px;}
+.nf-ico-o{background:var(--red-soft); color:var(--red);}
+.nf-ico-m{background:var(--kh-navy-tint); color:var(--kh-navy);}
+.nf-body{display:flex; flex-direction:column; gap:3px; min-width:0;}
+.nf-title{font-size:0.875rem; font-weight:600; color:var(--kh-ink); overflow-wrap:anywhere;}
+.nf-item:not(.unread) .nf-title{font-weight:500;}
+.nf-meta{display:flex; flex-wrap:wrap; gap:2px 0; font-size:0.8125rem; color:var(--kh-soft);}
+.nf-meta span + span::before{content:"·"; margin:0 6px;}
+.nf-badge{align-self:flex-start; margin-top:3px; padding:1px 8px; border-radius:999px; font-size:0.8125rem; font-weight:600; line-height:18px;}
+.nf-badge-o{background:var(--red-soft); color:var(--red);}
+.nf-badge-m{background:var(--neutral-bg); color:var(--kh-soft); font-weight:500;}
+.nf-dot{width:18px; height:18px; margin-top:6px; padding:0; border:0; border-radius:50%; background:none; cursor:pointer; position:relative;}
+.nf-dot::after{content:""; position:absolute; inset:5px; border-radius:50%; border:1.5px solid var(--kh-line);}
+.nf-item.unread .nf-dot::after{background:var(--kh-navy); border-color:var(--kh-navy);}
+.nf-dot:hover::after{border-color:var(--kh-navy);}
+.nf-dot:focus-visible{outline:2px solid var(--focus); outline-offset:1px;}
+.nf-empty{padding:28px 16px; text-align:center; font-size:0.875rem; color:var(--kh-soft);}
+.nf-ft{flex-shrink:0; border-top:1px solid var(--kh-line);}
+.nf-viewall{display:block; width:100%; padding:11px 16px; border:0; background:none; color:var(--kh-navy); font:inherit; font-size:0.875rem; font-weight:600; cursor:pointer; text-align:center;}
+.nf-viewall:hover{background:var(--kh-hover);}
+/* View all dialog */
+.nf-ov{position:fixed; inset:0; z-index:90; display:none; align-items:flex-start; justify-content:center; padding:72px 16px 16px; background:rgba(16,18,22,.35);}
+.nf-dialog{display:flex; flex-direction:column; width:min(640px, 100%); max-height:calc(100vh - 96px); border:1px solid var(--kh-line); border-radius:14px; background:var(--kh-pop); color:var(--kh-ink); box-shadow:0 24px 60px rgba(16,18,22,.25); overflow:hidden;}
+.nf-dialog .nf-hd{padding:16px 16px 10px;}
+.nf-x{width:32px; height:32px; font-size:0.875rem;}
+.nf-search{display:flex; align-items:center; gap:8px; margin:0 16px 10px; height:38px; padding:0 12px; border:1px solid var(--kh-line); border-radius:8px; color:var(--kh-soft); flex-shrink:0;}
+.nf-search:focus-within{border-color:var(--kh-navy);}
+.nf-search svg{width:16px; height:16px;}
+.nf-search input{flex:1; min-width:0; border:0; outline:none; background:transparent; color:var(--kh-ink); font:inherit; font-size:0.875rem;}
+#nfAllFilters{flex-shrink:0;}
+
+/* ===== Footer: overview + copyright ===== */
+.kf{flex-shrink:0; margin-top:auto; display:flex; align-items:center; flex-wrap:wrap; gap:6px 20px; padding:8px 20px; border-top:1px solid var(--kh-line); background:var(--kh-bg); color:var(--kh-soft); font-size:0.8125rem; font-weight:500;}
+.kf b{color:var(--kh-ink); font-weight:600;}
+.kf-prog{display:inline-flex; align-items:center; gap:10px; flex:1 1 200px; min-width:180px; max-width:360px;}
+.kf-track{flex:1; height:4px; border-radius:2px; background:var(--kh-line); overflow:hidden; min-width:60px;}
+.kf-track i{display:block; height:100%; background:var(--kh-navy); border-radius:2px;}
+:root[data-theme="dark"] .kf-track i{background:#7FA6D9;}
+.kf-stats{display:inline-flex; flex-wrap:wrap;}
+.kf-stats > span{padding:0 10px; border-left:1px solid var(--kh-line);}
+.kf-stats > span:first-child{padding-left:0; border-left:0;}
+.kf-od, .kf-od b{color:var(--kh-red);}
+.kf-copy{margin-left:auto; font-size:0.8125rem; color:var(--kh-soft); white-space:nowrap;}
+@media (max-width:820px){
+  .kf{display:grid; grid-template-columns:auto minmax(0,1fr); grid-template-areas:"stats stats" "prog prog" "date copy"; padding:6px 16px; gap:4px 12px;}
+  .kf-stats{grid-area:stats;} .kf-prog{grid-area:prog; max-width:none; min-width:0;} .kf-date{grid-area:date;}
+  .kf-copy{grid-area:copy; margin-left:0; text-align:right; white-space:normal;}
+  .kf-wd, .kf-yr{display:none;}
+  .kf-stats > span{padding:0 8px;}
 }
 /* ===== Centered layout =====
    Desktop (1440px and wider): the app sits in the middle 60%, 20% blank on each side.
@@ -2073,10 +2167,10 @@ function canEditInContext(task, pageContext){
   return getEditor(task) === user.id;
 }
 function tabsFor(user){
-  if(isAdmin(user)) return [{id:'s1', label:'My Tasks'}, {id:'s2', label:'My Due Gates'}, {id:'s3', label:'All Due Gates'}, {id:'s6', label:'My Entries'}, {id:'s7', label:'Discuss'}, {id:'s5', label:'Configuration'}];
+  if(isAdmin(user)) return [{id:'s1', label:'My Tasks'}, {id:'s2', label:'My Due Gates'}, {id:'s3', label:'All Due Gates'}, {id:'s6', label:'My Entries'}, {id:'s7', label:'Discussions'}, {id:'s5', label:'Configuration'}];
   // Configuration is Admin only; the data behind it is locked in Supabase too (11_lock_down.sql).
-  if(isCEO(user)) return [{id:'s1', label:'My Tasks'}, {id:'s2', label:'My Due Gates'}, {id:'s3', label:'All Due Gates'}, {id:'s7', label:'Discuss'}];
-  return [{id:'s1', label:'My Tasks'}, {id:'s2', label:'My Due Gates'}, {id:'s3', label:'All Due Gates'}, {id:'s6', label:'My Entries'}, {id:'s7', label:'Discuss'}];
+  if(isCEO(user)) return [{id:'s1', label:'My Tasks'}, {id:'s2', label:'My Due Gates'}, {id:'s3', label:'All Due Gates'}, {id:'s7', label:'Discussions'}];
+  return [{id:'s1', label:'My Tasks'}, {id:'s2', label:'My Due Gates'}, {id:'s3', label:'All Due Gates'}, {id:'s6', label:'My Entries'}, {id:'s7', label:'Discussions'}];
 }
 function myTracksFor(userId){
   if(seesAllTasks(getUser(userId))) return TRACK_DEFS;
@@ -3059,35 +3153,115 @@ function notifHTML(){
   const {entries, unread} = notifEntries();
   return `<span class="notif-wrap">
     <button class="bell" type="button" onclick="toggleNotif(this)" aria-label="Notifications, ${unread} unread" title="Notifications">${bellInner(unread)}</button>
-    <div class="notif-pop">${notifListHTML(entries, unread)}</div>
+    <div class="notif-pop" role="dialog" aria-label="Notifications">${notifListHTML(entries, unread)}</div>
   </span>`;
 }
+/* ---------- Notifications panel ----------
+   Header (title, unread count, Mark all as read) and filters stay put; only the list scrolls; footer opens the full list.
+   Clicking an item marks it read and opens it: overdue task -> its task page, message -> the message (with Open task). */
+let notifFilter = 'all';
+const NOTIF_ICONS = {
+  o:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>',
+  m:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="5.5" width="17" height="13" rx="2"/><path d="M4 7l8 6 8-6"/></svg>'
+};
+function notifFiltered(entries, filter, q){
+  let list = entries;
+  if(filter==='unread') list = list.filter(e=>!e.read);
+  else if(filter==='overdue') list = list.filter(e=>e.kind==='o');
+  if(q){ q = q.toLowerCase(); list = list.filter(e=>notifSearchText(e).includes(q)); }
+  return list;
+}
+function notifSearchText(e){
+  if(e.kind==='o'){ const t = e.data, jo = getJO(t.joId) || {}; return [t.name, t.track, jo.jo, clientOf(jo)].join(' ').toLowerCase(); }
+  const r = e.data, t = getTaskById(r.task_id), jo = t ? getJO(t.joId) : null;
+  return [r.user_name, r.action_details, t && t.name, t && t.track, jo && jo.jo].join(' ').toLowerCase();
+}
+function notifRowHTML(e){
+  let title, meta, badge;
+  if(e.kind==='o'){
+    const t = e.data, jo = getJO(t.joId), late = Math.abs(diffDays(t.due));
+    title = escHTML(t.name);
+    meta = `<span>JO# ${escHTML(jo ? jo.jo : '')}</span><span>${escHTML(t.track)}</span>`;
+    badge = `<span class="nf-badge nf-badge-o">${late} day${late===1?'':'s'} overdue</span>`;
+  } else {
+    const r = e.data, t = getTaskById(r.task_id), jo = t ? getJO(t.joId) : null;
+    const subject = (String(r.action_details||'').split('\n')[1] || '').replace(/^Subject: /,'') || '(no subject)';
+    title = escHTML(subject);
+    meta = `<span>From ${escHTML(r.user_name || '')}</span>${jo ? `<span>JO# ${escHTML(jo.jo)}</span>` : ''}${t ? `<span>${escHTML(t.track)}</span>` : ''}`;
+    badge = `<span class="nf-badge nf-badge-m">${escHTML(fmtActivityTime(r.created_at))}</span>`;
+  }
+  return `<div class="nf-item ${e.read?'':'unread'}" role="button" tabindex="0" onclick="openNotifEntry('${e.key}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">
+    <span class="nf-ico nf-ico-${e.kind}">${NOTIF_ICONS[e.kind]}</span>
+    <span class="nf-body"><span class="nf-title">${title}</span><span class="nf-meta">${meta}</span>${badge}</span>
+    <button type="button" class="nf-dot" title="${e.read?'Mark as unread':'Mark as read'}" aria-label="${e.read?'Mark as unread':'Mark as read'}"
+      onclick="event.stopPropagation(); setNotifRead('${e.key}', ${!e.read})"></button>
+  </div>`;
+}
+function notifFiltersHTML(entries, current, handler){
+  const n = {all: entries.length, unread: entries.filter(e=>!e.read).length, overdue: entries.filter(e=>e.kind==='o').length};
+  return `<div class="nf-filters" role="tablist" aria-label="Filter notifications">${[['all','All'],['unread','Unread'],['overdue','Overdue']].map(([k,l])=>
+    `<button type="button" role="tab" class="nf-filter ${current===k?'on':''}" aria-selected="${current===k}" onclick="event.stopPropagation(); ${handler}('${k}')">${l}<span>${n[k]}</span></button>`).join('')}</div>`;
+}
 function notifListHTML(entries, unread){
-  const rows = entries.map(e=>{
-    const open = e.kind==='m' ? `openMessageView(${e.data.activity_id})` : `openNotif('${e.data.id}')`;
-    let kind, main, sub;
-    if(e.kind==='m'){
-      const r = e.data;
-      const subject = (String(r.action_details||'').split('\n')[1] || '').replace(/^Subject: /,'');
-      kind = '<span class="notif-kind">Message</span>';
-      main = `${escHTML(r.user_name)} · ${escHTML(subject || '(no subject)')}`;
-      sub = `${escHTML(getTaskById(r.task_id)?.name || '')} · ${fmtActivityTime(r.created_at)}`;
-    } else {
-      const t = e.data;
-      kind = '<span class="notif-kind overdue">Overdue</span>';
-      main = `${escHTML(t.name)} · ${escHTML(t.track)}`;
-      sub = `JO# ${escHTML(getJO(t.joId).jo)} · ${Math.abs(diffDays(t.due))} days late`;
-    }
-    return `<div class="notif-item ${e.read?'':'unread'}" role="button" tabindex="0"
-        onclick="setNotifRead('${e.key}', true); ${open}" onkeydown="if(event.key==='Enter'){this.click();}">
-      <div class="notif-text">${kind}<span class="notif-main">${main}</span><span class="notif-sub">${sub}</span></div>
-      <button type="button" class="notif-dot" title="${e.read?'Mark as unread':'Mark as read'}" aria-label="${e.read?'Mark as unread':'Mark as read'}"
-        onclick="event.stopPropagation(); setNotifRead('${e.key}', ${!e.read})"></button>
+  const list = notifFiltered(entries, notifFilter);
+  const empty = notifFilter==='unread' ? 'No unread notifications.' : notifFilter==='overdue' ? 'Nothing is overdue.' : 'You are all caught up.';
+  return `<div class="nf-hd">
+      <span class="nf-title-hd">Notifications${unread ? `<span class="nf-count">${unread}</span>` : ''}</span>
+      ${unread ? `<button type="button" class="nf-markall" onclick="event.stopPropagation(); markAllNotifRead()">Mark all as read</button>` : ''}
+    </div>
+    ${notifFiltersHTML(entries, notifFilter, 'setNotifFilter')}
+    <div class="nf-list">${list.map(notifRowHTML).join('') || `<div class="nf-empty">${empty}</div>`}</div>
+    <div class="nf-ft"><button type="button" class="nf-viewall" onclick="event.stopPropagation(); openAllNotifs()">View all notifications</button></div>`;
+}
+function setNotifFilter(f){ notifFilter = f; refreshNotifs(); }
+function openNotifEntry(key){
+  const e = notifEntries().entries.find(x=>x.key===key);
+  if(!e) return;
+  setNotifRead(key, true);
+  closeNotifs(); closeAllNotifs();
+  if(e.kind==='m') openMessageView(e.data.activity_id);
+  else openNotif(e.data.id);
+}
+/* View all notifications: full list with search and the same filters, in a dialog. */
+let allNotifFilter = 'all', allNotifQuery = '';
+function openAllNotifs(){
+  closeNotifs();
+  let m = document.getElementById('nfAll');
+  if(!m){
+    m = document.createElement('div');
+    m.id = 'nfAll'; m.className = 'nf-ov';
+    m.addEventListener('click', e=>{ if(e.target===m) closeAllNotifs(); });
+    m.addEventListener('keydown', e=>{ if(e.key==='Escape'){ e.stopPropagation(); closeAllNotifs(); } });
+    document.body.appendChild(m);
+  }
+  allNotifFilter = 'all'; allNotifQuery = '';
+  m.innerHTML = `<div class="nf-dialog" role="dialog" aria-modal="true" aria-labelledby="nfAllTitle">
+      <div class="nf-hd"><span class="nf-title-hd" id="nfAllTitle">All notifications<span class="nf-count" id="nfAllCount"></span></span>
+        <button type="button" class="nf-markall" onclick="markAllNotifRead(); renderAllNotifs()">Mark all as read</button>
+        <button type="button" class="kh-icon nf-x" aria-label="Close" title="Close" onclick="closeAllNotifs()">✕</button></div>
+      <label class="nf-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><input type="search" placeholder="Search by task, JO #, track or sender" aria-label="Search notifications" oninput="allNotifQuery=this.value; renderAllNotifs()"></label>
+      <div id="nfAllFilters"></div>
+      <div class="nf-list" id="nfAllList"></div>
     </div>`;
-  }).join('');
-  return `<div class="notif-hd"><span>Notifications${unread ? ` <span class="notif-unread-n">${unread} unread</span>` : ''}</span>
-      ${unread ? `<button type="button" class="notif-markall" onclick="event.stopPropagation(); markAllNotifRead()">✓ Mark all as read</button>` : ''}
-    </div>${rows || '<div class="notif-empty">You are all caught up.</div>'}`;
+  if(m.style.display!=='flex') dialogShown();
+  m.style.display = 'flex';
+  renderAllNotifs();
+  m.querySelector('input').focus();
+}
+function renderAllNotifs(){
+  const m = document.getElementById('nfAll');
+  if(!m || m.style.display!=='flex') return;
+  const {entries, unread} = notifEntries();
+  const list = notifFiltered(entries, allNotifFilter, allNotifQuery.trim());
+  m.querySelector('#nfAllCount').textContent = unread ? unread : '';
+  m.querySelector('#nfAllCount').hidden = !unread;
+  m.querySelector('#nfAllFilters').innerHTML = notifFiltersHTML(entries, allNotifFilter, 'setAllNotifFilter');
+  m.querySelector('#nfAllList').innerHTML = list.map(notifRowHTML).join('') || '<div class="nf-empty">No notifications match.</div>';
+}
+function setAllNotifFilter(f){ allNotifFilter = f; renderAllNotifs(); }
+function closeAllNotifs(){
+  const m = document.getElementById('nfAll');
+  if(m && m.style.display==='flex'){ m.style.display = 'none'; dialogHidden(); }
 }
 function refreshNotifs(){
   const {entries, unread} = notifEntries();
@@ -3097,6 +3271,7 @@ function refreshNotifs(){
     b.innerHTML = bellInner(unread);
     b.setAttribute('aria-label', `Notifications, ${unread} unread`);
   });
+  renderAllNotifs();
 }
 function setNotifRead(key, read){
   const set = notifReadSet();
@@ -3247,8 +3422,35 @@ const KH_ICONS = {
   key:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="15" r="4"/><path d="M10.8 12.2 20 3M17 6l3 3M15 8l2 2"/></svg>',
   out:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><path d="M10 17l5-5-5-5M15 12H3"/></svg>'
 };
+const KH_TAB_ICONS = (()=>{
+  const i = d => `<svg class="kh-tab-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+  return {
+    s1: i('<path d="M9 11l2 2 4-4"/><rect x="4" y="4" width="16" height="16" rx="3"/>'),
+    s2: i('<path d="M5 21V4"/><path d="M5 4h11l-2 4 2 4H5"/>'),
+    s3: i('<rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/>'),
+    s6: i('<path d="M4 20h4L19 9l-4-4L4 16v4z"/><path d="M13 7l4 4"/>'),
+    s7: i('<path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1.1-4.6A8 8 0 1 1 21 12z"/>'),
+    s5: i('<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>')
+  };
+})();
 function khTime(d){ return d ? d.toLocaleTimeString('en-US', {hour:'numeric', minute:'2-digit'}) : '—'; }
 function khInitials(name){ return String(name||'?').split(/\s+/).filter(Boolean).slice(0,2).map(w=>w[0].toUpperCase()).join('') || '?'; }
+/* Footer on every screen: the signed-in person's progress and counts, and the copyright line. */
+function footerHTML(){
+  const user = getUser(currentUserId);
+  if(!user) return '';
+  const my = tasksForUser(user.id);
+  const done = my.filter(t=>t.done).length, total = my.length, pct = total ? Math.round(done/total*100) : 0;
+  const overdue = my.filter(t=>computeStatus(t)==='flagged').length, open = my.filter(t=>!t.done).length;
+  const now = new Date();
+  const wd = now.toLocaleDateString('en-US', {weekday:'short'}), md = now.toLocaleDateString('en-US', {month:'short', day:'numeric'});
+  return `<footer class="kf" aria-label="Overview">
+    <span class="kf-date"><span class="kf-wd">${wd}, </span>${md}<span class="kf-yr">, ${now.getFullYear()}</span></span>
+    <span class="kf-prog"><span class="kf-track" role="progressbar" aria-label="Your tasks done" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><i style="width:${pct}%"></i></span><span><b>${done}</b> of ${total} done · ${pct}%</span></span>
+    <span class="kf-stats"><span class="${overdue ? 'kf-od' : ''}"><b>${overdue}</b> overdue</span><span><b>${open}</b> open</span><span><b>${DB.tasks.length}</b> in database</span></span>
+    <span class="kf-copy">© ${new Date().getFullYear()} Kiroku. All rights reserved.</span>
+  </footer>`;
+}
 function navHTML(activeTab){
   const user = getUser(currentUserId);
   const tabs = tabsFor(user);
@@ -3267,7 +3469,7 @@ function navHTML(activeTab){
     <div class="kh-row">
       <div class="kh-brand"><span class="kh-mark" aria-hidden="true">記</span><span class="kh-word">Kiroku<span class="kh-sub">Completeness Gate</span></span></div>
       <nav class="kh-nav" role="tablist" aria-label="Screens">
-        ${tabs.map(t=>{ const on = t.label===activeTab; return `<button type="button" role="tab" class="kh-tab ${on?'on':''}" aria-selected="${on}" onclick="showScreenById('${t.id}')">${t.label}</button>`; }).join('')}
+        ${tabs.map(t=>{ const on = t.label===activeTab; return `${t.id==='s5' ? '<span class="kh-nav-sep" aria-hidden="true"></span>' : ''}<button type="button" role="tab" class="kh-tab ${on?'on':''}" aria-selected="${on}" onclick="showScreenById('${t.id}')">${KH_TAB_ICONS[t.id]||''}<span>${t.label}</span></button>`; }).join('')}
       </nav>
       <div class="kh-tools">
         ${viewOnly ? '<span class="kh-viewonly">View only</span>' : ''}
@@ -3545,11 +3747,6 @@ function buildScreen1(){
   }
 
   return navHTML('My Tasks') + `
-    <div class="mt-bar" role="group" aria-label="Overview">
-      <span class="mt-bar-date">${new Date().toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',year:'numeric'})}</span>
-      <span class="mt-bar-prog"><span class="mt-bar-track" role="progressbar" aria-label="Tasks done" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><i style="width:${pct}%"></i></span><span><b>${doneCount}</b> of ${total} done · ${pct}%</span></span>
-      <span class="mt-bar-stats"><span class="${overdueCount?'mt-bar-od':''}"><b>${overdueCount}</b> overdue</span><span><b>${open.length}</b> open</span><span><b>${DB.tasks.length}</b> in database</span></span>
-    </div>
     ${body}`;
 }
 
@@ -4399,7 +4596,7 @@ function dcSelect(label, options, value, handler){
     `<option value="${escAttr(v)}" ${v===value ? 'selected' : ''}>${escHTML(l)}</option>`).join('')}</select></label>`;
 }
 function buildDiscussScreen(){
-  if(discussOpenJo && getJO(discussOpenJo)) return navHTML('Discuss') + buildJOProfile(discussOpenJo, 's7');
+  if(discussOpenJo && getJO(discussOpenJo)) return navHTML('Discussions') + buildJOProfile(discussOpenJo, 's7');
   // Same layout as All Due Gates: Job Orders column (search and filters on top), contents on the right.
   // Falls back to the rows the app already holds if the full load failed.
   const source = discussRows || (ACTIVITY_LOGS||[]).filter(r => DISCUSS_TYPES.includes(r.action_type) && r.task_id);
@@ -4462,7 +4659,7 @@ function buildDiscussScreen(){
       ${dcSelect('Target deploy', [['all','All months'], ...deployMonths.map(m => [m, deployLabel(m)])], discussDeploy, 'setDiscussDeploy')}
     </div>`;
 
-  return navHTML('Discuss') + `
+  return navHTML('Discussions') + `
     <div class="tri">
       <div class="tri-col col-workers">
         <div class="tri-hd dg-hd"><span>Job Orders</span><span class="dg-n">${jobOrders.length}</span></div>
@@ -4488,7 +4685,7 @@ const SCREEN_RENDERERS = {
 function renderAllScreens(){
   const active = document.querySelector('.screen.active');
   const id = active ? active.id : 's1';
-  if(SCREEN_RENDERERS[id]) document.getElementById(id+'-frame').innerHTML = SCREEN_RENDERERS[id]();
+  if(SCREEN_RENDERERS[id]) document.getElementById(id+'-frame').innerHTML = SCREEN_RENDERERS[id]() + footerHTML();
   khFit();
   if(id==='s1') fitRecentBoxes();
   if(id==='s5'){ updateConfigTable(); updateEventLogTable(); }
