@@ -6,7 +6,14 @@
 <title>Kiroku — Completeness Gate</title>
 <script>
 // Light or dark: the viewer's saved choice, else the device setting. Runs before the page paints.
-try { const t = localStorage.getItem('kiroku_theme'); if(t==='light' || t==='dark') document.documentElement.dataset.theme = t; } catch(e){}
+(function(){
+  let saved = null;
+  try { saved = localStorage.getItem('kiroku_theme'); } catch(e){}
+  const mq = window.matchMedia ? matchMedia('(prefers-color-scheme: dark)') : null;
+  const apply = ()=>{ document.documentElement.dataset.theme = (saved==='light' || saved==='dark') ? saved : (mq && mq.matches ? 'dark' : 'light'); };
+  apply();
+  if(mq && mq.addEventListener) mq.addEventListener('change', ()=>{ try { saved = localStorage.getItem('kiroku_theme'); } catch(e){} apply(); if(window.refreshThemeButtons) refreshThemeButtons(); });
+})();
 </script>
 <style>
 :root{
@@ -29,9 +36,9 @@ try { const t = localStorage.getItem('kiroku_theme'); if(t==='light' || t==='dar
 }
 /* Dark palette: follows the OS setting unless forced light, and applies with data-theme="dark". */
 @media (prefers-color-scheme: dark){
-  :root:not([data-theme="light"]){ --bg:#0F1216; --card:#181C22; --black:#0B0D10; --ink:#E6E8EB; --ink-soft:#A7AFBA; --ink-2:#C7CDD6; --ink-3:#A7AFBA; --border:#343B45; --line:#343B45; --line-2:#2A303A; --neutral-bg:#262C35; --hover:#20262F; --darkred:#F0A3AD; --darkred-light:#3A1E24; --gold:#E0B84A; --gold-light:#3A3117; --gold-ink:#E9C35A; --blue:#8FB6EA; --blue-light:#1A2A41; --red:#F28B84; --red-soft:#3A1A18; --red-line:#5A2A27; --green:#6CC68A; --green-light:#17301F; --fu-ink:#F0CC6A; --brand-soft:#2A1A1E; --surface-subtle:#1F242C; --track:#343B45; --divider:#262C35; --gray:#A7AFBA; --status-pending:#E9C35A; --status-none:#A7AFBA; color-scheme:dark; }
+  :root:not([data-theme="light"]){ --bg:#161A20; --card:#1E242D; --black:#12161B; --ink:#E8EBEF; --ink-soft:#A3ACB8; --ink-2:#C5CCD5; --ink-3:#A3ACB8; --border:#333C48; --line:#333C48; --line-2:#2C343F; --neutral-bg:#2C3440; --hover:#262D37; --darkred:#7FA6D9; --darkred-light:#223249; --gold:#D9B45A; --gold-light:#332E22; --gold-ink:#DDBB66; --blue:#7FA6D9; --blue-light:#222F42; --red:#E5847D; --red-soft:#352428; --red-line:#553232; --green:#6DBB8A; --green-light:#1F3129; --fu:#D9B45A; --fu-ink:#DDBB66; --brand-soft:#223249; --surface-subtle:#222932; --track:#2C3440; --divider:#2A313B; --gray:#A3ACB8; --status-pending:#DDBB66; --status-none:#A3ACB8; --focus:#7FA6D9; color-scheme:dark; }
 }
-:root[data-theme="dark"]{ --bg:#0F1216; --card:#181C22; --black:#0B0D10; --ink:#E6E8EB; --ink-soft:#A7AFBA; --ink-2:#C7CDD6; --ink-3:#A7AFBA; --border:#343B45; --line:#343B45; --line-2:#2A303A; --neutral-bg:#262C35; --hover:#20262F; --darkred:#F0A3AD; --darkred-light:#3A1E24; --gold:#E0B84A; --gold-light:#3A3117; --gold-ink:#E9C35A; --blue:#8FB6EA; --blue-light:#1A2A41; --red:#F28B84; --red-soft:#3A1A18; --red-line:#5A2A27; --green:#6CC68A; --green-light:#17301F; --fu-ink:#F0CC6A; --brand-soft:#2A1A1E; --surface-subtle:#1F242C; --track:#343B45; --divider:#262C35; --gray:#A7AFBA; --status-pending:#E9C35A; --status-none:#A7AFBA; color-scheme:dark; }
+:root[data-theme="dark"]{ --bg:#161A20; --card:#1E242D; --black:#12161B; --ink:#E8EBEF; --ink-soft:#A3ACB8; --ink-2:#C5CCD5; --ink-3:#A3ACB8; --border:#333C48; --line:#333C48; --line-2:#2C343F; --neutral-bg:#2C3440; --hover:#262D37; --darkred:#7FA6D9; --darkred-light:#223249; --gold:#D9B45A; --gold-light:#332E22; --gold-ink:#DDBB66; --blue:#7FA6D9; --blue-light:#222F42; --red:#E5847D; --red-soft:#352428; --red-line:#553232; --green:#6DBB8A; --green-light:#1F3129; --fu:#D9B45A; --fu-ink:#DDBB66; --brand-soft:#223249; --surface-subtle:#222932; --track:#2C3440; --divider:#2A313B; --gray:#A3ACB8; --status-pending:#DDBB66; --status-none:#A3ACB8; --focus:#7FA6D9; color-scheme:dark; }
 *{box-sizing:border-box; margin:0; padding:0;}
 body{background:var(--bg); font-family:var(--font-body); color:var(--ink); padding:22px 16px 60px; font-size:0.875rem;}
 
@@ -853,9 +860,9 @@ textarea.tf-input{resize:vertical; line-height:1.4;}
   --focus:#2563C9;
 }
 @media (prefers-color-scheme: dark){
-  :root:not([data-theme="light"]){ --btn-shadow:0 1px 2px rgba(0,0,0,.45); --btn-shadow-hover:0 6px 16px rgba(0,0,0,.5), 0 2px 4px rgba(0,0,0,.35); --btn-shadow-press:0 1px 1px rgba(0,0,0,.5); --btn-shadow-brand:0 1px 2px rgba(0,0,0,.45), 0 2px 8px rgba(240,163,173,.12); --btn-shadow-brand-hover:0 6px 18px rgba(0,0,0,.5), 0 2px 10px rgba(240,163,173,.18); --btn-brand-hover:#F5B8C0; --btn-on-brand:#2A0E13; --btn-done-ring:rgba(108,198,138,.18); --focus:#8FB6EA; }
+  :root:not([data-theme="light"]){ --btn-shadow:none; --btn-shadow-hover:0 4px 12px rgba(0,0,0,.35); --btn-shadow-press:none; --btn-shadow-brand:none; --btn-shadow-brand-hover:0 4px 12px rgba(0,0,0,.35); --btn-brand-hover:#4777B5; --btn-on-brand:#F1F4F8; --btn-done-ring:rgba(109,187,138,.18); --focus:#7FA6D9; }
 }
-:root[data-theme="dark"]{ --btn-shadow:0 1px 2px rgba(0,0,0,.45); --btn-shadow-hover:0 6px 16px rgba(0,0,0,.5), 0 2px 4px rgba(0,0,0,.35); --btn-shadow-press:0 1px 1px rgba(0,0,0,.5); --btn-shadow-brand:0 1px 2px rgba(0,0,0,.45), 0 2px 8px rgba(240,163,173,.12); --btn-shadow-brand-hover:0 6px 18px rgba(0,0,0,.5), 0 2px 10px rgba(240,163,173,.18); --btn-brand-hover:#F5B8C0; --btn-on-brand:#2A0E13; --btn-done-ring:rgba(108,198,138,.18); --focus:#8FB6EA; }
+:root[data-theme="dark"]{ --btn-shadow:none; --btn-shadow-hover:0 4px 12px rgba(0,0,0,.35); --btn-shadow-press:none; --btn-shadow-brand:none; --btn-shadow-brand-hover:0 4px 12px rgba(0,0,0,.35); --btn-brand-hover:#4777B5; --btn-on-brand:#F1F4F8; --btn-done-ring:rgba(109,187,138,.18); --focus:#7FA6D9; }
 
 /* raised */
 .act-btn, .dg-btn, .save-btn, .pager-btn, .cfg-clear, .file-dl, .si-btn, .newjo-btn, .si-switch, .env-bar button, .signout-btn{
@@ -1111,23 +1118,116 @@ table.sheet td.ro{padding:8px 10px; color:var(--ink-2); white-space:nowrap;}
 .theme-btn{display:inline-flex; align-items:center; gap:6px;}
 .theme-btn svg{width:14px; height:14px;}
 
-/* ===== Dark mode fixes for colours written as fixed hex values ===== */
-:root[data-theme="dark"] .st-Pending{background:#2A303A; color:#C7CDD6;}
-:root[data-theme="dark"] .st-In-Progress{background:#1A2A41; color:#8FB6EA;}
-:root[data-theme="dark"] .st-Completed{background:#17301F; color:#6CC68A;}
-:root[data-theme="dark"] .tf-state.saved{color:#6CC68A;}
-:root[data-theme="dark"] .tf-input:hover{border-color:#4A525E;}
-:root[data-theme="dark"] .toast{background:#E6E8EB; color:#0F1216;}
-:root[data-theme="dark"] .toast-undo{color:#0F1216;}
-@media (prefers-color-scheme: dark){
-  :root:not([data-theme="light"]) .st-Pending{background:#2A303A; color:#C7CDD6;}
-  :root:not([data-theme="light"]) .st-In-Progress{background:#1A2A41; color:#8FB6EA;}
-  :root:not([data-theme="light"]) .st-Completed{background:#17301F; color:#6CC68A;}
-  :root:not([data-theme="light"]) .tf-state.saved{color:#6CC68A;}
-  :root:not([data-theme="light"]) .tf-input:hover{border-color:#4A525E;}
-  :root:not([data-theme="light"]) .toast{background:#E6E8EB; color:#0F1216;}
-  :root:not([data-theme="light"]) .toast-undo{color:#0F1216;}
+/* ===== Dark mode: charcoal, muted navy and muted blue =====
+   Page #161A20, panels #1E242D, raised cards #272F3A, borders thin dark grey. Status colours keep their meaning
+   (red overdue, amber due soon/pending, green completed, blue done) on subtle tinted backgrounds.
+   Everything here is under [data-theme="dark"]; the script in <head> sets it from the saved choice or the device. */
+:root[data-theme="dark"]{
+  --dk-raised:#272F3A; --dk-raised-hover:#2D3643; --dk-input:#191E25; --dk-border-strong:#3A4452;
+  --dk-accent:#7FA6D9; --dk-accent-bg:#3D6BA8; --dk-accent-bg-hover:#4777B5; --dk-accent-soft:#223249; --dk-on-accent:#F1F4F8;
+  --dk-navy:#22324A; --dk-navy-border:#33496A; --dk-scroll:#3A4452; --dk-scroll-hover:#4B5666;
 }
+/* Top bars */
+:root[data-theme="dark"] .env-bar{background:#12161B; border-bottom-color:#262D37; color:#8E98A5;}
+:root[data-theme="dark"] .env-bar label{color:#C3CAD3;}
+:root[data-theme="dark"] .env-bar button{border-color:var(--dk-border-strong); color:#C3CAD3;}
+:root[data-theme="dark"] .env-bar button:hover{background:#232A34; color:var(--ink);}
+:root[data-theme="dark"] .env-bar .tag, :root[data-theme="dark"] .readonly-pill{background:var(--gold-light); color:var(--gold-ink); border-color:#4A4129;}
+:root[data-theme="dark"] .app-nav{background:#12161B; border-bottom:1px solid #2A313B; box-shadow:inset 0 -2px 0 var(--dk-accent-soft);}
+:root[data-theme="dark"] .app-nav .brand{color:var(--ink);}
+:root[data-theme="dark"] .app-nav .who{color:#C3CAD3;}
+:root[data-theme="dark"] .app-nav .tab, :root[data-theme="dark"] .app-nav button.tab{color:#8E98A5;}
+:root[data-theme="dark"] .app-nav .tab:hover, :root[data-theme="dark"] .app-nav button.tab:hover{color:var(--ink);}
+:root[data-theme="dark"] .app-nav .tab.on, :root[data-theme="dark"] .app-nav button.tab.on, :root[data-theme="dark"] .app-nav .tab.on:hover{color:var(--dk-accent); border-bottom-color:var(--dk-accent);}
+:root[data-theme="dark"] .signout-btn{border-color:var(--dk-border-strong); color:#C3CAD3;}
+:root[data-theme="dark"] .signout-btn:hover{background:#232A34; color:var(--ink);}
+:root[data-theme="dark"] .bell-count{background:var(--red); color:#1A0F0E;}
+
+/* Panels and raised cards */
+:root[data-theme="dark"] .screen.active > .app-frame{border-color:var(--line);}
+:root[data-theme="dark"] .side-col{background:var(--card); border-left-color:var(--line);}
+:root[data-theme="dark"] .side-hd .count{background:var(--dk-accent-soft); color:var(--dk-accent);}
+:root[data-theme="dark"] .card, :root[data-theme="dark"] .stat-chip, :root[data-theme="dark"] .queue-item{background:var(--dk-raised); border-color:var(--line); box-shadow:none;}
+:root[data-theme="dark"] .card-hd{background:transparent; border-bottom-color:var(--line);}
+:root[data-theme="dark"] .card-hd .hd-count, :root[data-theme="dark"] .dg-n, :root[data-theme="dark"] .queue-item .qd{background:#323B48; color:var(--ink-soft);}
+:root[data-theme="dark"] .queue-item::before, :root[data-theme="dark"] .stat-chip::before{background:#4A5462;}
+:root[data-theme="dark"] .queue-item.q-flagged::before, :root[data-theme="dark"] .stat-chip.c-red::before{background:var(--red);}
+:root[data-theme="dark"] .queue-item.q-pending::before, :root[data-theme="dark"] .stat-chip.c-gold::before{background:var(--gold);}
+:root[data-theme="dark"] .queue-item.q-done::before, :root[data-theme="dark"] .stat-chip.c-blue::before{background:var(--blue);}
+:root[data-theme="dark"] .queue-item:hover{background:var(--dk-raised-hover); border-color:var(--dk-border-strong);}
+:root[data-theme="dark"] .queue-item .qd.flagged{background:var(--red-soft); color:var(--red);}
+:root[data-theme="dark"] .queue-item .qd.pending{background:var(--gold-light); color:var(--gold-ink);}
+:root[data-theme="dark"] .task-hero{background:var(--dk-raised); border-color:var(--line);}
+:root[data-theme="dark"] .task-hero .av{background:var(--dk-accent-bg); color:var(--dk-on-accent);}
+:root[data-theme="dark"] .jd-side, :root[data-theme="dark"] .jd-tf{background:var(--card); border-color:var(--line);}
+
+/* "Continue with": muted navy instead of the bright brand card */
+:root[data-theme="dark"] .cta-banner{background:var(--dk-navy); border:1px solid var(--dk-navy-border); color:var(--ink); box-shadow:none;}
+:root[data-theme="dark"] .cta-banner:hover{background:#27395A;}
+:root[data-theme="dark"] .cta-banner .lbl{color:#9DB7DD;}
+:root[data-theme="dark"] .cta-banner .play{background:var(--dk-accent-bg); color:var(--dk-on-accent); box-shadow:none;}
+:root[data-theme="dark"] .cta-go{background:rgba(127,166,217,.14); border-color:rgba(127,166,217,.32); color:var(--ink);}
+:root[data-theme="dark"] .cta-banner:hover .cta-go{background:rgba(127,166,217,.24);}
+:root[data-theme="dark"] .jo-nametag.on-dark .jnt-jo, :root[data-theme="dark"] .jo-nametag.on-dark .jnt-task{color:var(--ink);}
+:root[data-theme="dark"] .jo-nametag.on-dark .jnt-org{color:var(--ink-soft);}
+
+/* Muted blue for active items, primary buttons and progress */
+:root[data-theme="dark"] .act-btn.primary, :root[data-theme="dark"] .dg-btn.primary, :root[data-theme="dark"] .si-btn, :root[data-theme="dark"] .newjo-btn{background:var(--dk-accent-bg); border-color:var(--dk-accent-bg); color:var(--dk-on-accent); box-shadow:none;}
+:root[data-theme="dark"] .act-btn.primary:not(:disabled):not(.locked):hover, :root[data-theme="dark"] .dg-btn.primary:not(:disabled):hover, :root[data-theme="dark"] .si-btn:not(:disabled):hover, :root[data-theme="dark"] .newjo-btn:hover{background:var(--dk-accent-bg-hover); border-color:var(--dk-accent-bg-hover);}
+:root[data-theme="dark"] .card-tab.on, :root[data-theme="dark"] .card-tab.on .tab-n{background:var(--dk-accent-bg); color:var(--dk-on-accent);}
+:root[data-theme="dark"] .cfg-tab.on{color:var(--dk-accent); border-bottom-color:var(--dk-accent);}
+:root[data-theme="dark"] .cfg-clear{border-color:var(--dk-border-strong); background:transparent; color:var(--ink-2);}
+:root[data-theme="dark"] .cfg-clear:hover{background:var(--hover);}
+:root[data-theme="dark"] .dg-jo.on, :root[data-theme="dark"] .dg-trk.on{background:var(--dk-accent-soft); border-color:var(--dk-navy-border);}
+:root[data-theme="dark"] .dg-search:focus-within{border-color:var(--dk-accent);}
+:root[data-theme="dark"] .progress-track{background:#2C3440; border-color:transparent;}
+:root[data-theme="dark"] .progress-fill{background:var(--dk-accent);}
+:root[data-theme="dark"] .jo-link{color:var(--dk-accent);}
+
+/* Overdue and error text stays red (the brand token is blue in dark mode) */
+:root[data-theme="dark"] :is(.mini-stats b, .notif-kind.overdue, .meta-row .overdue){color:var(--red);}
+:root[data-theme="dark"] :is(.cfg-status.bad, .ra-warn){background:var(--red-soft); color:var(--red); border-color:var(--red-line);}
+:root[data-theme="dark"] .gate-row.overdue{box-shadow:inset 3px 0 0 var(--red);}
+:root[data-theme="dark"] .gate-row.current{background:var(--dk-accent-soft);}
+:root[data-theme="dark"] .notif-unread-n{background:var(--dk-accent-soft); color:var(--dk-accent);}
+:root[data-theme="dark"] :is(.si-mark, .pl-mark, .check-hd .cav){background:var(--dk-accent-bg); color:var(--dk-on-accent);}
+:root[data-theme="dark"] .pl-spin{border-color:var(--line); border-top-color:var(--dk-accent);}
+/* Status badges: subtle tints, no light borders */
+:root[data-theme="dark"] .due-badge.overdue{background:var(--red-soft); color:var(--red); border-color:var(--red-line);}
+:root[data-theme="dark"] .due-badge.pending, :root[data-theme="dark"] .badge-followup{background:var(--gold-light); color:var(--gold-ink); border-color:#4A4129;}
+:root[data-theme="dark"] .due-badge.done, :root[data-theme="dark"] .badge-done{background:var(--blue-light); color:var(--blue); border-color:#2E4565;}
+:root[data-theme="dark"] .due-badge.upcoming{background:#2C3440; color:var(--ink-soft); border-color:transparent;}
+:root[data-theme="dark"] .st-Pending{background:#2C3440; color:var(--ink-2);}
+:root[data-theme="dark"] .st-In-Progress{background:var(--blue-light); color:var(--blue);}
+:root[data-theme="dark"] .st-Completed{background:var(--green-light); color:var(--green);}
+:root[data-theme="dark"] .tf-state.saved{color:var(--green);}
+
+/* Inputs and dropdowns */
+:root[data-theme="dark"] :is(.tf-input, .cfg-input, .msg-input, .si input, .env-bar select, .dc-filter select, #noteText){background:var(--dk-input); color:var(--ink); border-color:var(--dk-border-strong) !important;}
+:root[data-theme="dark"] :is(.tf-input, .cfg-input, .msg-input, .si input):hover{border-color:#4B5666 !important;}
+:root[data-theme="dark"] :is(.tf-input, .cfg-input, .msg-input, .si input, .dc-filter select, #noteText):focus{outline:none; border-color:var(--dk-accent) !important; box-shadow:0 0 0 3px rgba(127,166,217,.22);}
+:root[data-theme="dark"] .dg-search{background:var(--dk-input); border-color:var(--dk-border-strong);}
+:root[data-theme="dark"] table.sheet td input, :root[data-theme="dark"] table.sheet td select{background:transparent; border-color:transparent !important;}
+:root[data-theme="dark"] table.sheet td input:focus, :root[data-theme="dark"] table.sheet td select:focus{background:var(--dk-input);}
+:root[data-theme="dark"] .tf-input.is-unsaved{border-color:var(--gold) !important; box-shadow:0 0 0 3px var(--gold-light);}
+:root[data-theme="dark"] ::placeholder{color:#7D8794;}
+:root[data-theme="dark"] option{background:var(--card); color:var(--ink);}
+
+/* Dialogs, pop-ups and the toast */
+:root[data-theme="dark"] .msg-box, :root[data-theme="dark"] [role="dialog"], :root[data-theme="dark"] .notif-pop, :root[data-theme="dark"] .si-card, :root[data-theme="dark"] .si-picker, :root[data-theme="dark"] .pl-box, :root[data-theme="dark"] .more-panel{background:var(--dk-raised) !important; color:var(--ink); border:1px solid var(--dk-border-strong) !important; box-shadow:0 16px 40px rgba(0,0,0,.45) !important;}
+:root[data-theme="dark"] .notif-item{background:transparent; border-bottom-color:var(--line);}
+:root[data-theme="dark"] .notif-item.unread{background:var(--dk-accent-soft);}
+:root[data-theme="dark"] .notif-item:hover{background:var(--dk-raised-hover);}
+:root[data-theme="dark"] .toast{background:#2E3743; color:var(--ink); border:1px solid var(--dk-border-strong); box-shadow:0 8px 24px rgba(0,0,0,.45);}
+:root[data-theme="dark"] .toast-undo{color:var(--dk-accent);}
+
+/* Hover and scrollbars */
+:root[data-theme="dark"] .jo-tick{background:var(--dk-raised); border:1px solid var(--dk-border-strong); color:var(--ink-2); border-radius:6px;}
+:root[data-theme="dark"] .jo-tick:not(:disabled):hover{background:var(--dk-raised-hover); color:var(--ink);}
+:root[data-theme="dark"] .dg-btn:not(.primary):hover, :root[data-theme="dark"] .act-btn:not(.primary):not(.locked):hover{background:var(--hover);}
+:root[data-theme="dark"] *{scrollbar-color:var(--dk-scroll) transparent;}
+:root[data-theme="dark"] ::-webkit-scrollbar-thumb{background:var(--dk-scroll) !important; background-clip:padding-box !important;}
+:root[data-theme="dark"] ::-webkit-scrollbar-thumb:hover{background:var(--dk-scroll-hover) !important; background-clip:padding-box !important;}
 
 /* ===== Centered layout =====
    Desktop (1440px and wider): the app sits in the middle 60%, 20% blank on each side.
@@ -2670,9 +2770,10 @@ function toggleTheme(){
   const next = currentTheme()==='dark' ? 'light' : 'dark';
   document.documentElement.dataset.theme = next;
   try { localStorage.setItem('kiroku_theme', next); } catch(e){}
-  document.querySelectorAll('.theme-btn').forEach(el=>{ el.outerHTML = themeButtonHTML(); });
-  const b = document.querySelector('.theme-btn'); if(b) b.focus();
+  refreshThemeButtons();
+  const b = document.querySelector('.screen.active .theme-btn'); if(b) b.focus();
 }
+function refreshThemeButtons(){ document.querySelectorAll('.theme-btn').forEach(el=>{ el.outerHTML = themeButtonHTML(); }); }
 function navHTML(activeTab){
   const user = getUser(currentUserId);
   const tabs = tabsFor(user);
