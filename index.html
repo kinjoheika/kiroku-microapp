@@ -1873,6 +1873,29 @@ button, .act-btn, .dg-btn, .signout-btn, .mt-resume, .tab, .card-tab, .cfg-tab{f
 .sv-retry:hover{border-color:var(--red);}
 .sv-btn:focus-visible{outline:2px solid var(--focus); outline-offset:2px;}
 .tf-head .save-bar{margin-left:auto;}
+/* Task header: heading + save icons left; circle with the coloured summary below it on the right */
+.dg-ck-hd{align-items:flex-start;}
+.dg-ck-meta{flex-direction:column; gap:1px;}
+.dg-ck-meta span+span::before{content:none;}
+.dg-ck-side{display:flex; flex-direction:column; align-items:flex-end; gap:8px; margin-left:auto;}
+.dg-ck-side .dg-sum{flex-basis:auto; justify-content:flex-end; gap:4px 14px;}
+.dg-ck-hd > .dg-sum{display:none;}
+@media (max-width:820px){ .dg-ck-side{align-items:flex-start; margin-left:0;} .dg-ck-side .dg-sum{justify-content:flex-start;} }
+/* Odoo-style save icons beside the JO heading */
+.save-bar{display:inline-flex; align-items:center; gap:2px; vertical-align:middle;}
+.save-bar.idle{display:none;}
+.sv-ic{display:inline-grid; place-items:center; width:28px; height:28px; padding:0; border:0; border-radius:6px; background:none; cursor:pointer; transition:background .15s ease, color .15s ease;}
+.sv-ic svg{width:18px; height:18px;}
+.sv-save{color:var(--blue);}
+.sv-save:hover{background:var(--blue-light);}
+.sv-discard{color:var(--ink-2);}
+.sv-discard svg{width:15px; height:15px;}
+.sv-discard:hover{background:var(--hover); color:var(--ink);}
+.sv-ok{color:var(--green); cursor:default;}
+.sv-warn{color:var(--red); cursor:help;}
+.sv-wait{cursor:default;}
+.sv-ic:focus-visible{outline:2px solid var(--focus); outline-offset:1px;}
+.sv-sr{position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap;}
 /* ===== Centered layout =====
    Desktop (1440px and wider): the app sits in the middle 60%, 20% blank on each side.
    Smaller screens widen it so the three Due Gates columns stay usable; phones keep a 16px gutter. */
@@ -2486,25 +2509,37 @@ const SV_ICONS = {
   save:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h11l3 3v12a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4z"/><path d="M8 4v5h7V4M8 20v-6h8v6"/></svg>',
   ok:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
   warn:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.5h.01"/></svg>',
-  dot:'<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.5" fill="currentColor"/></svg>'
+  dot:'<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.5" fill="currentColor"/></svg>',
+  cloud:'<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M19.35 10.04A7.49 7.49 0 0 0 12 4C9.11 4 6.6 5.64 5.35 8.04A5.994 5.994 0 0 0 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z"/></svg>',
+  x:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>'
 };
 function saveBusy(){ return saveUI.kind==='saving' || taskSaving.size > 0 || [...logInFlight].some(k=>k.endsWith('|done')); }
 function hasPendingSaves(){ return unsavedCount() > 0 || saveBusy(); }
 // One small control beside the JO heading: Unsaved changes (+ Save) / Saving… / Saved / Save failed (+ Retry).
+let savedFlashTimer = null;
 function saveBarHTML(){
   const n = unsavedCount();
-  let kind, text, icon, action = '';
-  if(saveBusy()){ kind = 'saving'; text = 'Saving…'; icon = '<i class="save-spin" aria-hidden="true"></i>'; }
-  else if(saveUI.kind==='error'){ kind = 'error'; text = 'Save failed'; icon = SV_ICONS.warn;
-    if(n) action = '<button type="button" class="sv-btn sv-retry" onclick="event.stopPropagation(); saveAllNow()">Retry</button>'; }
-  else if(n){ kind = 'pending'; text = `Unsaved change${n>1?'s':''}`; icon = SV_ICONS.dot;
-    action = `<button type="button" class="sv-btn sv-icon" onclick="event.stopPropagation(); saveAllNow()" title="Save now" aria-label="Save now">${SV_ICONS.save}</button>`; }
-  else if(saveUI.kind==='saved'){ kind = 'saved'; text = 'Saved'; icon = SV_ICONS.ok; }
-  else return '<span class="save-bar idle" role="status" aria-live="polite"></span>';
-  const why = kind==='error' ? escAttr(saveUI.text || '') : '';
-  return `<span class="save-bar ${kind}" role="status" aria-live="polite" ${why ? `title="${why}"` : ''}><span class="sv-ico">${icon}</span><span class="sv-text">${text}</span>${action}</span>`;
+  const btn = (cls, label, icon, onclick)=>`<button type="button" class="sv-ic ${cls}" onclick="event.stopPropagation(); ${onclick}" title="${label}" aria-label="${label}">${icon}</button>`;
+  if(saveBusy())
+    return `<span class="save-bar saving" role="status" aria-live="polite" title="Saving…"><span class="sv-ic sv-wait" aria-hidden="true"><i class="save-spin"></i></span><span class="sv-sr">Saving…</span></span>`;
+  if(saveUI.kind==='error'){
+    const why = escAttr(saveUI.text || 'Save failed');
+    return `<span class="save-bar error" role="status" aria-live="polite"><span class="sv-ic sv-warn" title="${why}" aria-label="Save failed: ${why}">${SV_ICONS.warn}</span>${n ? btn('sv-save', 'Retry saving', SV_ICONS.cloud, 'saveAllNow()') + btn('sv-discard', 'Discard changes', SV_ICONS.x, 'discardChanges()') : ''}</span>`;
+  }
+  if(n) return `<span class="save-bar pending" role="status" aria-live="polite">${btn('sv-save', `Save ${n} unsaved change${n>1?'s':''}`, SV_ICONS.cloud, 'saveAllNow()')}${btn('sv-discard', 'Discard changes', SV_ICONS.x, 'discardChanges()')}</span>`;
+  if(saveUI.kind==='saved')
+    return `<span class="save-bar saved" role="status" aria-live="polite" title="Saved"><span class="sv-ic sv-ok" aria-hidden="true">${SV_ICONS.ok}</span><span class="sv-sr">Saved</span></span>`;
+  return '<span class="save-bar idle" role="status" aria-live="polite"></span>';
+}
+// Discard (the ✕): drops edits that are not saved yet and shows the saved values again.
+function discardChanges(){
+  discardPendingSaves();
+  renderKeepingFocus();
+  showToast('Changes discarded');
 }
 function updateSaveBars(){
+  clearTimeout(savedFlashTimer);
+  if(saveUI.kind==='saved') savedFlashTimer = setTimeout(()=>{ if(saveUI.kind==='saved' && !hasPendingSaves()){ saveUI = {kind:'idle', text:''}; document.querySelectorAll('.save-bar').forEach(el=>{ el.outerHTML = saveBarHTML(); }); } }, 3000);
   document.querySelectorAll('.save-bar').forEach(el=>{ el.outerHTML = saveBarHTML(); });
 }
 function installNavGuards(){
@@ -4349,10 +4384,15 @@ function buildDueGatesScreen(scope){
     checklistHTML = `<div class="dg-ck-hd">
         <div class="dg-ck-title">
           <div class="dg-ck-jo"><span>JO# ${escHTML(jo.jo)}</span>${trackKey?`<button type="button" class="dg-tag" onclick="${selectTrackFn}('${trackKey}')" title="Show every track">${trackKey} ${dgIcon('x')}</button>`:''}${isMine ? saveBarHTML() : ''}</div>
-          <div class="dg-ck-meta"><span>${escHTML(co.name)}</span><span>Deploy ${fmtFullDate(jo.targetDeploymentDate)}</span></div>
+          <div class="dg-ck-meta"><span>${escHTML(co.name)}</span><span>Deploy <b>${fmtFullDate(jo.targetDeploymentDate)}</b></span></div>
         </div>
-        <div class="dg-ck-prog"><span class="dg-ck-count"><b>${doneCount}</b> of ${total} done</span><span class="dg-bar"><i style="width:${pct}%"></i></span></div>
-        <div class="dg-sum"><span>${dgInd('done')}<b>${doneCount}</b> done</span><span>${dgInd('flagged')}<b>${overdueCount}</b> overdue</span><span>${dgInd('none')}<b>${tasks.filter(t=>!t.done && computeStatus(t)!=='flagged' && t.status!=='In Progress').length}</b> not started</span><span>${dgInd('none',true)}<b>${tasks.filter(t=>(t.activity||[]).some(a=>a.type==='followup')).length}</b> followed up</span></div>
+        <div class="dg-ck-side">
+          <div class="dg-final">
+            <div class="dg-ring ${tasks.some(t=>(t.activity||[]).some(a=>a.type==='followup'))?'fu':''}" style="background:conic-gradient(var(--blue) 0 ${pct}%, var(--line-2) ${pct}% 100%)"><div class="dg-hole" style="${overdueCount?'color:var(--red)':''}">${doneCount}/${total}</div></div>
+            <div class="dg-final-txt"><b>${doneCount} of ${total} done</b><span>${trackKey ? trackKey+' stages' : 'All tracks'}</span></div>
+          </div>
+          <div class="dg-sum"><span>${dgInd('done')}<b>${doneCount}</b> done</span><span>${dgInd('flagged')}<b>${overdueCount}</b> overdue</span><span>${dgInd('none')}<b>${tasks.filter(t=>!t.done && computeStatus(t)!=='flagged' && t.status!=='In Progress').length}</b> not started</span><span>${dgInd('none',true)}<b>${tasks.filter(t=>(t.activity||[]).some(a=>a.type==='followup')).length}</b> followed up</span></div>
+        </div>
       </div><div class="tri-body dg-rows">${items}</div>`;
   }
 
