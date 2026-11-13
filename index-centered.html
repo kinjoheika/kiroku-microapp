@@ -4,6 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Kiroku — Working Sample DB</title>
+<script>
+// Light or dark: the viewer's saved choice, else the device setting. Runs before the page paints.
+try { const t = localStorage.getItem('kiroku_theme'); if(t==='light' || t==='dark') document.documentElement.dataset.theme = t; } catch(e){}
+</script>
 <style>
 :root{
   --black:#16181C; --darkred:#7A1F2B; --darkred-light:#F7E8E9;
@@ -1081,9 +1085,66 @@ table.sheet td.ro{padding:8px 10px; color:var(--ink-2); white-space:nowrap;}
   .jd-notes > .card-body{max-height:50dvh;}
 }
 
-/* Sample layout: the whole app sits in the middle 60% of the viewport; 20% blank on each side. */
-html{background:#E7E9EB;}
-body{background:transparent !important; padding-left:20vw !important; padding-right:20vw !important; width:100% !important;}
+/* ===== Due Gates auto-save bar ===== */
+.save-bar{display:inline-flex; align-items:center; gap:10px; margin-left:auto; min-width:0; flex-wrap:wrap; justify-content:flex-end;}
+.save-state{display:inline-flex; align-items:center; gap:6px; font-size:0.75rem; color:var(--ink-3); min-width:0; max-width:520px; line-height:1.4;}
+.save-bar.saved .save-state{color:var(--green);}
+.save-bar.pending .save-state{color:var(--gold-ink);}
+.save-bar.error .save-state{color:var(--red); font-weight:500;}
+.save-bar.error{flex-basis:100%; padding:8px 10px; border:1px solid var(--red-line); border-radius:8px; background:var(--red-soft);}
+.save-now:disabled{opacity:.45; cursor:default;}
+.save-spin{width:12px; height:12px; flex-shrink:0; border:2px solid var(--line); border-top-color:var(--blue); border-radius:50%; animation:btn-spin .75s linear infinite;}
+.dg-ck-hd .save-bar{order:5;}
+.jd-tf{flex-shrink:0; margin:0; padding:12px 16px; border:1px solid var(--line); border-radius:12px; background:var(--card);}
+.tf-head{flex-direction:row; align-items:center; gap:10px; flex-wrap:wrap;}
+.tf-gate{font-size:0.9375rem; font-weight:600; color:var(--ink);}
+.tf-input.is-unsaved{border-color:var(--gold); box-shadow:0 0 0 3px var(--gold-light);}
+.gate-row.view-only{cursor:default;}
+
+/* ===== Discuss: JO# links ===== */
+.jo-link{color:var(--blue); font-weight:600; text-decoration:underline; text-decoration-thickness:1px; text-underline-offset:2px; cursor:pointer; border-radius:3px;}
+.jo-link:hover{text-decoration-thickness:2px;}
+.jo-link:focus-visible{outline:2px solid var(--focus); outline-offset:2px;}
+.dc-text .jo-link{font-weight:500;}
+
+/* ===== Light / dark toggle (nav) ===== */
+.theme-btn{display:inline-flex; align-items:center; gap:6px;}
+.theme-btn svg{width:14px; height:14px;}
+
+/* ===== Dark mode fixes for colours written as fixed hex values ===== */
+:root[data-theme="dark"] .st-Pending{background:#2A303A; color:#C7CDD6;}
+:root[data-theme="dark"] .st-In-Progress{background:#1A2A41; color:#8FB6EA;}
+:root[data-theme="dark"] .st-Completed{background:#17301F; color:#6CC68A;}
+:root[data-theme="dark"] .tf-state.saved{color:#6CC68A;}
+:root[data-theme="dark"] .tf-input:hover{border-color:#4A525E;}
+:root[data-theme="dark"] .toast{background:#E6E8EB; color:#0F1216;}
+:root[data-theme="dark"] .toast-undo{color:#0F1216;}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]) .st-Pending{background:#2A303A; color:#C7CDD6;}
+  :root:not([data-theme="light"]) .st-In-Progress{background:#1A2A41; color:#8FB6EA;}
+  :root:not([data-theme="light"]) .st-Completed{background:#17301F; color:#6CC68A;}
+  :root:not([data-theme="light"]) .tf-state.saved{color:#6CC68A;}
+  :root:not([data-theme="light"]) .tf-input:hover{border-color:#4A525E;}
+  :root:not([data-theme="light"]) .toast{background:#E6E8EB; color:#0F1216;}
+  :root:not([data-theme="light"]) .toast-undo{color:#0F1216;}
+}
+
+/* ===== Centered layout =====
+   Desktop (1440px and wider): the app sits in the middle 60%, 20% blank on each side.
+   Smaller screens widen it so the three Due Gates columns stay usable; phones keep a 16px gutter. */
+html{background:var(--bg);}
+body{background:var(--bg); padding-left:20vw; padding-right:20vw;}
+.screen.active > .app-frame{background:var(--card); border-left:1px solid var(--line); border-right:1px solid var(--line);}
+@media (max-width:1439px){ body{padding-left:10vw; padding-right:10vw;} }
+@media (max-width:1099px){ body{padding-left:24px; padding-right:24px;} }
+@media (max-width:820px){
+  body{padding-left:16px; padding-right:16px;}
+  /* Stacked JO profile on a phone: the main column keeps its full height and the section scrolls as one. */
+  .screen.active .body-row > .main-col{flex:none; max-height:none; overflow:visible;}
+}
+/* In the narrower centred frame the tabs get their own row under the brand bar, so none is hidden. */
+.app-nav{flex-wrap:wrap; row-gap:6px;}
+.app-nav .app-tabs{order:10; flex:1 1 100%; overflow-x:auto;}
 </style>
 </head>
 <body>
@@ -1564,7 +1625,7 @@ function logEntry(actionType, f){
 }
 // Stores the entries, then runs apply(rows). Repeat clicks while a save is in flight are ignored,
 // and a failed or refused save applies nothing. Resolves to true when stored.
-async function runLogged(key, entries, apply){
+async function runLogged(key, entries, apply, onFail){
   if(logInFlight.has(key)) return false;
   logInFlight.add(key);
   document.body.classList.add('logging');
@@ -1575,7 +1636,8 @@ async function runLogged(key, entries, apply){
     return true;
   } catch(e){
     console.warn('Activity not recorded:', e);
-    showToast(`⚠ Not recorded: ${e.message}`, 4000);
+    showToast(`⚠ ${explainSaveError(e.message)}`, 6000);
+    if(onFail) onFail(e.message);
     return false;
   } finally {
     logInFlight.delete(key);
@@ -1599,13 +1661,26 @@ function toggleTask(taskId, pageContext){
   if(!canEditInContext(t, pageContext)) return;
   const entry = logEntry(t.done ? 'Status Change' : 'Mark Done', {taskId,
     details: t.done ? 'Task reopened' : 'Task marked done', prev: statusLabel(t), next: statusLabel({...t, done:!t.done})});
-  runLogged(`${taskId}|done`, [entry], ()=>{
+  const want = !t.done;
+  setSaveUI('saving', 'Saving…');
+  return runLogged(`${taskId}|done`, [entry], ()=>{
     t.done = !t.done;
     t.status = t.done ? 'Completed' : 'Pending';
     t.doneAt = t.done ? nowStamp() : null;
     saveDB();
-  }).then(ok=>{ if(ok){ renderAllScreens(); refreshTaskRow(taskId);
-    showUndoToast(`${t.done?'Marked':'Reopened'} "${t.name}" for JO# ${getJO(t.joId).jo} as ${t.done?'done':'open'}.`, ()=>toggleTask(taskId, pageContext)); } });
+  }, err=>{
+    // Kept so the Save button can try the same tick again.
+    pendingToggles.set(taskId, {done:want, pageContext});
+    saveUI = {kind:'error', text:explainSaveError(err)};
+  }).then(ok=>{
+    if(ok){
+      pendingToggles.delete(taskId);
+      saveUI = {kind:'saved', text:`Saved · ${new Date().toLocaleTimeString('en-US', {hour:'numeric', minute:'2-digit'})}`};
+      renderAllScreens(); refreshTaskRow(taskId);
+      showUndoToast(`${t.done?'Marked':'Reopened'} "${t.name}" for JO# ${getJO(t.joId).jo} as ${t.done?'done':'open'}.`, ()=>toggleTask(taskId, pageContext));
+    } else renderAllScreens();
+    return ok;
+  });
 }
 /* ---------- Editing a task (update_task_fields in supabase/12_task_status.sql) ----------
    Saved straight to Supabase, which checks who may change what and logs every change. If the task changed since this page read it, nothing is
@@ -1628,39 +1703,95 @@ async function refreshTaskRow(taskId){
   } catch(e){ console.warn('Could not reload the task:', e); }
   return false;
 }
-function setTaskSaveState(kind, text){
-  const el = document.getElementById('tfState');
-  if(!el) return;
-  el.className = `tf-state ${kind}`;
-  el.textContent = text;
-}
-function renderKeepingFocus(){
-  const id = document.activeElement && document.activeElement.id;
-  renderAllScreens();
-  const el = id && document.getElementById(id);
-  if(el) el.focus();
-}
+/* ---------- Due Gates auto-save ----------
+   Every change on a gate (due date, status, officer, remarks, done tick) is saved to Supabase on its own:
+   typing waits a moment, lists and dates save at once. The bar beside the gate shows "Saving…" then "Saved".
+   A change that could not be saved stays on the page (and in the form) until it is saved, with a message
+   that says what went wrong and what to do; Save tries every waiting change again. */
+const taskDrafts = {};            // taskId -> {field: value} typed but not saved yet
+const draftTimers = {};
+const draftContext = {};          // taskId -> pageContext the change was made on
+const pendingToggles = new Map(); // taskId -> {done, pageContext}: a done tick that did not save
 const taskSaving = new Set();
-async function saveTaskField(taskId, field, value, pageContext, isUndo){
+let saveUI = {kind:'idle', text:''};
+const AUTOSAVE_TYPING_MS = 1000;
+
+function explainSaveError(msg){
+  const m = String(msg||'');
+  if(/failed to fetch|networkerror|load failed|network request failed/i.test(m))
+    return 'Not saved: no connection to Kiroku. Check your internet connection, then press Save. Your change is kept on this page.';
+  if(/changed by someone else/i.test(m))
+    return 'Not saved: someone else changed this gate while you were editing. Their version is now loaded; your change is still in the form. Check it, then press Save to apply it.';
+  if(/session ended|jwt|expired/i.test(m))
+    return 'Not saved: your session ended. Sign in again, then make the change again.';
+  if(/permission|not allowed|denied|row-level|forbidden|42501|only the assigned/i.test(m))
+    return `Not saved: you are not allowed to change this gate (${m}). Ask Admin to assign it to you.`;
+  if(/cannot be empty/i.test(m)) return `Not saved: ${m} Type a value, then press Save.`;
+  if(/HTTP 5\d\d|timeout|temporar/i.test(m))
+    return `Not saved: the server had a problem (${m}). Wait a moment, then press Save to try again.`;
+  return `Not saved: ${m || 'unknown error'}. Press Save to try again; if it keeps failing, tell Admin this message.`;
+}
+function unsavedCount(){
+  return Object.keys(taskDrafts).length + pendingToggles.size;
+}
+function setSaveUI(kind, text){
+  saveUI = {kind, text};
+  updateSaveBars();
+}
+function saveBarHTML(){
+  const n = unsavedCount();
+  const busy = taskSaving.size > 0;
+  return `<div class="save-bar ${saveUI.kind}" role="group" aria-label="Saving">
+    <span class="save-state" role="status" aria-live="polite">${saveUI.kind==='saving' ? '<i class="save-spin" aria-hidden="true"></i>' : ''}${escHTML(saveUI.text || (n ? `${n} unsaved change${n>1?'s':''}` : 'All changes saved'))}</span>
+    <button type="button" class="dg-btn primary save-now" onclick="saveAllNow()" ${n && !busy ? '' : 'disabled'}>Save</button>
+  </div>`;
+}
+function updateSaveBars(){
+  document.querySelectorAll('.save-bar').forEach(el=>{ el.outerHTML = saveBarHTML(); });
+}
+window.addEventListener('beforeunload', e=>{ if(unsavedCount()){ e.preventDefault(); e.returnValue = ''; } });
+
+function draftOf(t, field){
+  const d = taskDrafts[t.id];
+  return d && Object.prototype.hasOwnProperty.call(d, field) ? d[field] : taskFieldOf(t, field);
+}
+// Called while typing (immediate=false) and on change/blur (immediate=true).
+function editTaskField(taskId, field, value, pageContext, immediate){
   const t = getTaskById(taskId);
-  if(!t || !canEditInContext(t, pageContext) || taskSaving.has(taskId)) return;
-  const prev = taskFieldOf(t, field);
-  const next = value.trim();
-  if(next===prev) return;
-  if(!next && field!=='remarks'){
-    setTaskSaveState('error', `${TASK_FIELD_LABEL[field]} cannot be empty.`);
-    renderKeepingFocus();
-    setTaskSaveState('error', `${TASK_FIELD_LABEL[field]} cannot be empty.`);
-    return;
+  if(!t || !canEditInContext(t, pageContext)) return;
+  const d = taskDrafts[taskId] || (taskDrafts[taskId] = {});
+  if(String(value).trim() === taskFieldOf(t, field)) delete d[field]; else d[field] = value;
+  if(!Object.keys(d).length) delete taskDrafts[taskId];
+  draftContext[taskId] = pageContext;
+  clearTimeout(draftTimers[taskId]);
+  if(!taskDrafts[taskId]){ if(saveUI.kind!=='error') setSaveUI('idle', ''); else updateSaveBars(); return; }
+  if(saveUI.kind!=='saving') setSaveUI('pending', 'Unsaved change…');
+  draftTimers[taskId] = setTimeout(()=>saveTaskDrafts(taskId), immediate ? 0 : AUTOSAVE_TYPING_MS);
+}
+async function saveTaskDrafts(taskId, isUndo){
+  clearTimeout(draftTimers[taskId]);
+  const t = getTaskById(taskId);
+  const d = taskDrafts[taskId];
+  if(!t || !d) return true;
+  if(taskSaving.has(taskId)){ draftTimers[taskId] = setTimeout(()=>saveTaskDrafts(taskId, isUndo), 300); return false; }
+  const fields = {}, prev = {};
+  for(const f of Object.keys(d)){
+    const next = String(d[f]).trim();
+    if(!next && f!=='remarks'){ setSaveUI('error', explainSaveError(`${TASK_FIELD_LABEL[f]} cannot be empty.`)); return false; }
+    fields[f] = next; prev[f] = taskFieldOf(t, f);
   }
   taskSaving.add(taskId);
-  setTaskSaveState('saving', 'Saving…');
+  setSaveUI('saving', 'Saving…');
   let failure = null;
   try {
     const row = await supaFetch('rpc/update_task_fields', {method:'POST', body:JSON.stringify({
-      p_task_id:taskId, p_user_id:currentUserId, p_fields:{[field]:next}, p_expected_updated_at:t.updatedAt||null})});
+      p_task_id:taskId, p_user_id:currentUserId, p_fields:fields, p_expected_updated_at:t.updatedAt||null})});
     applyTaskRow(t, Array.isArray(row) ? row[0] : row);
     saveDB();
+    // Clear only what was sent: anything typed while the save ran is still waiting.
+    const cur = taskDrafts[taskId] || {};
+    for(const f of Object.keys(fields)) if(Object.prototype.hasOwnProperty.call(cur, f) && String(cur[f]).trim()===fields[f]) delete cur[f];
+    if(!Object.keys(cur).length) delete taskDrafts[taskId];
     fetchActivityLogs(`&task_id=eq.${encodeURIComponent(taskId)}`)
       .then(rows=>{ if(rows.reverse().map(ingestLogRow).some(Boolean)) refreshActivityViews(); })
       .catch(e=>console.warn('activity_logs task load failed:', e));
@@ -1669,43 +1800,70 @@ async function saveTaskField(taskId, field, value, pageContext, isUndo){
     if(/changed by someone else/i.test(failure)) await refreshTaskRow(taskId);
   }
   taskSaving.delete(taskId);
-  renderKeepingFocus();
   if(failure){
-    setTaskSaveState('error', `Sync Error: ${failure}`);
-    return;
+    saveUI = {kind:'error', text:explainSaveError(failure)};
+    renderKeepingFocus();
+    return false;
   }
-  setTaskSaveState('saved', 'Saved.');
-  if(!isUndo) showUndoToast(`${TASK_FIELD_LABEL[field]} updated`, ()=>saveTaskField(taskId, field, prev, pageContext, true));
+  saveUI = taskDrafts[taskId] ? {kind:'pending', text:'Unsaved change…'} : {kind:'saved', text:`Saved · ${new Date().toLocaleTimeString('en-US', {hour:'numeric', minute:'2-digit'})}`};
+  renderKeepingFocus();
+  if(taskDrafts[taskId]) draftTimers[taskId] = setTimeout(()=>saveTaskDrafts(taskId), AUTOSAVE_TYPING_MS);
+  else if(!isUndo) showUndoToast(`${Object.keys(fields).map(f=>TASK_FIELD_LABEL[f]).join(', ')} saved`, ()=>{
+    taskDrafts[taskId] = {...prev}; saveTaskDrafts(taskId, true);
+  });
+  return true;
 }
+// The Save button: every waiting change, field edits and done ticks, tried again now.
+async function saveAllNow(){
+  for(const id of Object.keys(taskDrafts)) await saveTaskDrafts(id);
+  for(const [id, p] of [...pendingToggles]){
+    const t = getTaskById(id);
+    if(!t || t.done === p.done){ pendingToggles.delete(id); continue; }
+    await toggleTask(id, p.pageContext);
+  }
+  if(!unsavedCount() && saveUI.kind!=='error' && saveUI.kind!=='saved') setSaveUI('saved', 'Saved');
+  else updateSaveBars();
+}
+function renderKeepingFocus(){
+  const a = document.activeElement;
+  const id = a && a.id;
+  let sel = null;
+  try { if(a && typeof a.selectionStart==='number') sel = [a.selectionStart, a.selectionEnd]; } catch(e){}
+  renderAllScreens();
+  const el = id && document.getElementById(id);
+  if(el){
+    el.focus();
+    try { if(sel && typeof el.setSelectionRange==='function') el.setSelectionRange(sel[0], sel[1]); } catch(e){}
+  }
+}
+// Gate details on the Due Gates detail page: due date, status, officer (Admin) and remarks.
+// Stage name, worker name and track are not shown here (removed from this page on 2026-11-09).
 function taskFieldsHTML(t, pageContext){
   const editable = canEditInContext(t, pageContext);
   const canAssign = editable && isAdmin(getUser(currentUserId));
-  const jo = getJO(t.joId), owner = getUser(getEditor(t));
-  const save = field => `onchange="saveTaskField('${t.id}','${field}',this.value,'${pageContext}')"`;
+  const owner = getUser(getEditor(t));
+  const unsaved = f => taskDrafts[t.id] && Object.prototype.hasOwnProperty.call(taskDrafts[t.id], f) ? 'is-unsaved' : '';
+  const typed = f => `oninput="editTaskField('${t.id}','${f}',this.value,'${pageContext}',false)" onchange="editTaskField('${t.id}','${f}',this.value,'${pageContext}',true)"`;
+  const picked = f => `onchange="editTaskField('${t.id}','${f}',this.value,'${pageContext}',true)"`;
   const overdue = computeStatus(t)==='flagged';
   const officers = DB.users.filter(u=>u.role==='Doc Officer');
   const field = (label, control, cls='') => `<div class="tf-field ${cls}"><span class="tf-label">${label}</span>${control}</div>`;
   const text = v => `<span class="tf-text">${v||'—'}</span>`;
-  return `<section class="tf" aria-label="Task details">
-    ${field('<label for="tfName">Task Description</label>', editable
-      ? `<input id="tfName" class="tf-input tf-title" value="${escAttr(t.name)}" ${save('task_name')}>`
-      : `<span class="task-title" style="margin:0;">${escHTML(t.name)}</span>`, 'wide')}
-    ${field('Job Order No.', text(escHTML(jo.jo)))}
-    ${field('Worker Name', text(escHTML(jo.candidateName||'')))}
-    ${field('Track', text(escHTML(t.track)))}
+  const status = draftOf(t, 'status');
+  return `<section class="tf jd-tf" aria-label="Gate details">
+    <div class="tf-field wide tf-head"><span class="tf-gate">${escHTML(t.name)}</span>${editable ? saveBarHTML() : ''}</div>
     ${field('<label for="tfDue">Due Date</label>', editable
-      ? `<input id="tfDue" type="date" class="tf-input ${overdue?'is-overdue':''}" value="${escAttr(t.due)}" ${save('due_date')}>`
+      ? `<input id="tfDue" type="date" class="tf-input ${overdue?'is-overdue':''} ${unsaved('due_date')}" value="${escAttr(draftOf(t,'due_date'))}" ${picked('due_date')}>`
       : `<span class="tf-text ${overdue?'is-overdue':''}">${fmtFullDate(t.due)}</span>`)}
     ${field('<label for="tfStatus">Status</label>', editable
-      ? `<select id="tfStatus" class="tf-input tf-status st-${t.status.replace(' ','-')}" ${save('status')}>${TASK_STATUSES.map(s=>`<option ${s===t.status?'selected':''}>${s}</option>`).join('')}</select>`
+      ? `<select id="tfStatus" class="tf-input tf-status st-${status.replace(' ','-')} ${unsaved('status')}" ${picked('status')}>${TASK_STATUSES.map(s=>`<option ${s===status?'selected':''}>${s}</option>`).join('')}</select>`
       : `<span class="st-pill st-${t.status.replace(' ','-')}">${escHTML(t.status)}</span>`)}
     ${field('<label for="tfOwner">Assigned Officer</label>', canAssign
-      ? `<select id="tfOwner" class="tf-input" ${save('editor_id')}>${officers.map(u=>`<option value="${u.id}" ${u.id===getEditor(t)?'selected':''}>${escHTML(u.name)}</option>`).join('')}</select>`
+      ? `<select id="tfOwner" class="tf-input ${unsaved('editor_id')}" ${picked('editor_id')}>${officers.map(u=>`<option value="${u.id}" ${u.id===draftOf(t,'editor_id')?'selected':''}>${escHTML(u.name)}</option>`).join('')}</select>`
       : text(owner ? escHTML(owner.name) : ''))}
     ${field('<label for="tfRemarks">Remarks</label>', editable
-      ? `<textarea id="tfRemarks" class="tf-input" rows="2" ${save('remarks')}>${escHTML(t.remarks||'')}</textarea>`
+      ? `<textarea id="tfRemarks" class="tf-input ${unsaved('remarks')}" rows="2" ${typed('remarks')}>${escHTML(draftOf(t,'remarks'))}</textarea>`
       : text(escHTML(t.remarks||'')), 'wide')}
-    <div id="tfState" class="tf-state" role="status" aria-live="polite"></div>
   </section>`;
 }
 function logActivity(taskId, type, pageContext){
@@ -2493,6 +2651,27 @@ async function withLoader(text, work, minMs){
   }
 }
 
+/* ---------- Light / dark ----------
+   The choice is kept in this browser (kiroku_theme) and survives sign-out; with no choice the device setting decides. */
+function currentTheme(){
+  const t = document.documentElement.dataset.theme;
+  if(t==='light' || t==='dark') return t;
+  return window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
+function themeButtonHTML(){
+  const dark = currentTheme()==='dark';
+  const icon = dark
+    ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>'
+    : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>';
+  return `<button type="button" class="signout-btn theme-btn" onclick="toggleTheme()" aria-pressed="${dark}" title="Switch to ${dark?'light':'dark'} mode">${icon}${dark?'Light':'Dark'}</button>`;
+}
+function toggleTheme(){
+  const next = currentTheme()==='dark' ? 'light' : 'dark';
+  document.documentElement.dataset.theme = next;
+  try { localStorage.setItem('kiroku_theme', next); } catch(e){}
+  document.querySelectorAll('.theme-btn').forEach(el=>{ el.outerHTML = themeButtonHTML(); });
+  const b = document.querySelector('.theme-btn'); if(b) b.focus();
+}
 function navHTML(activeTab){
   const user = getUser(currentUserId);
   const tabs = tabsFor(user);
@@ -2506,6 +2685,7 @@ function navHTML(activeTab){
     ${notifHTML()}
     <span class="who" title="${escAttr(whoText)}">${escHTML(whoText)}</span>
     ${isCEO(user) || activeTab==='All Due Gates' ? '<span class="readonly-pill">View only</span>' : ''}
+    ${themeButtonHTML()}
     ${SIGN_IN ? '<button class="signout-btn" onclick="openPasswordModal()">Change password</button> <button class="signout-btn" onclick="signOut()">Sign out</button>' : ''}
   </div>`;
 }
@@ -2638,6 +2818,7 @@ function buildJODetail(joId, highlightTaskId, backFn, backLabel, pageContext, pa
         <div class="av">${escHTML(initialsFromName(jo.candidateName))}</div>
         <div class="jd-hero-txt"><div class="n">JO# ${escHTML(jo.jo)}</div><div class="s">${heroStatusText}</div><div class="hrecv">${receivingHTML(joId)} · Target Deploy: <b>${fmtDate(jo.targetDeploymentDate)}</b></div></div>
       </div>
+      ${current && pageContext!=='s1' ? taskFieldsHTML(current, pageContext) : ''}
       <div class="action-row primary-row jd-mainbtns">
         ${markDoneButtonHTML(actionTarget, pageContext)}
         <div class="more-menu"><details>
@@ -2798,8 +2979,9 @@ function buildJOProfile(joId, pageContext){
   const pct = total ? Math.round(doneCount/total*100) : 0;
   const overdueCount = tasks.filter(t=>computeStatus(t)==='flagged').length;
   const canManage = pageContext==='s2' && canManageJOs() && jo.active;
-  const backFn = pageContext==='s2' ? 'closeS2Profile()' : 'closeS3Profile()';
-  const backLabel = pageContext==='s2' ? '← Back to My Due Gates' : '← Back to All Due Gates';
+  const fromDiscuss = pageContext==='s7';   // opened from a JO# link in Discuss: details only
+  const backFn = fromDiscuss ? 'closeDiscussJo()' : pageContext==='s2' ? 'closeS2Profile()' : 'closeS3Profile()';
+  const backLabel = fromDiscuss ? '← Back to Discuss' : pageContext==='s2' ? '← Back to My Due Gates' : '← Back to All Due Gates';
 
   const cells = TRACK_DEFS.map(tr=>{
     const tks = tasks.filter(t=>t.track===tr.key);
@@ -2823,6 +3005,11 @@ function buildJOProfile(joId, pageContext){
 
   const gateRows = tasks.map(t=>{
     const st = computeStatus(t);
+    if(fromDiscuss) return `<div class="gate-row view-only">
+      <span class="ball ${st}"></span>
+      <span class="gn">${escHTML(t.name)} <span style="color:var(--ink-soft); font-weight:400;">· ${t.track}</span></span>
+      ${dueBadgeHTML(t)}
+    </div>`;
     const editable = canEditInContext(t, pageContext);
     return `<div class="gate-row" role="button" tabindex="0" data-key-activate onclick="openDetailFor('${t.id}','${pageContext}')">
       <span class="ball ${st} ${editable?'':'locked'}" onclick="event.stopPropagation();${editable?` toggleTask('${t.id}','${pageContext}')`:''}"></span>
@@ -3046,6 +3233,7 @@ function buildDueGatesScreen(scope){
           <div class="dg-ring ${followedCount?'fu':''}" style="background:conic-gradient(var(--blue) 0 ${pct}%, var(--line-2) ${pct}% 100%)"><div class="dg-hole" style="${overdueCount?'color:var(--red)':''}">${doneCount}/${total}</div></div>
           <div class="dg-final-txt"><b>${doneCount} of ${total} done</b><span>${trackKey ? trackKey+' stages' : 'All tracks'}</span></div>
         </div>
+        ${isMine ? saveBarHTML() : ''}
         <div class="dg-sum"><span>${dgInd('done')}<b>${doneCount}</b> done</span><span>${dgInd('flagged')}<b>${overdueCount}</b> overdue</span><span>${dgInd('none')}<b>${tasks.filter(t=>!t.done && computeStatus(t)!=='flagged' && t.status!=='In Progress').length}</b> not started</span><span>${dgInd('none',true)}<b>${followedCount}</b> followed up</span></div>
       </div><div class="tri-body dg-rows">${items}</div>`;
   }
@@ -3377,6 +3565,42 @@ function setDiscussDate(v){ discussDate = v; renderAllScreens(); }
 function setDiscussDeploy(v){ discussDeploy = v; discussJo = null; renderAllScreens(); }
 function setDiscussQuery(q){ discussQuery = (q || '').trim(); renderKeepingFocus(); }
 function setDiscussJo(id){ discussJo = id; renderAllScreens(); }
+/* A JO# in Discuss opens that job order's details; Back returns to the same discussion at the same scroll. */
+let discussOpenJo = null, discussReturn = null;
+function discussScrollables(){
+  const f = document.getElementById('s7-frame');
+  return f ? [f, ...f.querySelectorAll('.tri, .tri-col, .tri-body')] : [];
+}
+function openDiscussJo(joId){
+  if(!getJO(joId)) return;
+  discussReturn = {jo: discussJo, scroll: discussScrollables().map(el=>el.scrollTop), focusJo: joId};
+  discussOpenJo = joId;
+  renderAllScreens();
+  discussScrollables().forEach(el=>{ el.scrollTop = 0; });
+  const back = document.querySelector('#s7-frame .back-link');
+  if(back) back.focus();
+}
+function closeDiscussJo(){
+  const r = discussReturn;
+  discussOpenJo = null; discussReturn = null;
+  if(r) discussJo = r.jo;
+  renderAllScreens();
+  if(!r) return;
+  const els = discussScrollables();
+  r.scroll.forEach((top, i)=>{ if(els[i]) els[i].scrollTop = top; });
+  const link = document.querySelector(`#s7-frame .jo-link[data-jo="${CSS.escape(r.focusJo)}"]`);
+  if(link) link.focus({preventScroll:true});
+}
+function joLinkHTML(jo, label){
+  return `<a href="#" class="jo-link" data-jo="${escAttr(jo.id)}" title="Open JO# ${escAttr(jo.jo)} details" onclick="event.preventDefault(); event.stopPropagation(); openDiscussJo('${escAttr(jo.id)}')">${label || 'JO# ' + escHTML(jo.jo)}</a>`;
+}
+// "JO# 2026-0200" or "JO 2026-0200" inside a note or message becomes a link when that job order exists.
+function linkJoRefs(escapedText){
+  return escapedText.replace(/\bJO\s*(?:#|No\.?)?\s*([A-Za-z0-9][A-Za-z0-9-]*)/gi, (m, no)=>{
+    const jo = DB.jobOrders.find(j=>String(j.jo).toLowerCase()===no.toLowerCase());
+    return jo ? joLinkHTML(jo, m) : m;
+  });
+}
 // Reads every note, message and upload from activity_logs (not only the first page the app caches).
 async function loadDiscuss(){
   if(discussLoading) return;
@@ -3409,6 +3633,7 @@ function dcSelect(label, options, value, handler){
     `<option value="${escAttr(v)}" ${v===value ? 'selected' : ''}>${escHTML(l)}</option>`).join('')}</select></label>`;
 }
 function buildDiscussScreen(){
+  if(discussOpenJo && getJO(discussOpenJo)) return navHTML('Discuss') + buildJOProfile(discussOpenJo, 's7');
   // Same layout as All Due Gates: Job Orders column (search and filters on top), contents on the right.
   // Falls back to the rows the app already holds if the full load failed.
   const source = discussRows || (ACTIVITY_LOGS||[]).filter(r => DISCUSS_TYPES.includes(r.action_type) && r.task_id);
@@ -3437,7 +3662,7 @@ function buildDiscussScreen(){
     const all = items.filter(i => i.joId === jo.id && (!cutoff || i.date >= cutoff));
     const n = kind => all.filter(i => i.kind === kind).length;
     return `<div class="dg-jo ${on ? 'on' : ''}" role="button" tabindex="0" aria-pressed="${on}" onclick="setDiscussJo('${jo.id}')" title="${escAttr(agencyOf(jo))} · ${escAttr(clientOf(jo))}">
-      <div class="dg-jo-top"><span class="dg-jo-no">JO# ${escHTML(jo.jo)}</span><span class="dg-jo-deploy">${deployLabel(deployMonth(jo))}</span></div>
+      <div class="dg-jo-top"><span class="dg-jo-no">${joLinkHTML(jo)}</span><span class="dg-jo-deploy">${deployLabel(deployMonth(jo))}</span></div>
       <div class="dg-jo-co">${escHTML(agencyOf(jo))} · ${escHTML(clientOf(jo))}</div>
       <div class="dg-pills"><span class="dg-pill">Notes ${n('note')}</span><span class="dg-pill">Messages ${n('message')}</span><span class="dg-pill">Uploads ${n('upload')}</span></div>
     </div>`;
@@ -3449,7 +3674,7 @@ function buildDiscussScreen(){
   } else {
     const list = entriesFor(sel).sort((a, b) => (b.date+' '+b.time).localeCompare(a.date+' '+a.time));
     contents = `<div class="dc-content-hd">
-        <b>JO# ${escHTML(sel.jo)}</b><span>${escHTML(sel.candidateName || '')}</span>
+        <b>${joLinkHTML(sel)}</b><span>${escHTML(sel.candidateName || '')}</span>
         <span>Agency: ${escHTML(agencyOf(sel))}</span><span>Client: ${escHTML(clientOf(sel))}</span>
         <span>Target deploy: ${fmtFullDate(sel.targetDeploymentDate)}</span>
       </div>
@@ -3457,7 +3682,7 @@ function buildDiscussScreen(){
         <div class="dc-meta"><span class="dc-kind">${i.kind==='upload' ? svgIcon('upload') : ''}${KIND_LABEL[i.kind]}</span>
           <span>${escHTML(i.userName)}</span><span>${fmtStamp({date:i.date, time:i.time})}</span>
           ${stageBadgeHTML(i.task.track, i.task.name)}</div>
-        <div class="dc-text">${escHTML(i.text || (i.kind==='upload' ? '(no file name)' : '(empty)'))}</div>
+        <div class="dc-text">${linkJoRefs(escHTML(i.text || (i.kind==='upload' ? '(no file name)' : '(empty)')))}</div>
       </li>`).join('')}</ol>` : `<div class="empty-note" style="padding:20px;">${discussRows === null && discussLoading ? 'Loading notes, messages and uploads…' : 'No entries match these filters for this job order.'}</div>`}`;
   }
 
@@ -3482,7 +3707,7 @@ function buildDiscussScreen(){
         <div class="tri-body">${joRows}</div>
       </div>
       <div class="tri-col col-checklist">
-        <div class="tri-hd dg-hd"><span>Discuss${sel ? ' · JO# ' + escHTML(sel.jo) : ''}</span><span class="dg-n">${shown}</span></div>
+        <div class="tri-hd dg-hd"><span>Discuss${sel ? ' · ' + joLinkHTML(sel) : ''}</span><span class="dg-n">${shown}</span></div>
         <div class="tri-body">${contents}${loading ? '<div class="tf-state" role="status" style="padding:8px 14px;">Loading full history…</div>' : ''}${discussRows === null && !loading ? '<div class="tf-state" role="status" style="padding:8px 14px;">Could not load the full history. Showing what is already loaded.</div>' : ''}</div>
       </div>
     </div>`;
@@ -4099,7 +4324,7 @@ async function startSession(session){
   catch(e){
     console.warn('two-step sign-in failed:', e);
     try { await sbClient().auth.signOut(); } catch(x){}
-    showSignIn('form', 'Could not finish the two-step sign-in. Sign in again.');
+    showSignIn('form', 'Could not finish the two-step sign-in' + (e && e.message ? ` (${e.message})` : '') + '. Sign in again.');
     return;
   }
   if(!session) return;
