@@ -1609,9 +1609,11 @@ button, .act-btn, .dg-btn, .signout-btn, .mt-resume, .tab, .card-tab, .cfg-tab{f
 .kh-item svg{width:16px; height:16px; color:var(--kh-soft);}
 .kh-item:hover, .kh-item:focus-visible{background:var(--kh-hover); outline:none;}
 .kh-pop-hd{padding:6px 10px 8px; font-size:0.8125rem; font-weight:600; color:var(--kh-soft); text-transform:uppercase; letter-spacing:.06em;}
-.kh-info dl{display:grid; grid-template-columns:auto 1fr; gap:6px 16px; margin:0; padding:2px 10px 8px;}
-.kh-info dt{font-size:0.8125rem; color:var(--kh-soft);}
-.kh-info dd{margin:0; font-size:0.875rem; font-weight:500; text-align:right;}
+.kh-info{min-width:0; width:max-content; max-width:calc(100vw - 16px); padding:10px 14px; white-space:nowrap;}
+.kh-info-src{display:flex; align-items:center; gap:8px; font-size:0.875rem; font-weight:600; color:var(--kh-ink);}
+.kh-dot{width:8px; height:8px; border-radius:50%; background:#2E8B57; flex-shrink:0;}
+:root[data-theme="dark"] .kh-dot{background:#6DBB8A;}
+.kh-info-line{margin-top:4px; padding-left:16px; font-size:0.8125rem; font-weight:500; color:var(--kh-soft);}
 
 /* Overview strip (My Tasks): date left, progress centre, counts right */
 #s1 .mt-bar{display:grid; grid-template-columns:minmax(0,1fr) minmax(220px,1.6fr) minmax(0,1fr); align-items:center; gap:8px 24px; padding:10px 24px; background:var(--kh-bg); border-bottom:1px solid var(--kh-line); color:var(--kh-soft); font-size:0.8125rem;}
@@ -3257,14 +3259,9 @@ function navHTML(activeTab){
   const info = isAdmin(user) ? `<span class="kh-popwrap">
       <button type="button" class="kh-icon" aria-haspopup="dialog" aria-expanded="false" aria-label="Data source details" title="Data source details" onclick="khToggle(this)">${KH_ICONS.info}</button>
       <div class="kh-pop kh-info" role="dialog" aria-label="Data source details">
-        <div class="kh-pop-hd">Data source</div>
-        <dl>
-          <dt>Source</dt><dd>${escHTML(SOURCE_LABEL || '—')}</dd>
-          <dt>Tasks</dt><dd>${DB.tasks.length}</dd>
-          <dt>Job orders</dt><dd>${DB.jobOrders.length}</dd>
-          <dt>Users</dt><dd>${DB.users.length}</dd>
-          <dt>Loaded</dt><dd>${escHTML(when)}</dd>
-        </dl>
+        <div class="kh-info-src"><span class="kh-dot" aria-hidden="true"></span>${escHTML(SOURCE_LABEL || 'Unknown source')}</div>
+        <div class="kh-info-line">${DB.tasks.length} tasks · ${DB.jobOrders.length} job orders · ${DB.users.length} users</div>
+        <div class="kh-info-line">Loaded ${escHTML(when)}</div>
       </div>
     </span>` : '';
   return `<header class="kh">
