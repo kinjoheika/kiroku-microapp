@@ -1896,6 +1896,44 @@ button, .act-btn, .dg-btn, .signout-btn, .mt-resume, .tab, .card-tab, .cfg-tab{f
 .sv-wait{cursor:default;}
 .sv-ic:focus-visible{outline:2px solid var(--focus); outline-offset:1px;}
 .sv-sr{position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap;}
+/* Due Gates header v3: details + status icons left, circle with save icons right */
+.dg-ck-hd{display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:start; gap:4px 16px; padding:12px 18px 10px;}
+.dg-ck-title{min-width:0;}
+.dg-ck-side{display:flex; flex-direction:column; align-items:flex-end; gap:4px; margin:0;}
+.dg-ck-side .dg-final{padding:4px 12px 4px 4px;}
+.dg-ck-side .dg-ring{width:38px; height:38px;}
+.dg-stats{display:flex; gap:2px; margin-top:6px; margin-left:-5px;}
+.dg-st{position:relative; display:inline-grid; place-items:center; width:28px; height:28px; padding:0; border:0; border-radius:6px; background:none; cursor:help;}
+.dg-st:hover, .dg-st.show{background:var(--hover);}
+.dg-st:focus-visible{outline:2px solid var(--focus); outline-offset:1px;}
+/* one tooltip style for the status and save icons */
+.dg-st[data-tip]::after, .sv-ic[data-tip]::after{content:attr(data-tip); position:absolute; top:calc(100% + 6px); left:50%; transform:translateX(-50%); z-index:40; padding:4px 8px; border-radius:6px; background:var(--ink); color:var(--card); font-size:0.8125rem; font-weight:500; line-height:1.35; white-space:nowrap; pointer-events:none; opacity:0; visibility:hidden; transition:opacity .12s ease;}
+.dg-st:hover::after, .dg-st:focus-visible::after, .dg-st.show::after,
+.sv-ic:hover::after, .sv-ic:focus-visible::after{opacity:1; visibility:visible;}
+.dg-st:first-child::after{left:0; transform:none;}
+.dg-ck-side .sv-ic[data-tip]::after{left:auto; right:0; transform:none;}
+.sv-warn[data-tip]::after{white-space:normal; width:max-content; max-width:260px;}
+.dg-ck-side .save-bar{position:relative; gap:0; min-height:0;}
+.dg-ck-side .save-bar.idle{display:none;}
+.sv-ic{position:relative;}
+.sv-save, .sv-discard{border:0; background:none;}
+@media (max-width:560px){
+  .dg-ck-hd{padding:10px 12px 8px; gap:4px 10px;}
+  .dg-ck-side .dg-final-txt span{display:none;}
+}
+/* Status counts: one ⓘ under the JO details, popover on hover / focus / tap */
+.dg-cnt{position:relative; display:inline-flex; margin-top:6px; margin-left:-3px;}
+.dg-cnt-btn{width:26px; height:26px;}
+.dg-cnt-btn .dg-i{width:16px; height:16px;}
+.dg-cnt-pop{position:absolute; top:calc(100% + 6px); left:0; z-index:40; display:flex; flex-direction:column; gap:7px; min-width:190px; padding:10px 12px; border:1px solid var(--line); border-radius:10px; background:var(--card); box-shadow:0 10px 28px rgba(16,18,22,.14); opacity:0; visibility:hidden; transform:translateY(-2px); transition:opacity .12s ease, transform .12s ease, visibility .12s;}
+:root[data-theme="dark"] .dg-cnt-pop{background:var(--dk-raised); border-color:var(--dk-border-strong); box-shadow:0 14px 34px rgba(0,0,0,.45);}
+.dg-cnt:hover .dg-cnt-pop, .dg-cnt:focus-within .dg-cnt-pop, .dg-cnt.open .dg-cnt-pop{opacity:1; visibility:visible; transform:none;}
+.dg-cnt:hover .dg-cnt-btn, .dg-cnt.open .dg-cnt-btn{background:var(--hover); color:var(--ink);}
+.dg-cnt-row{display:flex; align-items:center; justify-content:space-between; gap:18px; font-size:0.8125rem;}
+.dg-cnt-lbl{display:inline-flex; align-items:center; gap:9px; color:var(--ink-2); font-weight:500;}
+.dg-cnt-row b{min-width:2ch; text-align:right; font-weight:600; color:var(--ink); font-variant-numeric:tabular-nums;}
+.dg-cnt-row b.is-over{color:var(--red);}
+.dg-cnt-row b.is-fu{color:var(--gold-ink);}
 /* ===== Centered layout =====
    Desktop (1440px and wider): the app sits in the middle 60%, 20% blank on each side.
    Smaller screens widen it so the three Due Gates columns stay usable; phones keep a 16px gutter. */
@@ -2519,20 +2557,21 @@ function hasPendingSaves(){ return unsavedCount() > 0 || saveBusy(); }
 let savedFlashTimer = null;
 function saveBarHTML(){
   const n = unsavedCount();
-  const btn = (cls, label, icon, onclick)=>`<button type="button" class="sv-ic ${cls}" onclick="event.stopPropagation(); ${onclick}" title="${label}" aria-label="${label}">${icon}</button>`;
+  const btn = (cls, label, icon, onclick)=>`<button type="button" class="sv-ic ${cls}" onclick="event.stopPropagation(); ${onclick}" data-tip="${label}" aria-label="${label}">${icon}</button>`;
   if(saveBusy())
-    return `<span class="save-bar saving" role="status" aria-live="polite" title="Saving…"><span class="sv-ic sv-wait" aria-hidden="true"><i class="save-spin"></i></span><span class="sv-sr">Saving…</span></span>`;
+    return `<span class="save-bar saving" role="status" aria-live="polite"><span class="sv-ic sv-wait" aria-hidden="true"><i class="save-spin"></i></span><span class="sv-sr">Saving…</span></span>`;
   if(saveUI.kind==='error'){
     const why = escAttr(saveUI.text || 'Save failed');
-    return `<span class="save-bar error" role="status" aria-live="polite"><span class="sv-ic sv-warn" title="${why}" aria-label="Save failed: ${why}">${SV_ICONS.warn}</span>${n ? btn('sv-save', 'Retry saving', SV_ICONS.cloud, 'saveAllNow()') + btn('sv-discard', 'Discard changes', SV_ICONS.x, 'discardChanges()') : ''}</span>`;
+    return `<span class="save-bar error" role="status" aria-live="polite"><span class="sv-ic sv-warn" tabindex="0" data-tip="Save failed. ${why}" aria-label="Save failed: ${why}">${SV_ICONS.warn}</span>${n ? btn('sv-save', 'Retry save', SV_ICONS.cloud, 'saveAllNow()') + btn('sv-discard', 'Discard changes', SV_ICONS.x, 'discardChanges()') : ''}</span>`;
   }
-  if(n) return `<span class="save-bar pending" role="status" aria-live="polite">${btn('sv-save', `Save ${n} unsaved change${n>1?'s':''}`, SV_ICONS.cloud, 'saveAllNow()')}${btn('sv-discard', 'Discard changes', SV_ICONS.x, 'discardChanges()')}</span>`;
+  if(n) return `<span class="save-bar pending" role="status" aria-live="polite">${btn('sv-save', 'Save', SV_ICONS.cloud, 'saveAllNow()')}${btn('sv-discard', 'Discard changes', SV_ICONS.x, 'discardChanges()')}</span>`;
   if(saveUI.kind==='saved')
-    return `<span class="save-bar saved" role="status" aria-live="polite" title="Saved"><span class="sv-ic sv-ok" aria-hidden="true">${SV_ICONS.ok}</span><span class="sv-sr">Saved</span></span>`;
+    return `<span class="save-bar saved" role="status" aria-live="polite"><span class="sv-ic sv-ok" aria-hidden="true">${SV_ICONS.ok}</span><span class="sv-sr">Saved</span></span>`;
   return '<span class="save-bar idle" role="status" aria-live="polite"></span>';
 }
 // Discard (the ✕): drops edits that are not saved yet and shows the saved values again.
 function discardChanges(){
+  if(!confirm('Discard your unsaved changes? They will not be saved.')) return;
   discardPendingSaves();
   renderKeepingFocus();
   showToast('Changes discarded');
@@ -4240,6 +4279,14 @@ const DG_ICONS = {
   note:'<path d="M4 20h4L19 9l-4-4L4 16zM13.5 6.5l4 4"/>',
   x:'<path d="M6 6l12 12M18 6L6 18"/>'
 };
+// Status counts (ⓘ): hover or keyboard focus shows them (CSS); a tap or click pins them open on phones.
+function toggleDgCounts(btn){
+  const box = btn.parentElement, open = !box.classList.contains('open');
+  document.querySelectorAll('.dg-cnt.open').forEach(b=>{ b.classList.remove('open'); b.querySelector('button').setAttribute('aria-expanded','false'); });
+  if(open){ box.classList.add('open'); btn.setAttribute('aria-expanded','true'); }
+}
+document.addEventListener('click', e=>{ if(!(e.target.closest && e.target.closest('.dg-cnt'))) document.querySelectorAll('.dg-cnt.open').forEach(b=>{ b.classList.remove('open'); b.querySelector('button').setAttribute('aria-expanded','false'); }); });
+document.addEventListener('keydown', e=>{ if(e.key==='Escape') document.querySelectorAll('.dg-cnt.open').forEach(b=>b.classList.remove('open')); });
 function dgToggleMore(btn){
   const panel = btn.closest('.dg-row-body').querySelector('.dg-more-panel');
   const open = panel.hidden;
@@ -4381,17 +4428,24 @@ function buildDueGatesScreen(scope){
       const grp = groupsOn ? `<button type="button" class="dg-grp" onclick="${selectTrackFn}('${tr.key}')" title="Show only ${tr.name}">${dgTrackInd(part)}<span>${tr.name}</span></button>` : '';
       return grp + part.map(rowHTML).join('');
     }).join('');
+    const nsCount = tasks.filter(t=>!t.done && computeStatus(t)!=='flagged' && t.status!=='In Progress').length;
+    const fuCount = tasks.filter(t=>(t.activity||[]).some(a=>a.type==='followup')).length;
+    const cntRow = (ind, label, n, cls='')=>`<div class="dg-cnt-row"><span class="dg-cnt-lbl">${ind}${label}</span><b class="${cls}">${n}</b></div>`;
     checklistHTML = `<div class="dg-ck-hd">
         <div class="dg-ck-title">
-          <div class="dg-ck-jo"><span>JO# ${escHTML(jo.jo)}</span>${trackKey?`<button type="button" class="dg-tag" onclick="${selectTrackFn}('${trackKey}')" title="Show every track">${trackKey} ${dgIcon('x')}</button>`:''}${isMine ? saveBarHTML() : ''}</div>
+          <div class="dg-ck-jo"><span>JO# ${escHTML(jo.jo)}</span>${trackKey?`<button type="button" class="dg-tag" onclick="${selectTrackFn}('${trackKey}')" title="Show every track">${trackKey} ${dgIcon('x')}</button>`:''}</div>
           <div class="dg-ck-meta"><span>${escHTML(co.name)}</span><span>Deploy <b>${fmtFullDate(jo.targetDeploymentDate)}</b></span></div>
+          <span class="dg-cnt">
+            <button type="button" class="dg-lg-btn dg-cnt-btn" aria-label="Status counts: ${doneCount} done, ${overdueCount} overdue, ${nsCount} not started, ${fuCount} followed up" aria-expanded="false" onclick="event.stopPropagation(); toggleDgCounts(this)">${dgIcon('info')}</button>
+            <div class="dg-cnt-pop" role="tooltip">${cntRow(dgInd('done'), 'Done', doneCount)}${cntRow(dgInd('flagged'), 'Overdue', overdueCount, overdueCount ? 'is-over' : '')}${cntRow(dgInd('none'), 'Not Started', nsCount)}${cntRow(dgInd('none', true), 'Followed Up', fuCount, fuCount ? 'is-fu' : '')}</div>
+          </span>
         </div>
         <div class="dg-ck-side">
           <div class="dg-final">
-            <div class="dg-ring ${tasks.some(t=>(t.activity||[]).some(a=>a.type==='followup'))?'fu':''}" style="background:conic-gradient(var(--blue) 0 ${pct}%, var(--line-2) ${pct}% 100%)"><div class="dg-hole" style="${overdueCount?'color:var(--red)':''}">${doneCount}/${total}</div></div>
+            <div class="dg-ring ${fuCount?'fu':''}" style="background:conic-gradient(var(--blue) 0 ${pct}%, var(--line-2) ${pct}% 100%)"><div class="dg-hole" style="${overdueCount?'color:var(--red)':''}">${doneCount}/${total}</div></div>
             <div class="dg-final-txt"><b>${doneCount} of ${total} done</b><span>${trackKey ? trackKey+' stages' : 'All tracks'}</span></div>
           </div>
-          <div class="dg-sum"><span>${dgInd('done')}<b>${doneCount}</b> done</span><span>${dgInd('flagged')}<b>${overdueCount}</b> overdue</span><span>${dgInd('none')}<b>${tasks.filter(t=>!t.done && computeStatus(t)!=='flagged' && t.status!=='In Progress').length}</b> not started</span><span>${dgInd('none',true)}<b>${tasks.filter(t=>(t.activity||[]).some(a=>a.type==='followup')).length}</b> followed up</span></div>
+          ${isMine ? saveBarHTML() : ''}
         </div>
       </div><div class="tri-body dg-rows">${items}</div>`;
   }
