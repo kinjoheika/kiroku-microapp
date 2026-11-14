@@ -2302,6 +2302,10 @@ html{scrollbar-gutter:stable;}
   .dc-head{position:static;}
   .dc-head, .dc-feed{padding-left:16px; padding-right:16px;}
 }
+
+/* Discuss: task tag opens the JO on that task */
+a.dc-task{text-decoration:none; cursor:pointer;}
+a.dc-task:hover{color:var(--darkred); background:var(--darkred-light);}
 </style>
 </head>
 <body>
@@ -3685,6 +3689,7 @@ function openTaskDetail(taskId){ s1Detail=taskId; ensureTaskLogs(taskId); render
 function closeTaskDetail(){ s1Detail=null; renderAllScreens(); }
 function openDetailFor(taskId, pageContext){
   if(pageContext==='s1') openTaskDetail(taskId);
+  else if(pageContext==='s7'){ discussOpenTask = taskId; ensureTaskLogs(taskId); renderAllScreens(); }
   else openDueGatesTaskDetail(taskId, pageContext);
 }
 
@@ -5148,15 +5153,23 @@ function setDiscussDeploy(v){ discussDeploy = v; discussJo = null; renderAllScre
 function setDiscussQuery(q){ discussQuery = (q || '').trim(); renderKeepingFocus(); }
 function setDiscussJo(id){ discussJo = id; renderAllScreens(); }
 /* A JO# in Discuss opens that job order's details; Back returns to the same discussion at the same scroll. */
-let discussOpenJo = null, discussReturn = null;
+let discussOpenJo = null, discussOpenTask = null, discussReturn = null;
 function discussScrollables(){
   const f = document.getElementById('s7-frame');
   return f ? [f, ...f.querySelectorAll('.tri, .tri-col, .tri-body')] : [];
 }
-function openDiscussJo(joId){
+function discussDefaultTask(joId){
+  const tasks = tasksForJO(joId);
+  const open = tasks.filter(t=>!t.done).sort((a,b)=> SEV[computeStatus(b)]-SEV[computeStatus(a)] || diffDays(a.due)-diffDays(b.due));
+  return (open[0] || tasks[0] || {}).id || null;
+}
+function openDiscussJo(joId, taskId){
   if(!getJO(joId)) return;
-  discussReturn = {jo: discussJo, scroll: discussScrollables().map(el=>el.scrollTop), focusJo: joId};
+  if(!discussOpenJo) discussReturn = {jo: discussJo, scroll: discussScrollables().map(el=>el.scrollTop), focusJo: joId};
   discussOpenJo = joId;
+  const t = taskId ? getTaskById(taskId) : null;
+  discussOpenTask = t && t.joId === joId ? t.id : discussDefaultTask(joId);
+  if(discussOpenTask) ensureTaskLogs(discussOpenTask);
   renderAllScreens();
   discussScrollables().forEach(el=>{ el.scrollTop = 0; });
   const back = document.querySelector('#s7-frame .back-link');
@@ -5164,7 +5177,7 @@ function openDiscussJo(joId){
 }
 function closeDiscussJo(){
   const r = discussReturn;
-  discussOpenJo = null; discussReturn = null;
+  discussOpenJo = null; discussOpenTask = null; discussReturn = null;
   if(r) discussJo = r.jo;
   renderAllScreens();
   if(!r) return;
@@ -5173,14 +5186,14 @@ function closeDiscussJo(){
   const link = document.querySelector(`#s7-frame .jo-link[data-jo="${CSS.escape(r.focusJo)}"]`);
   if(link) link.focus({preventScroll:true});
 }
-function joLinkHTML(jo, label){
-  return `<a href="#" class="jo-link" data-jo="${escAttr(jo.id)}" title="Open JO# ${escAttr(jo.jo)} details" onclick="event.preventDefault(); event.stopPropagation(); openDiscussJo('${escAttr(jo.id)}')">${label || 'JO# ' + escHTML(jo.jo)}</a>`;
+function joLinkHTML(jo, label, taskId){
+  return `<a href="#" class="jo-link" data-jo="${escAttr(jo.id)}" title="Open JO# ${escAttr(jo.jo)}" onclick="event.preventDefault(); event.stopPropagation(); hideRecentTip(); openDiscussJo('${escAttr(jo.id)}'${taskId ? `,'${escAttr(taskId)}'` : ''})">${label || 'JO# ' + escHTML(jo.jo)}</a>`;
 }
 // "JO# 2026-0200" or "JO 2026-0200" inside a note or message becomes a link when that job order exists.
-function linkJoRefs(escapedText){
+function linkJoRefs(escapedText, fromTask){
   return escapedText.replace(/\bJO\s*(?:#|No\.?)?\s*([A-Za-z0-9][A-Za-z0-9-]*)/gi, (m, no)=>{
     const jo = DB.jobOrders.find(j=>String(j.jo).toLowerCase()===no.toLowerCase());
-    return jo ? joLinkHTML(jo, m) : m;
+    return jo ? joLinkHTML(jo, m, fromTask && fromTask.joId === jo.id ? fromTask.id : null) : m;
   });
 }
 // Reads every note, message and upload from activity_logs (not only the first page the app caches).
@@ -5215,7 +5228,7 @@ function dcSelect(label, options, value, handler){
     `<option value="${escAttr(v)}" ${v===value ? 'selected' : ''}>${escHTML(l)}</option>`).join('')}</select></label>`;
 }
 function buildDiscussScreen(){
-  if(discussOpenJo && getJO(discussOpenJo)) return navHTML('Discuss') + buildJOProfile(discussOpenJo, 's7');
+  if(discussOpenJo && getJO(discussOpenJo)) return navHTML('Discuss') + buildJODetail(discussOpenJo, discussOpenTask, 'closeDiscussJo()', '← Back to Discuss', 's7');
   // Same layout as All Due Gates: Job Orders column (search and filters on top), contents on the right.
   // Falls back to the rows the app already holds if the full load failed.
   const source = discussRows || (ACTIVITY_LOGS||[]).filter(r => DISCUSS_TYPES.includes(r.action_type) && r.task_id);
@@ -5271,18 +5284,18 @@ function buildDiscussScreen(){
         const body = lines.slice(2).join('\n').trim();
         return `${to ? `<div class="dc-to"><span>To</span> ${escHTML(to)}</div>` : ''}
           ${subject && subject !== '(no subject)' ? `<div class="dc-subj">${escHTML(subject)}</div>` : ''}
-          <div class="dc-text">${linkJoRefs(escHTML(body || '(empty)'))}</div>`;
+          <div class="dc-text">${linkJoRefs(escHTML(body || '(empty)'), i.task)}</div>`;
       }
       if(i.kind === 'upload'){
         const name = i.text || '(no file name)';
         return `<div class="dc-file" title="${escAttr(name)}">${svgIcon('upload')}<span>${escHTML(name)}</span></div>`;
       }
-      return `<div class="dc-text">${linkJoRefs(escHTML(i.text || '(empty)'))}</div>`;
+      return `<div class="dc-text">${linkJoRefs(escHTML(i.text || '(empty)'), i.task)}</div>`;
     };
     contents = `<div class="dc-head">${hdLink}<span class="dc-head-n">${list.length} ${list.length === 1 ? 'entry' : 'entries'}</span></div>
       ${list.length ? `<ol class="dc-list dc-feed">${list.map(i => `<li class="dc-item dc-${i.kind}">
         <div class="dc-meta"><span class="dc-kind">${KIND_LABEL[i.kind]}</span><span class="dc-who">${escHTML(i.userName)}</span>
-          <span class="dc-when">${fmtStamp({date:i.date, time:i.time})}</span><span class="dc-task">${escHTML(i.task.name)} · ${escHTML(i.task.track)}</span></div>
+          <span class="dc-when">${fmtStamp({date:i.date, time:i.time})}</span><a href="#" class="dc-task" title="Open this task" onclick="event.preventDefault(); openDiscussJo('${escAttr(i.task.joId)}','${escAttr(i.task.id)}')">${escHTML(i.task.name)} · ${escHTML(i.task.track)}</a></div>
         ${entryBody(i)}
       </li>`).join('')}</ol>` : `<div class="empty-note" style="padding:20px;">${discussRows === null && discussLoading ? 'Loading notes, messages and uploads…' : 'No notes, messages or uploads for this job order yet.'}</div>`}`;
   }
