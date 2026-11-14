@@ -2157,8 +2157,8 @@ body{-webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;}
 .gn-name{min-width:0; overflow:hidden; text-overflow:ellipsis; font-size:0.9rem; font-weight:650; color:var(--ink);}
 .gn-trk{flex-shrink:0; font-size:0.75rem; font-weight:500; color:var(--ink-soft);}
 .gate-row.locked .gn-name{color:var(--ink-soft);}
-.gate-row .lock-ico{display:inline-grid; place-items:center; width:14px; height:14px; color:var(--ink-soft); opacity:.75;}
-.gate-row .lock-ico svg{width:12px; height:12px;}
+.gate-row .lock-ico{display:inline-grid; place-items:center; width:14px; height:14px; color:var(--ink-2); opacity:1;}
+.gate-row .lock-ico svg{width:13px; height:13px; stroke-width:2.2;}
 .gate-row .due-badge{justify-self:end; width:max-content; max-width:100%; display:inline-flex; align-items:center; gap:4px; padding:0 6px; line-height:18px;
   font-size:0.6875rem; font-weight:600; border-radius:4px; white-space:nowrap;}
 .gate-row .due-badge svg{width:10px; height:10px;}
@@ -4631,10 +4631,6 @@ function buildJOProfile(joId, pageContext){
         <h2>JO# ${escHTML(jo.jo)}${!jo.active ? ' <span style="color:var(--ink-soft); font-weight:600; font-size:0.8125rem;">(Archived)</span>' : ''}</h2>
         <p>${escHTML(ku.name)} · ${escHTML(co.name)}${jo.workCategory?` · ${escHTML(jo.workCategory)}`:''}${jo.programType?` · ${escHTML(jo.programType)}`:''}</p>
       </div>
-      ${canManage ? `<div class="greet-actions">
-        <button class="act-btn" onclick="openS2Form('${joId}')">${svgIcon('pencil')} Edit</button>
-        <button class="act-btn" onclick="archiveJO('${joId}')">${svgIcon('archive')} Archive</button>
-      </div>` : ''}
       <div class="section-label">Track progress</div>
       <div class="dg-pills tsc-pills">${cells}</div>
       <div class="section-label">By all users</div>
