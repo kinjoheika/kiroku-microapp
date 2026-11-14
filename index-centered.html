@@ -2135,22 +2135,18 @@ body{-webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;}
 /* Calm motion */
 @media (prefers-reduced-motion:reduce){ .rr, .kh-tab, #s1 .mt-q, #s1 .mt-stat{transition:none;} }
 
-/* ===== JO profile: no summary strip; quiet recent lists, controls on hover ===== */
+/* ===== JO profile: no summary strip; compact one-line recent lists, details in the hover tooltip ===== */
 .jp-card .card-hd{padding:12px 16px;}
-.jp-list{list-style:none; margin:0; padding:4px 0;}
-.jp-row{display:grid; grid-template-columns:minmax(0,1fr) auto; grid-template-areas:"name open" "who when"; align-items:center; gap:2px 12px; min-height:52px; padding:10px 16px; transition:background .15s ease;}
-.jp-row + .jp-row{border-top:1px solid var(--divider);}
-.jp-row:hover, .jp-row:focus-within{background:var(--hover);}
-.jp-name{grid-area:name; min-width:0; font-size:0.875rem; font-weight:600; line-height:1.35; color:var(--ink); overflow-wrap:anywhere;}
-.jp-trk{margin-left:8px; white-space:nowrap; font-size:0.75rem; font-weight:600; letter-spacing:.04em; color:var(--ink-soft);}
-.jp-who{grid-area:who; min-width:0; font-size:0.8125rem; line-height:1.35; color:var(--ink-soft); overflow-wrap:anywhere;}
-.jp-when{grid-area:when; justify-self:end; font-size:0.75rem; color:var(--ink-soft); white-space:nowrap; font-variant-numeric:tabular-nums;}
-.jp-open{grid-area:open; justify-self:end; display:inline-flex; align-items:center; gap:4px; height:24px; padding:0 8px; border:1px solid var(--line); border-radius:6px; background:var(--card); color:var(--darkred); font:inherit; font-size:0.75rem; font-weight:600; cursor:pointer;
-  opacity:0; transition:opacity .15s ease, border-color .15s ease;}
-.jp-row:hover .jp-open, .jp-open:focus-visible{opacity:1;}
-.jp-open:hover{border-color:var(--darkred);}
-@media (hover:none){ .jp-open{opacity:1;} }
-@media (prefers-reduced-motion:reduce){ .jp-row, .jp-open{transition:none;} }
+.jp-list{list-style:none; margin:0; padding:2px 0;}
+.jp-list > li + li{border-top:1px solid var(--divider);}
+.ri-jo.jp-row{display:block; width:100%; min-height:0; margin:0; padding:9px 16px; border:0; border-radius:0; background:none;
+  font:inherit; font-size:0.875rem; font-weight:500; line-height:1.4; color:var(--ink); text-align:left; text-decoration:none;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis; cursor:default; transition:background .15s ease;}
+.ri-jo.jp-row:hover, .ri-jo.jp-row[aria-expanded="true"]{background:var(--hover);}
+.ri-jo.jp-row:focus-visible{outline:2px solid var(--focus); outline-offset:-2px;}
+@media (pointer:coarse){ .ri-jo.jp-row{min-height:40px; margin:0; padding:10px 16px;} }
+.ri-tip-task{font-family:var(--font-body); margin-bottom:6px; overflow-wrap:anywhere;}
+@media (prefers-reduced-motion:reduce){ .ri-jo.jp-row{transition:none;} }
 </style>
 </head>
 <body>
@@ -3981,6 +3977,12 @@ function showRecentTip(btn, pinned){
   const d = btn.dataset;
   if(btn._hidden) tip.innerHTML = `<div class="ri-tip-jo">${escHTML(btn.textContent.trim())}</div>
     <ul class="ri-tip-more">${btn._hidden.map(h=>`<li><b>${escHTML(h.jo)}</b><span>${escHTML(h.track)}</span><span>${escHTML(h.what)}${h.when ? ' · ' + escHTML(h.when) : ''}</span></li>`).join('')}</ul>`;
+  else if(d.who !== undefined) tip.innerHTML = `<div class="ri-tip-jo ri-tip-task">${escHTML(d.jo)}</div>
+    <dl>
+      <dt>Officer</dt><dd>${escHTML(d.who)}</dd>
+      <dt>${d.what==='Completed' ? 'Status' : 'Action'}</dt><dd>${escHTML(d.what)}</dd>
+      ${d.when ? `<dt>When</dt><dd>${escHTML(d.when)}</dd>` : ''}
+    </dl>`;
   else tip.innerHTML = `<div class="ri-tip-jo">${escHTML(d.jo || btn.textContent.trim())}</div>
     ${d.org ? `<div class="ri-tip-org">${escHTML(d.org)}</div>` : ''}
     <dl>
@@ -4386,13 +4388,13 @@ function buildJOProfile(joId, pageContext){
   const activityList = tasks.flatMap(t=>(t.activity||[]).map(a=>({...a, task:t})))
     .sort((a,b)=>(b.date+b.time).localeCompare(a.date+a.time)).slice(0,5);
 
-  // One entry: task name and track, officer, a quiet timestamp. "Open" appears on hover or keyboard focus.
-  const jpRow = (t, who, when) => `<li class="jp-row">
-      <span class="jp-name">${escHTML(t.name)}<span class="jp-trk">${escHTML(t.track)}</span></span>
-      <span class="jp-when">${escHTML(when)}</span>
-      <span class="jp-who">${escHTML(who)}</span>
-      ${fromDiscuss ? '' : `<button type="button" class="jp-open" onclick="openDetailFor('${t.id}','${pageContext}')" aria-label="Open ${escAttr(t.name + ' · ' + t.track)}">Open <span aria-hidden="true">→</span></button>`}
-    </li>`;
+  // One entry: "Task · Track" on one line. Officer, action, date and time appear in the same tooltip as My Tasks
+  // (hover or keyboard focus with a mouse; tap on a phone).
+  const jpRow = (t, who, what, when) => {
+    const label = `${t.name} · ${t.track}`;
+    return `<li><button type="button" class="ri-jo jp-row" aria-expanded="false" aria-describedby="riTip"
+      data-jo="${escAttr(label)}" data-who="${escAttr(who)}" data-what="${escAttr(what)}" data-when="${escAttr(when)}">${escHTML(label)}</button></li>`;
+  };
 
   const gateRows = tasks.map(t=>{
     const st = computeStatus(t);
@@ -4427,11 +4429,11 @@ function buildJOProfile(joId, pageContext){
       <div class="dual-card-row">
         <div class="card jp-card">
           <div class="card-hd"><span class="t">Recently Completed</span></div>
-          ${doneList.length ? `<ul class="jp-list">${doneList.map(t=>jpRow(t, getUser(getEditor(t)).name, t.doneAt ? fmtStamp(t.doneAt) : '')).join('')}</ul>` : '<div class="empty-note">Nothing completed yet.</div>'}
+          ${doneList.length ? `<ul class="jp-list">${doneList.map(t=>jpRow(t, getUser(getEditor(t)).name, 'Completed', t.doneAt ? fmtStamp(t.doneAt) : '')).join('')}</ul>` : '<div class="empty-note">Nothing completed yet.</div>'}
         </div>
         <div class="card jp-card">
           <div class="card-hd"><span class="t">Recent Actions</span></div>
-          ${activityList.length ? `<ul class="jp-list">${activityList.map(a=>jpRow(a.task, `${getUser(getEditor(a.task)).name} · ${ACTION_META[a.type].label}`, fmtStamp(a))).join('')}</ul>` : '<div class="empty-note">No actions logged yet.</div>'}
+          ${activityList.length ? `<ul class="jp-list">${activityList.map(a=>jpRow(a.task, getUser(getEditor(a.task)).name, ACTION_META[a.type].label, fmtStamp(a))).join('')}</ul>` : '<div class="empty-note">No actions logged yet.</div>'}
         </div>
       </div>
     </div>
