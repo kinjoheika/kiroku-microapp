@@ -4554,7 +4554,7 @@ function buildJOProfile(joId, pageContext){
     if(fromDiscuss) return `<div class="gate-row view-only">
       <span class="ball ${st}"></span>
       <span class="gn" title="${escAttr(t.name + ' · ' + t.track)}"><span class="gn-name">${escHTML(t.name)}</span><span class="gn-trk">· ${escHTML(t.track)}</span></span>
-      <span class="lock-ico lock-none" aria-hidden="true"></span>
+      <span class="lock-ico" title="View only: gates cannot be changed from Discuss">${svgIcon('lock')}</span>
       ${dueBadgeHTML(t, true)}
     </div>`;
     const editable = canEditInContext(t, pageContext);
