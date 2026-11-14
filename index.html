@@ -1949,6 +1949,14 @@ button, .act-btn, .dg-btn, .signout-btn, .mt-resume, .tab, .card-tab, .cfg-tab{f
 .dg-ck-tools .save-bar{position:relative; gap:0;}
 .dg-ck-tools .save-bar.idle{display:none;}
 .dg-ck-tools .sv-ic[data-tip]::after{left:0; transform:none;}
+/* My Entries: archive button beside the edit tick */
+.jo-acts{white-space:nowrap;}
+.jo-archive{display:inline-grid; place-items:center; width:28px; height:28px; margin-left:4px; padding:0; border:1px solid var(--line); border-radius:6px; background:var(--card); color:var(--ink-2); cursor:pointer; vertical-align:middle;}
+.jo-archive svg{width:15px; height:15px;}
+.jo-archive:hover:not(:disabled){border-color:var(--red-line); background:var(--red-soft); color:var(--red);}
+.jo-archive:disabled{opacity:.45; cursor:default;}
+.jo-archive:focus-visible{outline:2px solid var(--focus); outline-offset:2px;}
+:root[data-theme="dark"] .jo-archive{background:var(--dk-raised); border-color:var(--dk-border-strong);}
 /* ===== Centered layout =====
    Desktop (1440px and wider): the app sits in the middle 60%, 20% blank on each side.
    Smaller screens widen it so the three Due Gates columns stay usable; phones keep a 16px gutter. */
@@ -3663,6 +3671,15 @@ async function setJOActive(joId, active){
   showToast(`✓ JO# ${num} ${active ? 'reactivated' : 'archived'}`, 4000);
 }
 function archiveJO(joId){ return setJOActive(joId, false); }
+// My Entries: archive with a confirmation (the JO and its tasks are kept; it moves to Archived in My Due Gates).
+function archiveJOConfirm(joId){
+  const jo = getJO(joId);
+  if(!jo || !canManageJOs()) return;
+  if(!confirm(`Archive JO# ${jo.jo}?
+
+It leaves the active lists. Its tasks and history are kept, and it stays viewable under Archived in My Due Gates.`)) return;
+  return archiveJO(joId);
+}
 function reactivateJO(joId){ return setJOActive(joId, true); }
 async function deleteJOConfirm(joId){
   if(!isAdmin(getUser(currentUserId)) || joSaving) return;
@@ -5093,7 +5110,7 @@ function buildJobOrderRows(canEdit){
       <td>${escHTML(ku ? ku.name : '')}</td>
       <td>${escHTML(co ? co.name : '')}</td>
       <td>${fmtFullDate(jo.targetDeploymentDate)}</td>
-      <td class="jo-acts">${canEdit ? `<button type="button" class="jo-tick" aria-label="Edit JO# ${escAttr(jo.jo)}" title="Edit" ${joEdit.id ? 'disabled' : ''} onclick="startJoEdit('${escAttr(jo.id)}')">${svgIcon('check')}</button>` : ''}</td>
+      <td class="jo-acts">${canEdit ? `<button type="button" class="jo-tick" aria-label="Edit JO# ${escAttr(jo.jo)}" title="Edit" ${joEdit.id ? 'disabled' : ''} onclick="startJoEdit('${escAttr(jo.id)}')">${svgIcon('check')}</button>` : ''}${canManageJOs() ? `<button type="button" class="jo-archive" aria-label="Archive JO# ${escAttr(jo.jo)}" title="Archive" ${joEdit.id || joSaving ? 'disabled' : ''} onclick="archiveJOConfirm('${escAttr(jo.id)}')">${svgIcon('archive')}</button>` : ''}</td>
     </tr>`;
   }).join('');
 }
