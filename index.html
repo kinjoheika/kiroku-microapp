@@ -3853,7 +3853,6 @@ function footerHTML(){
   return `<footer class="kf" aria-label="Overview">
     <span class="kf-date"><span class="kf-wd">${wd}, </span>${md}<span class="kf-yr">, ${now.getFullYear()}</span></span>
     <span class="kf-prog"><span class="kf-track" role="progressbar" aria-label="Your tasks done" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><i style="width:${pct}%"></i></span><span><b>${done}</b> of ${total} done · ${pct}%</span></span>
-    <span class="kf-tot"><span><b>${total - done}</b> open</span><span class="od"><b>${my.filter(t=>!t.done && computeStatus(t)==='flagged').length}</b> overdue</span></span>
     <span class="kf-copy">© ${new Date().getFullYear()} Kiroku. All rights reserved.</span>
   </footer>`;
 }
