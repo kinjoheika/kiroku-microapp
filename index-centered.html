@@ -2247,6 +2247,61 @@ html{scrollbar-gutter:stable;}
 .gate-row > .gn{grid-area:name;}
 .gate-row > .lock-ico{grid-area:lock;}
 .gate-row > .due-badge{grid-area:badge; justify-self:end; line-height:16px; padding:0 6px; font-size:0.6875rem; opacity:.95;}
+
+/* ===== Discuss: clean workspace ===== */
+.dc-page > .col-workers{width:300px;}
+.dc-page .dg-tools{padding:0 12px 10px;}
+.dc-page .col-workers .tri-body{padding:0 10px 12px;}
+.dc-jo{padding:10px 12px; margin-bottom:6px; border:1px solid var(--line); border-radius:8px; background:var(--card); cursor:pointer;
+  transition:border-color .15s ease, background .15s ease;}
+.dc-jo:hover{border-color:var(--hx-navy-line, var(--kh-navy-line)); background:var(--hover);}
+.dc-jo.on{border-color:var(--darkred); background:var(--darkred-light); box-shadow:inset 3px 0 0 var(--darkred);}
+.dc-jo .dg-jo-top{display:flex; align-items:baseline; justify-content:space-between; gap:8px;}
+.dc-jo .dg-jo-no .jo-link{font-size:0.9375rem; font-weight:700; color:var(--ink); text-decoration:none;}
+.dc-jo .dg-jo-no .jo-link:hover{color:var(--darkred); text-decoration:underline; text-underline-offset:3px;}
+.dc-jo .dg-jo-deploy{font-size:0.75rem; color:var(--ink-soft); white-space:nowrap;}
+.dc-jo .dg-jo-co{margin-top:2px; font-size:0.8125rem; color:var(--ink-soft); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.dc-sum{margin-top:4px; font-size:0.75rem; color:var(--ink-soft);}
+.dc-jo.on .dc-sum{color:var(--ink-2);}
+.dc-head{display:flex; align-items:baseline; justify-content:space-between; gap:12px; padding:14px 20px 12px; border-bottom:1px solid var(--line); background:var(--card);
+  position:sticky; top:0; z-index:2;}
+.ri-jo.dc-hd-jo{min-height:0; margin:0; padding:0 2px; font-family:var(--font-mono); font-size:1.25rem; font-weight:600; color:var(--ink);
+  text-decoration:underline dotted var(--line); text-underline-offset:5px; cursor:pointer;}
+.ri-jo.dc-hd-jo:hover, .ri-jo.dc-hd-jo[aria-expanded="true"]{background:none; color:var(--darkred); text-decoration-color:var(--darkred);}
+.dc-head-n{font-size:0.75rem; color:var(--ink-soft); white-space:nowrap;}
+.dc-feed{padding:0 20px 16px;}
+.dc-feed .dc-item{display:block; padding:14px 0; border-bottom:1px solid var(--divider); min-width:0;}
+.dc-feed .dc-item:last-child{border-bottom:0;}
+.dc-feed .dc-meta{display:flex; flex-wrap:wrap; align-items:baseline; gap:2px 10px; font-size:0.75rem; color:var(--ink-soft); margin-bottom:6px;}
+.dc-feed .dc-kind{font-size:0.6875rem; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-soft);}
+.dc-feed .dc-message .dc-kind{color:var(--darkred);}
+.dc-feed .dc-note .dc-kind{color:var(--lav);}
+.dc-feed .dc-upload .dc-kind{color:var(--gold-ink);}
+.dc-feed .dc-who{font-weight:600; color:var(--ink-2);}
+.dc-feed .dc-task{padding:0 6px; border-radius:4px; background:var(--neutral-bg); color:var(--ink-soft);}
+.dc-to{font-size:0.75rem; color:var(--ink-soft); margin-bottom:2px; overflow-wrap:anywhere;}
+.dc-to span{font-weight:600; color:var(--ink-2); margin-right:2px;}
+.dc-subj{font-size:0.875rem; font-weight:600; color:var(--ink); margin-bottom:2px; overflow-wrap:anywhere;}
+.dc-feed .dc-text{font-size:0.9375rem; line-height:1.55; color:var(--ink); white-space:pre-wrap; overflow-wrap:anywhere;}
+.dc-file{display:flex; align-items:center; gap:8px; max-width:100%; min-width:0; font-size:0.9375rem; font-weight:500; color:var(--ink);}
+.dc-file svg{flex-shrink:0; width:15px; height:15px; color:var(--ink-soft);}
+.dc-file span{min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.dc-page .col-checklist{min-width:0;}
+.dc-page .col-checklist .tri-body{min-width:0; overflow-x:hidden;}
+/* Stacked below tablet width (incl. 150-200% zoom): one page scroll, no inner scrollbars */
+@media (max-width:1099px){
+  html:has(.screen.active .dc-page), html:has(.screen.active .dc-page) body{height:auto; min-height:100%; overflow-x:hidden; overflow-y:auto;}
+  html:has(.screen.active .dc-page) body{min-height:100vh; min-height:100dvh;}
+  html:has(.screen.active .dc-page) main#main, html:has(.screen.active .dc-page) .screen.active{flex:1 0 auto; min-height:0;}
+  html:has(.screen.active .dc-page) .screen.active > .app-frame{flex:1 0 auto; overflow:visible;}
+  .screen.active .app-frame > .tri.dc-page{flex:1 0 auto; flex-direction:column; overflow:visible; margin-top:0 !important;}
+  .screen.active .dc-page > .tri-col{width:auto; height:auto; flex:none; border-right:0; border-bottom:1px solid var(--line);}
+  .screen.active .dc-page .tri-body{flex:none; max-height:none; overflow:visible;}
+  .dc-page .col-workers .tri-body{display:grid; grid-template-columns:repeat(auto-fill, minmax(240px, 1fr)); gap:6px;}
+  .dc-page .dc-jo{margin-bottom:0;}
+  .dc-head{position:static;}
+  .dc-head, .dc-feed{padding-left:16px; padding-right:16px;}
+}
 </style>
 </head>
 <body>
@@ -4072,6 +4127,8 @@ function showRecentTip(btn, pinned){
   const d = btn.dataset;
   if(btn._hidden) tip.innerHTML = `<div class="ri-tip-jo">${escHTML(btn.textContent.trim())}</div>
     <ul class="ri-tip-more">${btn._hidden.map(h=>`<li><b>${escHTML(h.jo)}</b><span>${escHTML(h.track)}</span><span>${escHTML(h.what)}${h.when ? ' · ' + escHTML(h.when) : ''}</span></li>`).join('')}</ul>`;
+  else if(d.kv){ let kv = []; try { kv = JSON.parse(d.kv); } catch(e){}
+    tip.innerHTML = `<div class="ri-tip-jo">${escHTML(d.title || '')}</div><dl>${kv.map(([k, v])=>`<dt>${escHTML(k)}</dt><dd>${escHTML(v)}</dd>`).join('')}</dl>`; }
   else if(d.who !== undefined) tip.innerHTML = `<div class="ri-tip-jo ri-tip-task">${escHTML(d.jo)}</div>
     <dl>
       <dt>Officer</dt><dd>${escHTML(d.who)}</dd>
@@ -5183,50 +5240,62 @@ function buildDiscussScreen(){
 
   const joRows = jobOrders.map(jo => {
     const on = !!sel && sel.id === jo.id;
-    const all = items.filter(i => i.joId === jo.id && (!cutoff || i.date >= cutoff));
+    const all = items.filter(i => i.joId === jo.id);
     const n = kind => all.filter(i => i.kind === kind).length;
-    return `<div class="dg-jo ${on ? 'on' : ''}" role="button" tabindex="0" aria-pressed="${on}" onclick="setDiscussJo('${jo.id}')" title="${escAttr(agencyOf(jo))} · ${escAttr(clientOf(jo))}">
+    const plural = (k, one, many) => { const c = n(k); return c ? `${c} ${c === 1 ? one : many}` : ''; };
+    const summary = [plural('note','note','notes'), plural('message','message','messages'), plural('upload','upload','uploads')].filter(Boolean).join(' · ') || 'No activity yet';
+    return `<div class="dg-jo dc-jo ${on ? 'on' : ''}" role="button" tabindex="0" aria-pressed="${on}" onclick="setDiscussJo('${jo.id}')" title="${escAttr(agencyOf(jo))} · ${escAttr(clientOf(jo))}">
       <div class="dg-jo-top"><span class="dg-jo-no">${joLinkHTML(jo)}</span><span class="dg-jo-deploy">${deployLabel(deployMonth(jo))}</span></div>
       <div class="dg-jo-co">${escHTML(agencyOf(jo))} · ${escHTML(clientOf(jo))}</div>
-      <div class="dg-pills"><span class="dg-pill">Notes ${n('note')}</span><span class="dg-pill">Messages ${n('message')}</span><span class="dg-pill">Uploads ${n('upload')}</span></div>
+      <div class="dc-sum">${summary}</div>
     </div>`;
-  }).join('') || `<div class="empty-note" style="padding:15px;">${discussQuery ? 'No Job Orders match your search.' : 'No Job Orders for this deploy month.'}</div>`;
+  }).join('') || `<div class="empty-note" style="padding:15px;">${discussQuery ? 'No Job Orders match your search.' : 'No Job Orders yet.'}</div>`;
 
   let contents;
   if(!sel){
-    contents = '<div class="empty-note" style="padding:20px;">No job orders match these filters.</div>';
+    contents = '<div class="empty-note" style="padding:20px;">No job orders match your search.</div>';
   } else {
     const list = entriesFor(sel).sort((a, b) => (b.date+' '+b.time).localeCompare(a.date+' '+a.time));
-    contents = `<div class="dc-content-hd">
-        <b>${joLinkHTML(sel)}</b><span>${escHTML(sel.candidateName || '')}</span>
-        <span>Agency: ${escHTML(agencyOf(sel))}</span><span>Client: ${escHTML(clientOf(sel))}</span>
-        <span>Target deploy: ${fmtFullDate(sel.targetDeploymentDate)}</span>
-      </div>
-      ${list.length ? `<ol class="dc-list">${list.map(i => `<li class="dc-item dc-${i.kind}">
-        <div class="dc-meta"><span class="dc-kind">${i.kind==='upload' ? svgIcon('upload') : ''}${KIND_LABEL[i.kind]}</span>
-          <span>${escHTML(i.userName)}</span><span>${fmtStamp({date:i.date, time:i.time})}</span>
-          ${stageBadgeHTML(i.task.track, i.task.name)}</div>
-        <div class="dc-text">${linkJoRefs(escHTML(i.text || (i.kind==='upload' ? '(no file name)' : '(empty)')))}</div>
-      </li>`).join('')}</ol>` : `<div class="empty-note" style="padding:20px;">${discussRows === null && discussLoading ? 'Loading notes, messages and uploads…' : 'No entries match these filters for this job order.'}</div>`}`;
+    // Header: the JO# (opens the JO); worker, agency, client and deploy date in the hover tooltip.
+    const facts = [['Worker', sel.candidateName || '—'], ['Agency', agencyOf(sel) || '—'], ['Client', clientOf(sel) || '—'],
+      ['Target deploy', fmtFullDate(sel.targetDeploymentDate)]];
+    const hdLink = `<a href="#" class="jo-link ri-jo dc-hd-jo" data-jo="${escAttr(sel.id)}" aria-expanded="false" aria-describedby="riTip"
+        data-title="${escAttr('JO# ' + sel.jo)}" data-kv="${escAttr(JSON.stringify(facts))}"
+        onclick="event.preventDefault(); event.stopPropagation(); hideRecentTip(); openDiscussJo('${escAttr(sel.id)}')">JO# ${escHTML(sel.jo)}</a>`;
+    const entryBody = i => {
+      if(i.kind === 'message'){
+        const lines = String(i.text || '').split('\n');
+        const to = (lines[0] || '').replace(/^To:\s*/, '');
+        const subject = (lines[1] || '').replace(/^Subject:\s*/, '').trim();
+        const body = lines.slice(2).join('\n').trim();
+        return `${to ? `<div class="dc-to"><span>To</span> ${escHTML(to)}</div>` : ''}
+          ${subject && subject !== '(no subject)' ? `<div class="dc-subj">${escHTML(subject)}</div>` : ''}
+          <div class="dc-text">${linkJoRefs(escHTML(body || '(empty)'))}</div>`;
+      }
+      if(i.kind === 'upload'){
+        const name = i.text || '(no file name)';
+        return `<div class="dc-file" title="${escAttr(name)}">${svgIcon('upload')}<span>${escHTML(name)}</span></div>`;
+      }
+      return `<div class="dc-text">${linkJoRefs(escHTML(i.text || '(empty)'))}</div>`;
+    };
+    contents = `<div class="dc-head">${hdLink}<span class="dc-head-n">${list.length} ${list.length === 1 ? 'entry' : 'entries'}</span></div>
+      ${list.length ? `<ol class="dc-list dc-feed">${list.map(i => `<li class="dc-item dc-${i.kind}">
+        <div class="dc-meta"><span class="dc-kind">${KIND_LABEL[i.kind]}</span><span class="dc-who">${escHTML(i.userName)}</span>
+          <span class="dc-when">${fmtStamp({date:i.date, time:i.time})}</span><span class="dc-task">${escHTML(i.task.name)} · ${escHTML(i.task.track)}</span></div>
+        ${entryBody(i)}
+      </li>`).join('')}</ol>` : `<div class="empty-note" style="padding:20px;">${discussRows === null && discussLoading ? 'Loading notes, messages and uploads…' : 'No notes, messages or uploads for this job order yet.'}</div>`}`;
   }
 
   const deployMonths = [...new Set(DB.jobOrders.map(deployMonth).filter(Boolean))].sort();
   const loading = discussLoading && discussRows === null;
   const shown = sel ? entriesFor(sel).length : 0;
 
-  const filters = `<div class="dc-filters">
-      ${dcSelect('Activity type', [['all','All types'], ['note','Notes'], ['message','Messages'], ['upload','Uploads']], discussFilter, 'setDiscussFilter')}
-      ${dcSelect('Date', [['all','Any time'], ['7','Last 7 days'], ['30','Last 30 days'], ['90','Last 90 days']], discussDate, 'setDiscussDate')}
-      ${dcSelect('Target deploy', [['all','All months'], ...deployMonths.map(m => [m, deployLabel(m)])], discussDeploy, 'setDiscussDeploy')}
-    </div>`;
-
   return navHTML('Discuss') + `
-    <div class="tri">
+    <div class="tri dc-page">
       <div class="tri-col col-workers">
         <div class="tri-hd dg-hd"><span>Job Orders</span><span class="dg-n">${jobOrders.length}</span></div>
         <div class="dg-tools">
           <label class="dg-search">${dgIcon('search')}<input type="text" id="search-s7" placeholder="Search JO #, agency or client" value="${escAttr(discussQuery)}" oninput="setDiscussQuery(this.value)" aria-label="Search JO, agency or client"></label>
-          ${filters}
         </div>
         <div class="tri-body">${joRows}</div>
       </div>
