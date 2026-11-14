@@ -2310,6 +2310,56 @@ a.dc-task:hover{color:var(--darkred); background:var(--darkred-light);}
 /* JO overview: track progress as chips, like the job order lists */
 .tsc-pills{margin:0 0 4px;}
 .tsc-pill{cursor:default;}
+
+/* ===== JO detail: header carries the actions; notes card right below ===== */
+.jd-hero.task-hero{display:grid; grid-template-columns:auto minmax(0,1fr) auto; grid-template-areas:"av txt act"; align-items:start; column-gap:16px; row-gap:12px;
+  padding:16px 18px; margin:0; border:1px solid var(--line); border-radius:10px; background:var(--surface-subtle); box-shadow:var(--shadow-sm); overflow:visible;}
+:root[data-theme="dark"] .jd-hero.task-hero{background:var(--surface-subtle); border-color:var(--line);}
+.jd-hero > .av{grid-area:av; width:44px; height:44px; font-size:0.9375rem; background:var(--darkred); color:var(--btn-on-brand); box-shadow:none;}
+.jd-hero > .jd-hero-txt{grid-area:txt; min-width:0;}
+.jd-hero .n{font-size:1.375rem; font-weight:600; line-height:1.2; color:var(--ink); letter-spacing:-0.01em;}
+.jd-hero .s{margin-top:4px; font-size:0.875rem; font-weight:500; color:var(--ink-2);}
+.jd-hero .hrecv{margin-top:6px; font-size:0.8125rem; line-height:1.5; color:var(--ink-soft); overflow-wrap:anywhere;}
+.jd-hero .hrecv b{font-weight:600; color:var(--ink-2);}
+.jd-hero > .jd-hero-actions{grid-area:act; display:flex; align-items:center; gap:8px; margin:0; flex-wrap:nowrap; justify-self:end;}
+.jd-hero-actions .act-btn{height:36px; min-height:36px; padding:0 14px; font-size:0.875rem; border-radius:6px; white-space:nowrap;}
+.jd-hero-actions .act-btn.lg{font-size:0.875rem;}
+.jd-hero-actions .act-btn .ico svg, .jd-hero-actions .act-btn svg{width:15px; height:15px;}
+.jd-hero-actions .more-menu summary.act-btn{padding:0 12px; background:var(--card); border:1px solid var(--line); color:var(--ink-2); font-weight:600;}
+.jd-hero-actions .more-menu summary.act-btn:hover{border-color:var(--darkred); color:var(--ink);}
+.jd-hero-actions .more-panel{left:auto; right:0;}
+/* Narrow (and 150-200% zoom): actions move under the details, still right-aligned */
+@media (max-width:1099px){
+  .jd-hero.task-hero{grid-template-columns:auto minmax(0,1fr); grid-template-areas:"av txt" "act act";}
+}
+@container (max-width:520px){ .jd-hero > .jd-hero-actions{justify-self:stretch;} }
+/* Notes / Messages / Files */
+.jd-notes{border:1px solid var(--line); border-radius:10px; overflow:hidden;}
+.jd-notes .card-tabs{gap:4px; padding:8px 10px; border-bottom:1px solid var(--line); background:var(--card);}
+.jd-notes .card-tab{display:inline-flex; align-items:center; gap:6px; height:32px; padding:0 12px; border-radius:6px; font-size:0.875rem; font-weight:500; color:var(--ink-soft); background:none;}
+.jd-notes .card-tab:hover{background:var(--hover); color:var(--ink);}
+.jd-notes .card-tab.on, :root[data-theme="dark"] .jd-notes .card-tab.on{background:var(--darkred-light); color:var(--darkred); font-weight:600;}
+.jd-notes .card-tab.on .tab-n, :root[data-theme="dark"] .jd-notes .card-tab.on .tab-n{background:var(--card); color:var(--darkred); border-color:var(--kh-navy-line);}
+.jd-notes .tab-n{margin-left:0;}
+/* Empty state: subtle icon + readable line */
+.es{display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; padding:28px 16px; text-align:center; color:var(--ink-soft);}
+.es-ico{display:grid; place-items:center; width:36px; height:36px; border-radius:50%; background:var(--neutral-bg); color:var(--ink-soft);}
+.es-ico svg{width:17px; height:17px;}
+.es-txt{font-size:0.875rem; font-weight:500; color:var(--ink-soft);}
+
+/* JO detail below tablet width (incl. 150-200% zoom): stacked, one page scroll, no squeezed inner boxes */
+@media (max-width:1099px){
+  html:has(.screen.active .jd-page), html:has(.screen.active .jd-page) body{height:auto; min-height:100%; overflow-x:hidden; overflow-y:auto;}
+  html:has(.screen.active .jd-page) body{min-height:100vh; min-height:100dvh;}
+  html:has(.screen.active .jd-page) main#main, html:has(.screen.active .jd-page) .screen.active{flex:1 0 auto; min-height:0;}
+  html:has(.screen.active .jd-page) .screen.active > .app-frame{flex:1 0 auto; overflow:visible;}
+  .screen.active .app-frame > .jd-page{flex:1 0 auto; flex-direction:column; overflow:visible;}
+  .screen.active .jd-page .jd-main{flex:none; min-height:0;}
+  .screen.active .jd-page .jd-main > .jd-notes{flex:none; min-height:0;}
+  .screen.active .jd-page .jd-notes > .card-body{max-height:none; overflow:visible;}
+  .screen.active .jd-page .jd-side{flex:none; height:auto; min-height:0; max-height:none; overflow:visible;}
+  .screen.active .jd-page .jd-side .gate-list-scroll{flex:none; max-height:none; overflow:visible;}
+}
 </style>
 </head>
 <body>
@@ -4052,7 +4102,7 @@ function navHTML(activeTab){
     <div class="kh-row">
       <div class="kh-brand"><span class="kh-mark" aria-hidden="true">記</span><span class="kh-word">Kiroku<span class="kh-sub">Completeness Gate</span></span></div>
       <nav class="kh-nav" role="tablist" aria-label="Screens">
-        ${tabs.map(t=>{ const on = t.label===activeTab; return `${t.id==='s5' ? '<span class="kh-nav-sep" aria-hidden="true"></span>' : ''}<button type="button" role="tab" class="kh-tab ${on?'on':''}" aria-selected="${on}" onclick="showScreenById('${t.id}')">${KH_TAB_ICONS[t.id]||''}<span>${t.label}</span></button>`; }).join('')}
+        ${tabs.map(t=>{ const on = t.label===activeTab; return `<button type="button" role="tab" class="kh-tab ${on?'on':''}" aria-selected="${on}" onclick="showScreenById('${t.id}')">${KH_TAB_ICONS[t.id]||''}<span>${t.label}</span></button>`; }).join('')}
       </nav>
       <div class="kh-tools">
         ${viewOnly ? '<span class="kh-viewonly">View only</span>' : ''}
@@ -4363,19 +4413,19 @@ function buildJODetail(joId, highlightTaskId, backFn, backLabel, pageContext, pa
       <div class="task-hero jd-hero">
         <div class="av">${escHTML(initialsFromName(jo.candidateName))}</div>
         <div class="jd-hero-txt"><div class="n">JO# ${escHTML(jo.jo)}</div><div class="s">${heroStatusText}</div><div class="hrecv">${receivingHTML(joId)} · Target Deploy: <b>${fmtDate(jo.targetDeploymentDate)}</b></div></div>
-      </div>
-      <div class="action-row primary-row jd-mainbtns">
-        ${markDoneButtonHTML(actionTarget, pageContext)}
-        <div class="more-menu"><details>
-          <summary class="act-btn" aria-label="More actions">${svgIcon('more')} More</summary>
-          <div class="more-panel" role="group" aria-label="More actions">
-            <div class="action-label" style="margin:6px 8px 2px;">Log actions</div>
-            ${actionButtonHTML('followup','repeat','Follow Up', actionTarget, pageContext)}
-            ${actionButtonHTML('message','mail','Send Message', actionTarget, pageContext)}
-            ${actionButtonHTML('note','filetext','Log Note', actionTarget, pageContext)}
-            ${actionButtonHTML('upload','upload','Upload', actionTarget, pageContext)}
-          </div>
-        </details></div>
+        <div class="action-row primary-row jd-mainbtns jd-hero-actions">
+          ${markDoneButtonHTML(actionTarget, pageContext)}
+          <div class="more-menu"><details>
+            <summary class="act-btn" aria-label="More actions">${svgIcon('more')} More</summary>
+            <div class="more-panel" role="group" aria-label="More actions">
+              <div class="action-label" style="margin:6px 8px 2px;">Log actions</div>
+              ${actionButtonHTML('followup','repeat','Follow Up', actionTarget, pageContext)}
+              ${actionButtonHTML('message','mail','Send Message', actionTarget, pageContext)}
+              ${actionButtonHTML('note','filetext','Log Note', actionTarget, pageContext)}
+              ${actionButtonHTML('upload','upload','Upload', actionTarget, pageContext)}
+            </div>
+          </details></div>
+        </div>
       </div>
       <div class="card jd-notes" data-notes-task="${actionTarget.id}">${notesCardHTML(actionTarget)}</div>
     </div>
@@ -4406,7 +4456,7 @@ function notesCardHTML(task){
 }
 function filesHTML(task){
   const files = (task.activity||[]).filter(a=>a.type==='upload').sort((a,b)=>(b.date+b.time).localeCompare(a.date+a.time));
-  if(!files.length) return '<div class="empty-note">No files uploaded for this task yet.</div>';
+  if(!files.length) return '' + emptyStateHTML('upload', 'No files uploaded for this task yet.') + '';
   ensureStoredFiles(task.id);
   const known = storedFiles.get(task.id);
   if(known==='loading') return '<div class="empty-note">Checking stored files…</div>';
@@ -4429,7 +4479,7 @@ function filesHTML(task){
 }
 function messagesHTML(task){
   const msgs = (task.activity||[]).filter(a=>a.type==='message' && a.text).sort((a,b)=>(b.date+b.time).localeCompare(a.date+a.time));
-  if(!msgs.length) return '<div class="empty-note">No messages sent for this task yet.</div>';
+  if(!msgs.length) return '' + emptyStateHTML('mail', 'No messages sent for this task yet.') + '';
   return msgs.map(a=>{
     const lines = a.text.split('\n');
     const to = (lines[0]||'').replace(/^To: /,'');
@@ -4448,7 +4498,7 @@ function notesHTML(task){
       <div class="note-text">${escHTML(a.text)}</div>
       <div class="note-meta"><span class="note-tag">Log Note</span><span>${escHTML((getUser(a.user)||{}).name || a.user || '')}</span><span>${fmtStamp(a)}</span></div>
     </div>`).join('')
-    : '<div class="empty-note">No notes logged for this task yet.</div>';
+    : '' + emptyStateHTML('filetext', 'No notes logged for this task yet.') + '';
 }
 
 /* Recent Actions: activity_logs rows for one task, newest first. */
@@ -4506,6 +4556,9 @@ function actionButtonHTML(type, icon, label, task, pageContext){
   if(type==='message') return `<button class="act-btn" onclick="openMessageModal('${task.id}','${pageContext}')"><span class="ico">${svgIcon(icon)}</span>${label}</button>`;
   if(type==='upload') return `<button class="act-btn" onclick="pickUpload('${task.id}','${pageContext}')"><span class="ico">${svgIcon(icon)}</span>${label}</button>`;
   return `<button class="act-btn" onclick="logActivity('${task.id}','${type}','${pageContext}')"><span class="ico">${svgIcon(icon)}</span>${label}</button>`;
+}
+function emptyStateHTML(icon, text){
+  return `<div class="es" role="status"><span class="es-ico" aria-hidden="true">${svgIcon(icon)}</span><span class="es-txt">${escHTML(text)}</span></div>`;
 }
 function markDoneButtonHTML(task, pageContext){
   const editable = canEditInContext(task, pageContext);
