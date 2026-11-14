@@ -2239,6 +2239,14 @@ html{scrollbar-gutter:stable;}
   .screen.active .jp-page > .side-col{width:auto; overflow:visible; border-left:0; border-top:1px solid var(--line);}
   .screen.active .jp-page .gate-list-scroll{contain:none; flex:none; min-height:0; max-height:none; overflow:visible;}
 }
+
+/* Gate rows: due badge on its own line under the task name, right-aligned and quiet */
+.gate-row{grid-template-columns:10px minmax(0,1fr) 14px; grid-template-areas:"ball name lock" ". badge badge";
+  row-gap:4px; min-height:0; padding:9px 14px 8px;}
+.gate-row > .ball{grid-area:ball;}
+.gate-row > .gn{grid-area:name;}
+.gate-row > .lock-ico{grid-area:lock;}
+.gate-row > .due-badge{grid-area:badge; justify-self:end; line-height:16px; padding:0 6px; font-size:0.6875rem; opacity:.95;}
 </style>
 </head>
 <body>
@@ -5224,7 +5232,6 @@ function buildDiscussScreen(){
         <div class="tri-body">${joRows}</div>
       </div>
       <div class="tri-col col-checklist">
-        <div class="tri-hd dg-hd"><span>Discuss${sel ? ' · ' + joLinkHTML(sel) : ''}</span><span class="dg-n">${shown}</span></div>
         <div class="tri-body">${contents}${loading ? '<div class="tf-state" role="status" style="padding:8px 14px;">Loading full history…</div>' : ''}${discussRows === null && !loading ? '<div class="tf-state" role="status" style="padding:8px 14px;">Could not load the full history. Showing what is already loaded.</div>' : ''}</div>
       </div>
     </div>`;
