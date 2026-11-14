@@ -5292,7 +5292,7 @@ function buildDiscussScreen(){
       }
       return `<div class="dc-text">${linkJoRefs(escHTML(i.text || '(empty)'), i.task)}</div>`;
     };
-    contents = `<div class="dc-head">${hdLink}<span class="dc-head-n">${list.length} ${list.length === 1 ? 'entry' : 'entries'}</span></div>
+    contents = `<div class="dc-head">${hdLink}</div>
       ${list.length ? `<ol class="dc-list dc-feed">${list.map(i => `<li class="dc-item dc-${i.kind}">
         <div class="dc-meta"><span class="dc-kind">${KIND_LABEL[i.kind]}</span><span class="dc-who">${escHTML(i.userName)}</span>
           <span class="dc-when">${fmtStamp({date:i.date, time:i.time})}</span><a href="#" class="dc-task" title="Open this task" onclick="event.preventDefault(); openDiscussJo('${escAttr(i.task.joId)}','${escAttr(i.task.id)}')">${escHTML(i.task.name)} · ${escHTML(i.task.track)}</a></div>
