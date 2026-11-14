@@ -4356,7 +4356,7 @@ function buildJODetail(joId, highlightTaskId, backFn, backLabel, pageContext, pa
         <div class="av">${escHTML(initialsFromName(jo.candidateName))}</div>
         <div class="jd-hero-txt"><div class="n">JO# ${escHTML(jo.jo)}</div><div class="s">${heroStatusText}</div><div class="hrecv">${receivingHTML(joId)} · Target Deploy: <b>${fmtDate(jo.targetDeploymentDate)}</b></div></div>
       </div>
-      ${current && pageContext!=='s1' ? taskFieldsHTML(current, pageContext) : ''}
+      ${current && pageContext!=='s1' && canEditInContext(current, pageContext) ? taskFieldsHTML(current, pageContext) : ''}
       <div class="action-row primary-row jd-mainbtns">
         ${markDoneButtonHTML(actionTarget, pageContext)}
         <div class="more-menu"><details>
