@@ -2147,6 +2147,98 @@ body{-webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;}
 @media (pointer:coarse){ .ri-jo.jp-row{min-height:40px; margin:0; padding:10px 16px;} }
 .ri-tip-task{font-family:var(--font-body); margin-bottom:6px; overflow-wrap:anywhere;}
 @media (prefers-reduced-motion:reduce){ .ri-jo.jp-row{transition:none;} }
+
+/* ===== Job Order Gates panel: one line per gate, padlocks in one column, compact due badge ===== */
+.gate-row{display:grid; grid-template-columns:10px minmax(0,1fr) 14px 112px; align-items:center; column-gap:10px;
+  min-height:42px; padding:8px 14px; border-bottom:1px solid var(--divider);}
+.gate-row:last-child{border-bottom:0;}
+.gate-row .ball{width:9px; height:9px; margin:0;}
+.gate-row .gn{display:flex; align-items:baseline; gap:6px; min-width:0; flex:none; white-space:nowrap;}
+.gn-name{min-width:0; overflow:hidden; text-overflow:ellipsis; font-size:0.9rem; font-weight:650; color:var(--ink);}
+.gn-trk{flex-shrink:0; font-size:0.75rem; font-weight:500; color:var(--ink-soft);}
+.gate-row.locked .gn-name{color:var(--ink-soft);}
+.gate-row .lock-ico{display:inline-grid; place-items:center; width:14px; height:14px; color:var(--ink-soft); opacity:.75;}
+.gate-row .lock-ico svg{width:12px; height:12px;}
+.gate-row .due-badge{justify-self:end; width:max-content; max-width:100%; display:inline-flex; align-items:center; gap:4px; padding:0 6px; line-height:18px;
+  font-size:0.6875rem; font-weight:600; border-radius:4px; white-space:nowrap;}
+.gate-row .due-badge svg{width:10px; height:10px;}
+.gate-row .due-badge > span[aria-hidden]{font-size:0.5625rem;}
+
+/* ===== JO page: the page scrolls (scrollbar at the window edge), never the JO details box ===== */
+html:has(.screen.active .jp-page), html:has(.screen.active .jp-page) body{height:auto; min-height:100%; overflow-x:hidden; overflow-y:auto;}
+html:has(.screen.active .jp-page) body{min-height:100vh; min-height:100dvh;}
+html:has(.screen.active .jp-page) main#main, html:has(.screen.active .jp-page) .screen.active{flex:1 0 auto; min-height:0;}
+html:has(.screen.active .jp-page) .screen.active > .app-frame{flex:1 0 auto; overflow:visible;}
+.screen.active .app-frame > .body-row.jp-page{flex:1 0 auto; overflow:visible; align-items:stretch;}
+.screen.active .jp-page > .main-col{flex:1 1 0; max-height:none; overflow:visible;}
+/* The gate list takes the height of the JO details beside it and scrolls on its own (it is a side list). */
+.screen.active .jp-page > .side-col{width:340px; overflow:hidden;}
+.screen.active .jp-page .gate-list-scroll{contain:size; flex:1 1 0; min-height:240px; overflow-y:auto;}
+/* Compact spacing so header, tracks and both recent lists fit at 100% zoom */
+.jp-page > .main-col{padding:12px 20px 16px;}
+.jp-page .greet h2{font-size:1.25rem; margin-bottom:0;}
+.jp-page .greet p{margin:2px 0 10px;}
+.jp-page .greet-actions{margin-bottom:6px;}
+.jp-page .section-label{margin:12px 0 8px;}
+.jp-page .tsc .tscball{width:48px; height:48px; margin-bottom:5px;}
+.jp-page .track-summary-grid{overflow:visible; padding-bottom:0;}
+.jp-page .dual-card-row{align-items:stretch;}
+.jp-page .jp-card .card-hd{padding:10px 16px;}
+.jp-page .ri-jo.jp-row{padding:8px 16px;}
+.detail-top:has(+ .jp-page){padding-top:8px;}
+@media (max-width:820px){
+  /* Stacked: details, then the full gate list; one page scroll, no inner scrollbars */
+  .screen.active .app-frame > .body-row.jp-page{flex-direction:column; overflow:visible;}
+  .screen.active .jp-page > .main-col{flex:none;}
+  .screen.active .jp-page > .side-col{width:auto; overflow:visible;}
+  .screen.active .jp-page .gate-list-scroll{contain:none; flex:none; min-height:0; max-height:none; overflow:visible;}
+  .jp-page .dual-card-row{flex-direction:column;}
+  .jp-page .dual-card-row .card{flex:none;}
+  .jp-page > .main-col{padding:12px 16px;}
+}
+
+/* ===== My Tasks: the five JO boxes fill each recent panel evenly (desktop) ===== */
+@media (min-width:1100px){
+  #s1 .mt-activity{align-items:stretch;}
+  #s1 .mt-panel{display:flex; flex-direction:column; min-height:0;}
+  #s1 .mt-boxes{flex:1 1 auto; min-height:0; display:grid; grid-template-columns:1fr; grid-template-rows:repeat(5, minmax(32px, 1fr));
+    grid-auto-rows:minmax(32px, 1fr); align-content:stretch; gap:6px; padding:10px;}
+  #s1 .mt-boxes > li{display:flex; min-height:0;}
+  #s1 .mt-boxes > li > .ri-box{height:100%; min-height:0; max-height:none; align-items:center;}
+  #s1 .mt-boxes > li.ri-more-li{align-items:center;}
+  #s1 .mt-panel .mt-empty{flex:1 1 auto;}
+}
+
+/* ===== Navbar: one layout on every page =====
+   Row 1: logo + subtitle left, account tools right. Row 2: tabs centred. Fixed heights, so moving between
+   pages only changes the active tab. The window always keeps room for a scrollbar, so nothing shifts sideways. */
+html{scrollbar-gutter:stable;}
+.kh .kh-row, .kh.compact .kh-row, .kh.stack .kh-row{display:grid; grid-template-columns:minmax(0,1fr) auto; grid-template-rows:44px auto;
+  grid-template-areas:"brand tools" "nav nav"; align-items:center; row-gap:4px; column-gap:16px; padding:8px 20px 6px;}
+.kh .kh-sub, .kh.compact .kh-sub, .kh.stack .kh-sub{display:flex;}
+.kh .kh-nav, .kh.stack .kh-nav{grid-area:nav; display:flex; justify-content:center; flex-wrap:wrap; gap:2px 4px; padding:0; border-top:0;}
+.kh .kh-tab{height:36px; min-height:36px; padding:0 12px;}
+.kh-brand{min-width:0;}
+.kh-word{min-width:0;}
+.kh-word, .kh-sub{white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.kh-tools{flex-wrap:nowrap;}
+@container kh (max-width:620px){
+  .kh .kh-row, .kh.compact .kh-row, .kh.stack .kh-row{padding:8px 12px 6px; column-gap:8px;}
+  .kh .kh-nav{display:grid; grid-template-columns:repeat(auto-fit, minmax(128px, 1fr)); gap:2px 4px;}
+  .kh .kh-tab{height:34px; min-height:34px; padding:0 8px; justify-content:flex-start;}
+  .kh-nav-sep{display:none;}
+}
+@container kh (max-width:440px){
+  .kh .kh-sub{display:none;}
+}
+
+/* JO page: stack details and gates below tablet width (incl. 150-200% zoom), so only the page scrolls */
+@media (max-width:1099px){
+  .screen.active .app-frame > .body-row.jp-page{flex-direction:column; overflow:visible;}
+  .screen.active .jp-page > .main-col{flex:none;}
+  .screen.active .jp-page > .side-col{width:auto; overflow:visible; border-left:0; border-top:1px solid var(--line);}
+  .screen.active .jp-page .gate-list-scroll{contain:none; flex:none; min-height:0; max-height:none; overflow:visible;}
+}
 </style>
 </head>
 <body>
@@ -2456,11 +2548,13 @@ function dueLabel(t){
   if(d===0) return 'Due today';
   return `Due in ${d} day${d===1?'':'s'}`;
 }
-function dueBadgeHTML(t){
+function dueBadgeHTML(t, compact){
   const d = diffDays(t.due);
   const cls = t.done ? 'done' : (d<0 ? 'overdue' : (d<=10 ? 'pending' : 'upcoming'));
   const mark = t.done ? svgIcon('check') : (cls==='overdue' ? '▲' : (cls==='pending' ? '◆' : '○'));
-  return `<span class="due-badge ${cls}"><span aria-hidden="true">${mark}</span> ${dueLabel(t)}</span>`;
+  // Compact (Job Order Gates panel): short text, full wording in the tooltip and for screen readers.
+  const text = !compact ? dueLabel(t) : t.done ? 'Done' : d<0 ? `Overdue · ${-d}d` : d===0 ? 'Today' : `In ${d}d`;
+  return `<span class="due-badge ${cls}"${compact ? ` title="${escAttr(dueLabel(t))}" aria-label="${escAttr(dueLabel(t))}"` : ''}><span aria-hidden="true">${mark}</span> ${text}</span>`;
 }
 function receivingHTML(joId){
   const jo = getJO(joId), co = getCompany(jo.companyId), ku = getKumiai(co.kumiaiId);
@@ -3935,15 +4029,8 @@ function khToggle(btn){
 }
 document.addEventListener('click', e=>{ if(!(e.target.closest && e.target.closest('.kh-popwrap'))) khCloseAll(); });
 function khFit(){
-  document.querySelectorAll('.screen.active .kh').forEach(h=>{
-    const row = h.querySelector('.kh-row'), nav = h.querySelector('.kh-nav');
-    const fits = ()=>{ const tab = nav.querySelector('.kh-tab'); return row.scrollWidth <= row.clientWidth + 1 && (!tab || nav.offsetHeight <= tab.offsetHeight + 2); };
-    h.classList.remove('compact', 'stack');
-    if(fits()) return;
-    h.classList.add('compact');
-    if(fits()) return;
-    h.classList.remove('compact'); h.classList.add('stack');
-  });
+  // The navbar keeps one two-row layout on every page and size (see "Navbar: one layout on every page").
+  document.querySelectorAll('.kh.compact, .kh.stack').forEach(h=>h.classList.remove('compact', 'stack'));
 }
 window.addEventListener('resize', ()=>{ clearTimeout(window._khFitT); window._khFitT = setTimeout(khFit, 80); });
 document.addEventListener('keydown', e=>{
@@ -4191,9 +4278,9 @@ function buildJODetail(joId, highlightTaskId, backFn, backLabel, pageContext, pa
     const editable = canEditInContext(t, pageContext);
     return `<div class="gate-row ${isCurrent?'current':''} ${st==='flagged'?'overdue':''}" role="button" tabindex="0" data-key-activate onclick="openDetailFor('${t.id}','${pageContext}')">
       <span class="ball ${st} ${editable?'':'locked'}" onclick="event.stopPropagation();${editable?` toggleTask('${t.id}','${pageContext}')`:''}"></span>
-      <span class="gn">${escHTML(t.name)} <span style="color:var(--ink-soft); font-weight:500;">· ${t.track}</span></span>
-      ${editable?'':'<span class="lock-ico" title="Locked: only the assigned officer can change this gate">'+svgIcon('lock')+'</span>'}
-      ${dueBadgeHTML(t)}
+      <span class="gn" title="${escAttr(t.name + ' · ' + t.track)}"><span class="gn-name">${escHTML(t.name)}</span><span class="gn-trk">· ${escHTML(t.track)}</span></span>
+      ${editable?'<span class="lock-ico lock-none" aria-hidden="true"></span>':'<span class="lock-ico" title="Locked: only the assigned officer can change this gate">'+svgIcon('lock')+'</span>'}
+      ${dueBadgeHTML(t, true)}
     </div>`;
   }).join('');
   return `<div class="detail-top"><span class="back-link" role="button" tabindex="0" data-key-activate onclick="${backFn}">${backLabel}</span>${pagerHTML||''}</div>
@@ -4400,20 +4487,21 @@ function buildJOProfile(joId, pageContext){
     const st = computeStatus(t);
     if(fromDiscuss) return `<div class="gate-row view-only">
       <span class="ball ${st}"></span>
-      <span class="gn">${escHTML(t.name)} <span style="color:var(--ink-soft); font-weight:500;">· ${t.track}</span></span>
-      ${dueBadgeHTML(t)}
+      <span class="gn" title="${escAttr(t.name + ' · ' + t.track)}"><span class="gn-name">${escHTML(t.name)}</span><span class="gn-trk">· ${escHTML(t.track)}</span></span>
+      <span class="lock-ico lock-none" aria-hidden="true"></span>
+      ${dueBadgeHTML(t, true)}
     </div>`;
     const editable = canEditInContext(t, pageContext);
     return `<div class="gate-row" role="button" tabindex="0" data-key-activate onclick="openDetailFor('${t.id}','${pageContext}')">
       <span class="ball ${st} ${editable?'':'locked'}" onclick="event.stopPropagation();${editable?` toggleTask('${t.id}','${pageContext}')`:''}"></span>
-      <span class="gn">${escHTML(t.name)} <span style="color:var(--ink-soft); font-weight:500;">· ${t.track}</span></span>
-      ${editable?'':'<span class="lock-ico">'+svgIcon('lock')+'</span>'}
-      ${dueBadgeHTML(t)}
+      <span class="gn" title="${escAttr(t.name + ' · ' + t.track)}"><span class="gn-name">${escHTML(t.name)}</span><span class="gn-trk">· ${escHTML(t.track)}</span></span>
+      ${editable?'<span class="lock-ico lock-none" aria-hidden="true"></span>':'<span class="lock-ico" title="Locked: only the assigned officer can change this gate">'+svgIcon('lock')+'</span>'}
+      ${dueBadgeHTML(t, true)}
     </div>`;
   }).join('');
 
   return `<div class="detail-top"><span class="back-link" role="button" tabindex="0" data-key-activate onclick="${backFn}">${backLabel}</span></div>
-  <div class="body-row">
+  <div class="body-row jp-page">
     <div class="main-col">
       <div class="greet">
         <h2>JO# ${escHTML(jo.jo)}${!jo.active ? ' <span style="color:var(--ink-soft); font-weight:600; font-size:0.8125rem;">(Archived)</span>' : ''}</h2>
