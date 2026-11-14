@@ -2306,6 +2306,10 @@ html{scrollbar-gutter:stable;}
 /* Discuss: task tag opens the JO on that task */
 a.dc-task{text-decoration:none; cursor:pointer;}
 a.dc-task:hover{color:var(--darkred); background:var(--darkred-light);}
+
+/* JO overview: track progress as chips, like the job order lists */
+.tsc-pills{margin:0 0 4px;}
+.tsc-pill{cursor:default;}
 </style>
 </head>
 <body>
@@ -4360,7 +4364,6 @@ function buildJODetail(joId, highlightTaskId, backFn, backLabel, pageContext, pa
         <div class="av">${escHTML(initialsFromName(jo.candidateName))}</div>
         <div class="jd-hero-txt"><div class="n">JO# ${escHTML(jo.jo)}</div><div class="s">${heroStatusText}</div><div class="hrecv">${receivingHTML(joId)} · Target Deploy: <b>${fmtDate(jo.targetDeploymentDate)}</b></div></div>
       </div>
-      ${current && pageContext!=='s1' && canEditInContext(current, pageContext) ? taskFieldsHTML(current, pageContext) : ''}
       <div class="action-row primary-row jd-mainbtns">
         ${markDoneButtonHTML(actionTarget, pageContext)}
         <div class="more-menu"><details>
@@ -4525,16 +4528,13 @@ function buildJOProfile(joId, pageContext){
   const backFn = fromDiscuss ? 'closeDiscussJo()' : pageContext==='s2' ? 'closeS2Profile()' : 'closeS3Profile()';
   const backLabel = fromDiscuss ? '← Back to Discuss' : pageContext==='s2' ? '← Back to My Due Gates' : '← Back to All Due Gates';
 
+  // Track progress: the same chips as the job order lists (status icon + track); counts in the tooltip.
   const cells = TRACK_DEFS.map(tr=>{
     const tks = tasks.filter(t=>t.track===tr.key);
-    const st = tks.length ? worstOf(tks) : null;
     const dCount = tks.filter(t=>t.done).length;
     const ring = trackFollowUp(tks);
-    const dotColor = trackColor(st);
-    return `<div class="tsc" title="${tr.name}${ring?' · follow-up recorded':''}">
-      <div class="tscball ${ring?'follow-ring':''}" style="background:${dotColor};">${tks.length ? `<div class="tsc-num">${dCount}</div><div class="tsc-of">of ${tks.length}</div>` : '—'}</div>
-      <div class="tsclabel">${tr.name}</div>
-    </div>`;
+    const tip = `${tr.name}: ${tks.length ? `${dCount} of ${tks.length} done` : 'no stages'}${ring ? ' · follow-up recorded' : ''}`;
+    return `<span class="dg-pill tsc-pill" title="${escAttr(tip)}" aria-label="${escAttr(tip)}">${dgTrackInd(tks)}${escHTML(tr.key)}</span>`;
   }).join('');
 
   const doneList = tasks.filter(t=>t.done).slice().sort((a,b)=>{
@@ -4582,7 +4582,7 @@ function buildJOProfile(joId, pageContext){
         <button class="act-btn" onclick="archiveJO('${joId}')">${svgIcon('archive')} Archive</button>
       </div>` : ''}
       <div class="section-label">Track progress</div>
-      <div class="track-summary-grid">${cells}</div>
+      <div class="dg-pills tsc-pills">${cells}</div>
       <div class="section-label">By all users</div>
       <div class="dual-card-row">
         <div class="card jp-card">
