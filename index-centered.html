@@ -2134,6 +2134,23 @@ body{-webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;}
 
 /* Calm motion */
 @media (prefers-reduced-motion:reduce){ .rr, .kh-tab, #s1 .mt-q, #s1 .mt-stat{transition:none;} }
+
+/* ===== JO profile: no summary strip; quiet recent lists, controls on hover ===== */
+.jp-card .card-hd{padding:12px 16px;}
+.jp-list{list-style:none; margin:0; padding:4px 0;}
+.jp-row{display:grid; grid-template-columns:minmax(0,1fr) auto; grid-template-areas:"name open" "who when"; align-items:center; gap:2px 12px; min-height:52px; padding:10px 16px; transition:background .15s ease;}
+.jp-row + .jp-row{border-top:1px solid var(--divider);}
+.jp-row:hover, .jp-row:focus-within{background:var(--hover);}
+.jp-name{grid-area:name; min-width:0; font-size:0.875rem; font-weight:600; line-height:1.35; color:var(--ink); overflow-wrap:anywhere;}
+.jp-trk{margin-left:8px; white-space:nowrap; font-size:0.75rem; font-weight:600; letter-spacing:.04em; color:var(--ink-soft);}
+.jp-who{grid-area:who; min-width:0; font-size:0.8125rem; line-height:1.35; color:var(--ink-soft); overflow-wrap:anywhere;}
+.jp-when{grid-area:when; justify-self:end; font-size:0.75rem; color:var(--ink-soft); white-space:nowrap; font-variant-numeric:tabular-nums;}
+.jp-open{grid-area:open; justify-self:end; display:inline-flex; align-items:center; gap:4px; height:24px; padding:0 8px; border:1px solid var(--line); border-radius:6px; background:var(--card); color:var(--darkred); font:inherit; font-size:0.75rem; font-weight:600; cursor:pointer;
+  opacity:0; transition:opacity .15s ease, border-color .15s ease;}
+.jp-row:hover .jp-open, .jp-open:focus-visible{opacity:1;}
+.jp-open:hover{border-color:var(--darkred);}
+@media (hover:none){ .jp-open{opacity:1;} }
+@media (prefers-reduced-motion:reduce){ .jp-row, .jp-open{transition:none;} }
 </style>
 </head>
 <body>
@@ -2498,10 +2515,10 @@ function canEditInContext(task, pageContext){
   return getEditor(task) === user.id;
 }
 function tabsFor(user){
-  if(isAdmin(user)) return [{id:'s1', label:'My Tasks'}, {id:'s2', label:'My Due Gates'}, {id:'s3', label:'All Due Gates'}, {id:'s6', label:'My Entries'}, {id:'s7', label:'Discussions'}, {id:'s5', label:'Configuration'}];
+  if(isAdmin(user)) return [{id:'s1', label:'My Tasks'}, {id:'s2', label:'My Due Gates'}, {id:'s3', label:'All Due Gates'}, {id:'s6', label:'My Entries'}, {id:'s7', label:'Discuss'}, {id:'s5', label:'Configuration'}];
   // Configuration is Admin only; the data behind it is locked in Supabase too (11_lock_down.sql).
-  if(isCEO(user)) return [{id:'s1', label:'My Tasks'}, {id:'s2', label:'My Due Gates'}, {id:'s3', label:'All Due Gates'}, {id:'s7', label:'Discussions'}];
-  return [{id:'s1', label:'My Tasks'}, {id:'s2', label:'My Due Gates'}, {id:'s3', label:'All Due Gates'}, {id:'s6', label:'My Entries'}, {id:'s7', label:'Discussions'}];
+  if(isCEO(user)) return [{id:'s1', label:'My Tasks'}, {id:'s2', label:'My Due Gates'}, {id:'s3', label:'All Due Gates'}, {id:'s7', label:'Discuss'}];
+  return [{id:'s1', label:'My Tasks'}, {id:'s2', label:'My Due Gates'}, {id:'s3', label:'All Due Gates'}, {id:'s6', label:'My Entries'}, {id:'s7', label:'Discuss'}];
 }
 function myTracksFor(userId){
   if(seesAllTasks(getUser(userId))) return TRACK_DEFS;
@@ -4369,6 +4386,14 @@ function buildJOProfile(joId, pageContext){
   const activityList = tasks.flatMap(t=>(t.activity||[]).map(a=>({...a, task:t})))
     .sort((a,b)=>(b.date+b.time).localeCompare(a.date+a.time)).slice(0,5);
 
+  // One entry: task name and track, officer, a quiet timestamp. "Open" appears on hover or keyboard focus.
+  const jpRow = (t, who, when) => `<li class="jp-row">
+      <span class="jp-name">${escHTML(t.name)}<span class="jp-trk">${escHTML(t.track)}</span></span>
+      <span class="jp-when">${escHTML(when)}</span>
+      <span class="jp-who">${escHTML(who)}</span>
+      ${fromDiscuss ? '' : `<button type="button" class="jp-open" onclick="openDetailFor('${t.id}','${pageContext}')" aria-label="Open ${escAttr(t.name + ' · ' + t.track)}">Open <span aria-hidden="true">→</span></button>`}
+    </li>`;
+
   const gateRows = tasks.map(t=>{
     const st = computeStatus(t);
     if(fromDiscuss) return `<div class="gate-row view-only">
@@ -4386,11 +4411,6 @@ function buildJOProfile(joId, pageContext){
   }).join('');
 
   return `<div class="detail-top"><span class="back-link" role="button" tabindex="0" data-key-activate onclick="${backFn}">${backLabel}</span></div>
-  <div class="status-strip">
-    <div class="date">Target Deploy: ${fmtDate(jo.targetDeploymentDate)}</div>
-    <div class="progress-mini"><div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div><div class="pct">${doneCount} / ${total} · ${pct}%</div></div>
-    <div class="mini-stats"><span><b>${overdueCount}</b> overdue</span><span>${total} tasks total</span></div>
-  </div>
   <div class="body-row">
     <div class="main-col">
       <div class="greet">
@@ -4405,16 +4425,13 @@ function buildJOProfile(joId, pageContext){
       <div class="track-summary-grid">${cells}</div>
       <div class="section-label">By all users</div>
       <div class="dual-card-row">
-        <div class="card">
+        <div class="card jp-card">
           <div class="card-hd"><span class="t">Recently Completed</span></div>
-          ${doneList.length ? doneList.map(t=>`<div class="done-row"><span class="ck">✓</span><div class="ci-body"><div style="font-weight:600;">${escHTML(t.name)} · ${t.track}</div><div style="font-size:0.8125rem;color:var(--ink-soft);margin-top:1px;">${escHTML(getUser(getEditor(t)).name)}</div><div class="ci-badges"><span class="badge-done">Completed · ${fmtStamp(t.doneAt)}</span></div></div></div>`).join('') : '<div class="empty-note">Nothing completed yet.</div>'}
+          ${doneList.length ? `<ul class="jp-list">${doneList.map(t=>jpRow(t, getUser(getEditor(t)).name, t.doneAt ? fmtStamp(t.doneAt) : '')).join('')}</ul>` : '<div class="empty-note">Nothing completed yet.</div>'}
         </div>
-        <div class="card">
+        <div class="card jp-card">
           <div class="card-hd"><span class="t">Recent Actions</span></div>
-          ${activityList.length ? activityList.map(a=>{
-            const meta = ACTION_META[a.type];
-            return `<div class="done-row"><span class="ck" style="color:var(--ink-soft);">${svgIcon(meta.icon)}</span><div class="ci-body"><div>${stageBadgeHTML(a.task.track, a.task.name)}</div><div style="font-size:0.8125rem;color:var(--ink-soft);margin-top:1px;">${escHTML(getUser(getEditor(a.task)).name)}</div><div class="ci-badges"><span class="badge-followup">${meta.label} · ${fmtStamp(a)}</span></div></div></div>`;
-          }).join('') : '<div class="empty-note">No actions logged yet.</div>'}
+          ${activityList.length ? `<ul class="jp-list">${activityList.map(a=>jpRow(a.task, `${getUser(getEditor(a.task)).name} · ${ACTION_META[a.type].label}`, fmtStamp(a))).join('')}</ul>` : '<div class="empty-note">No actions logged yet.</div>'}
         </div>
       </div>
     </div>
@@ -5042,7 +5059,7 @@ function dcSelect(label, options, value, handler){
     `<option value="${escAttr(v)}" ${v===value ? 'selected' : ''}>${escHTML(l)}</option>`).join('')}</select></label>`;
 }
 function buildDiscussScreen(){
-  if(discussOpenJo && getJO(discussOpenJo)) return navHTML('Discussions') + buildJOProfile(discussOpenJo, 's7');
+  if(discussOpenJo && getJO(discussOpenJo)) return navHTML('Discuss') + buildJOProfile(discussOpenJo, 's7');
   // Same layout as All Due Gates: Job Orders column (search and filters on top), contents on the right.
   // Falls back to the rows the app already holds if the full load failed.
   const source = discussRows || (ACTIVITY_LOGS||[]).filter(r => DISCUSS_TYPES.includes(r.action_type) && r.task_id);
@@ -5105,7 +5122,7 @@ function buildDiscussScreen(){
       ${dcSelect('Target deploy', [['all','All months'], ...deployMonths.map(m => [m, deployLabel(m)])], discussDeploy, 'setDiscussDeploy')}
     </div>`;
 
-  return navHTML('Discussions') + `
+  return navHTML('Discuss') + `
     <div class="tri">
       <div class="tri-col col-workers">
         <div class="tri-hd dg-hd"><span>Job Orders</span><span class="dg-n">${jobOrders.length}</span></div>
