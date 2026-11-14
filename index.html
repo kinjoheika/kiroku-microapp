@@ -2076,6 +2076,11 @@ body{-webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;}
 #s1 .mt-n, #s1 .mt-queue .mt-n, .card-hd .hd-count, .side-hd .count, .dg-n, .tab-n, .notif-unread-n{
   background:var(--lav-soft); color:var(--lav); border:1px solid var(--lav-line); border-radius:999px; padding:0 8px; line-height:18px; font-weight:600; font-variant-numeric:tabular-nums;}
 .card-tab.on .tab-n{background:rgba(255,255,255,.22); color:inherit; border-color:transparent;}
+/* Recent lists: JO boxes, details on hover; status colours */
+#s1 .ri-box .ck{background:var(--green-light); color:var(--green);}
+#s1 .ri-box .ck-act{background:var(--gold-light); color:var(--gold-ink);}
+#s1 .ri-box{border-color:var(--line); background:var(--card);}
+#s1 .ri-box:hover, #s1 .ri-box[aria-expanded="true"]{border-color:var(--hx-navy-line); background:var(--hover); box-shadow:var(--shadow-md);}
 /* Recent lists: five rows, subtle separators, hover */
 #s1 .mt-panel{background:var(--card); border:1px solid var(--line); box-shadow:var(--shadow-sm); overflow:hidden;}
 #s1 .mt-panel .mt-h3{border-bottom:1px solid var(--line);}
@@ -4112,24 +4117,12 @@ function buildScreen1(){
 
     const actList = (title, rows, empty) => `<section class="mt-panel" aria-label="${title}">
         <h3 class="mt-h3">${title}<span class="mt-n">${rows.length}</span></h3>
-        ${rows.length ? `<ul class="mt-rows">${rows.map(r=>`<li>${r}</li>`).join('')}</ul>` : `<p class="mt-empty">${empty}</p>`}
+        ${rows.length ? `<ul class="mt-boxes">${rows.map(r=>`<li>${r}</li>`).join('')}</ul>` : `<p class="mt-empty">${empty}</p>`}
       </section>`;
-    // One row per entry: icon, JO#, when, and what happened on which step. Click opens the task.
-    const recentRow = (kind, iconHTML, task, what, when) => {
-      const jo = getJO(task.joId);
-      const step = `${task.track} · ${task.name}`;
-      return `<button type="button" class="rr rr-${kind}" onclick="openTaskDetail('${task.id}')"
-        aria-label="JO# ${escAttr(jo.jo)}, ${escAttr(what)}, ${escAttr(step)}${when ? ', ' + escAttr(when) : ''}">
-        <span class="rr-ico" aria-hidden="true">${iconHTML}</span>
-        <span class="rr-jo">JO# ${escHTML(jo.jo)}</span>
-        <span class="rr-when">${escHTML(when || '')}</span>
-        <span class="rr-sub" title="${escAttr(what + ' · ' + step)}">${kind==='act' ? `<span class="rr-what">${escHTML(what)}</span> · ` : ''}${escHTML(step)}</span>
-      </button>`;
-    };
-    const doneRows = doneList.map(t=>recentRow('done', '✓', t, 'Completed', t.doneAt ? fmtStamp(t.doneAt) : ''));
+    const doneRows = doneList.map(t=>recentRowHTML('<span class="ck">✓</span>', t, 'Completed', t.doneAt ? fmtStamp(t.doneAt) : ''));
     const actRows = myActivity.map(a=>{
       const meta = ACTION_META[a.type];
-      return recentRow('act', svgIcon(meta.icon), a.task, meta.label, fmtStamp(a));
+      return recentRowHTML(`<span class="ck ck-act" title="${escAttr(meta.label)}">${svgIcon(meta.icon)}</span>`, a.task, meta.label, fmtStamp(a));
     });
 
     body = `
