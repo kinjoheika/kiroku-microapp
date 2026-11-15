@@ -829,6 +829,30 @@ textarea.tf-input{resize:vertical; line-height:1.4;}
 .si-alt{margin-top:12px; align-self:center;}
 .si-mfa-part[hidden]{display:none;}
 .si-hint{margin:-8px 0 16px; font-size:0.8125rem; color:var(--ink-3);}
+/* Lost authenticator (offline server only): recovery code, Admin approval, set up again, recovery codes */
+.si-lost{margin-top:14px; align-self:center;}
+.si-lost[hidden]{display:none;}
+.si-opt{margin:0 0 6px; font-size:0.875rem; font-weight:600; color:var(--ink);}
+.si-or{display:flex; align-items:center; gap:10px; margin:18px 0 14px; font-size:0.75rem; color:var(--ink-3); text-transform:uppercase; letter-spacing:.06em;}
+.si-or::before, .si-or::after{content:""; flex:1; border-top:1px solid var(--line);}
+.si-btn.si-btn-quiet{background:var(--card); color:var(--ink); border:1px solid var(--line-2);}
+.si-btn.si-btn-quiet:hover{background:var(--hover);}
+.si input.si-reccode{letter-spacing:.12em; text-transform:uppercase; text-align:center; font-family:ui-monospace,SFMono-Regular,Consolas,monospace;}
+.si-codes{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:6px 14px; margin:0 0 14px; padding:12px 14px; border:1px solid var(--line); border-radius:8px; background:var(--hover); list-style:none; font-family:ui-monospace,SFMono-Regular,Consolas,monospace; font-size:0.9375rem; letter-spacing:.06em; color:var(--ink);}
+.si-codes li{white-space:nowrap;}
+.si-codes-head{display:none;}
+.si-row{display:flex; gap:8px; margin-bottom:14px;}
+.si-row .si-btn{flex:1; height:36px; font-size:0.8125rem;}
+.si-check{display:flex !important; align-items:flex-start; gap:8px; margin:0 0 14px !important; font-size:0.8125rem; color:var(--ink-2); cursor:pointer;}
+.si .si-check input{width:auto; height:auto; margin:2px 0 0;}
+.rr-actions{display:flex; gap:6px; flex-wrap:wrap;}
+@media print{
+  body.print-codes *{visibility:hidden !important;}
+  body.print-codes #siCodesList, body.print-codes #siCodesList *{visibility:visible !important;}
+  body.print-codes #siCodesList{position:absolute; left:0; top:0; display:block; border:none; background:#fff; color:#000;}
+  body.print-codes .si-codes-head{display:block; margin-bottom:10px; font-family:Arial,sans-serif; letter-spacing:0;}
+  body.print-codes #siCodesList li{margin:6px 0;}
+}
 .signout-btn{border:1px solid #5B6470; border-radius:6px; background:none; color:#C7CBD1; padding:3px 10px; font-family:var(--font-body); font-size:0.8125rem; cursor:pointer;}
 .signout-btn:hover{background:#2E3138; color:#fff;}
 @media (max-width:820px){
@@ -2421,7 +2445,58 @@ a.dc-task:hover{color:var(--darkred); background:var(--darkred-light);}
       <label for="siCode">6-digit code</label>
       <input id="siCode" class="si-code" name="one-time-code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]*" maxlength="6" required>
       <button class="si-btn" id="siCodeBtn" type="submit">Continue</button>
+      <button class="si-link si-lost" id="siLost" type="button" onclick="openRecovery()" hidden>Lost access to authenticator?</button>
       <button class="si-link si-alt" type="button" onclick="cancelMfa()">Cancel and sign out</button>
+    </form>
+    <form id="siRecover" onsubmit="submitRecoveryCode(event)" novalidate hidden>
+      <p class="si-opt">Use a recovery code</p>
+      <p class="si-note">One of the 10 codes you saved when you set up the authenticator. Each code works once.</p>
+      <label for="siRecCode">Recovery code</label>
+      <input id="siRecCode" class="si-reccode" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="14" placeholder="XXXXX-XXXXX">
+      <button class="si-btn" id="siRecCodeBtn" type="submit">Use recovery code</button>
+      <div class="si-or">or</div>
+      <p class="si-opt">No recovery codes?</p>
+      <p class="si-note">Ask Admin to approve a new authenticator. Tell Admin you asked; they approve it in Kiroku.</p>
+      <button class="si-btn si-btn-quiet" id="siRecAskBtn" type="button" onclick="requestAdminReset()">Ask Admin to approve</button>
+      <button class="si-link si-alt" type="button" onclick="backToCode()">Back to the 6-digit code</button>
+    </form>
+    <form id="siRecWait" onsubmit="checkRecoveryStatus(event)" novalidate hidden>
+      <p class="si-note" id="siRecWaitText">Your request was sent to Admin.</p>
+      <p class="si-note">Ask Admin to approve it in <b>Configuration &gt; Users</b>. This page checks every 15 seconds and continues by itself once it is approved.</p>
+      <button class="si-btn" id="siRecCheckBtn" type="submit">Check now</button>
+      <button class="si-link si-alt" type="button" onclick="backToCode()">Back to the 6-digit code</button>
+    </form>
+    <form id="siRecSetup" onsubmit="submitRecoverySetup(event)" novalidate hidden>
+      <p class="si-note">Set up the authenticator app again. Your old one keeps working until you finish this.</p>
+      <ol class="si-steps">
+        <li>Open <b>Google Authenticator</b> or <b>Microsoft Authenticator</b> on your phone (new or old).</li>
+        <li>Delete the old Kiroku entry if it is still there, then tap <b>+</b> and scan this code.</li>
+        <li>Type the 6-digit code the app shows for Kiroku.</li>
+      </ol>
+      <img class="si-qr" id="siRecQr" alt="QR code to scan with your authenticator app">
+      <p class="si-key">Can't scan? Enter this key in the app instead:<br><code id="siRecSecret"></code></p>
+      <label for="siRecTotp">6-digit code</label>
+      <input id="siRecTotp" class="si-code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]*" maxlength="6">
+      <button class="si-btn" id="siRecSetupBtn" type="submit">Finish set-up</button>
+      <button class="si-link si-alt" type="button" onclick="cancelMfa()">Cancel and sign out</button>
+    </form>
+    <form id="siNewCodes" onsubmit="submitNewCodes(event)" novalidate hidden>
+      <p class="si-note">You get 10 new recovery codes. Your old codes stop working.</p>
+      <label for="siNewCodesTotp">6-digit code from your authenticator app</label>
+      <input id="siNewCodesTotp" class="si-code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]*" maxlength="6">
+      <button class="si-btn" id="siNewCodesBtn" type="submit">Make new codes</button>
+      <button class="si-link si-alt" type="button" onclick="closeCodesOverlay()">Cancel</button>
+    </form>
+    <form id="siCodes" onsubmit="finishRecoveryCodes(event)" novalidate hidden>
+      <p class="si-note">If you lose your phone, each code lets you sign in once and set up the app again. Keep them somewhere safe, <b>not on the same phone</b>. A printed copy in a locked drawer is fine. They are shown only now.</p>
+      <ul class="si-codes" id="siCodesList" aria-label="Recovery codes"></ul>
+      <div class="si-row">
+        <button class="si-btn si-btn-quiet" type="button" onclick="copyRecoveryCodes(this)">Copy</button>
+        <button class="si-btn si-btn-quiet" type="button" onclick="downloadRecoveryCodes()">Save .txt</button>
+        <button class="si-btn si-btn-quiet" type="button" onclick="printRecoveryCodes()">Print</button>
+      </div>
+      <label class="si-check"><input type="checkbox" id="siCodesSaved" onchange="document.getElementById('siCodesDone').disabled = !this.checked"> I have saved these codes</label>
+      <button class="si-btn" id="siCodesDone" type="submit" disabled>Continue</button>
     </form>
   </section>
 </div>
@@ -4073,7 +4148,8 @@ const KH_ICONS = {
   info:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg>',
   chevron:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>',
   key:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="15" r="4"/><path d="M10.8 12.2 20 3M17 6l3 3M15 8l2 2"/></svg>',
-  out:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><path d="M10 17l5-5-5-5M15 12H3"/></svg>'
+  out:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><path d="M10 17l5-5-5-5M15 12H3"/></svg>',
+  shield:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l8 3v6c0 4.5-3.4 8.2-8 9-4.6-.8-8-4.5-8-9V6l8-3z"/><path d="M9 12l2 2 4-4"/></svg>'
 };
 const KH_TAB_ICONS = (()=>{
   const i = d => `<svg class="kh-tab-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
@@ -4138,6 +4214,7 @@ function navHTML(activeTab){
           <div class="kh-pop kh-menu" role="menu" aria-label="Account">
             <div class="kh-pop-who"><b>${escHTML(user.name)}</b><span>${escHTML(user.role)}</span></div>
             <button type="button" role="menuitem" class="kh-item" onclick="khCloseAll(); openPasswordModal()">${KH_ICONS.key}Change password</button>
+            ${recoveryApi() ? `<button type="button" role="menuitem" class="kh-item" onclick="khCloseAll(); openNewCodes()">${KH_ICONS.shield}Recovery codes</button>` : ''}
             <button type="button" role="menuitem" class="kh-item" onclick="khCloseAll(); signOut()">${KH_ICONS.out}Sign out</button>
           </div>
         </span>
@@ -5453,7 +5530,13 @@ function buildUsersHTML(){
     <td><select form="usAdd" name="rl" class="cfg-input" aria-label="New person's role">${roleOpts('Doc Officer')}</select></td>
     <td><input form="usAdd" name="em" type="email" class="cfg-input" placeholder="name@company.com" aria-label="New person's email"></td>
     <td colspan="2"><button form="usAdd" class="act-btn small" type="submit">Add person</button></td></tr>`;
+  // Offline server only: people who lost their authenticator and asked Admin for a new one.
+  const resets = recoveryApi() ? `<div class="cfg-section"><div class="cfg-subhd">Authenticator reset requests</div>
+    <div class="cfg-sub" style="margin-bottom:8px;">Someone who lost their phone and has no recovery code asks here from the sign-in screen. Approve only after checking with them in person or by phone. They then set up the app again at their next sign-in.</div>
+    <div id="resetReqs"><div class="cfg-sub">Loading…</div></div></div>` : '';
+  if(resets) setTimeout(loadResetRequests, 0);
   return `<div class="cfg-hd"><div><div class="cfg-title">Users</div><div class="cfg-sub">Change a name, role or email and it saves when you leave the field. To let a new person sign in: Supabase → Authentication → Users → Add user, with the same email. Then Table Editor → users → put that login's ID in auth_user_id. To remove someone's access, delete their login under Authentication.</div></div></div>
+    ${resets}
     <form id="usAdd" onsubmit="cfgAddUser(this); return false;"></form>
     <div class="cfg-table-wrap"><table class="cfg-table"><thead><tr><th>Name</th><th>Role</th><th>Email</th><th>Login</th><th>User ID</th></tr></thead><tbody>${rows}${add}</tbody></table></div>`;
 }
@@ -5750,20 +5833,28 @@ function clearKirokuBrowserData(){
   } catch(e){}
   try { sessionStorage.clear(); } catch(e){}
 }
-// view: 'form', 'newpass', or 'wait' (logo only, while Kiroku checks for an existing sign-in).
+// view: 'form', 'newpass', 'mfa', the recovery views below, or 'wait' (logo only, while Kiroku checks for an
+// existing sign-in).
+const SI_VIEWS = {
+  form:     {form:'siForm',     title:'Sign in to Kiroku'},
+  newpass:  {form:'siNewPass',  title:'Set a new password',   focus:'siPass2'},
+  mfa:      {form:'siMfa',      title:'Two-step sign-in',     focus:'siCode'},
+  recover:  {form:'siRecover',  title:'Lost access to authenticator', focus:'siRecCode'},
+  recwait:  {form:'siRecWait',  title:'Waiting for Admin',    focus:'siRecCheckBtn'},
+  recsetup: {form:'siRecSetup', title:'Set up your authenticator again', focus:'siRecTotp'},
+  newcodes: {form:'siNewCodes', title:'New recovery codes',   focus:'siNewCodesTotp'},
+  codes:    {form:'siCodes',    title:'Save your recovery codes', focus:'siCodesSaved'},
+};
 function showSignIn(view, alertText, noteText){
   document.getElementById('signin').hidden = false;
   document.getElementById('siCard').hidden = view==='wait';
-  document.getElementById('siTitle').textContent = view==='newpass' ? 'Set a new password' : view==='mfa' ? 'Two-step sign-in' : 'Sign in to Kiroku';
-  document.getElementById('siForm').hidden = view!=='form';
-  document.getElementById('siNewPass').hidden = view!=='newpass';
-  document.getElementById('siMfa').hidden = view!=='mfa';
+  document.getElementById('siTitle').textContent = (SI_VIEWS[view] || SI_VIEWS.form).title;
+  Object.entries(SI_VIEWS).forEach(([v, s]) => { document.getElementById(s.form).hidden = view!==v; });
   const n = document.getElementById('siNote'); n.hidden = !noteText; n.textContent = noteText||'';
   const a = document.getElementById('siAlert'); a.hidden = !alertText; a.textContent = alertText||'';
   if(alertText) a.focus();
   else if(view==='form') document.getElementById(document.getElementById('siEmail').value ? 'siPass' : 'siEmail').focus();
-  else if(view==='newpass') document.getElementById('siPass2').focus();
-  else if(view==='mfa') document.getElementById('siCode').focus();
+  else if(SI_VIEWS[view] && SI_VIEWS[view].focus) document.getElementById(SI_VIEWS[view].focus).focus();
 }
 function togglePassword(btn, inputId){
   const input = document.getElementById(inputId), show = input.type==='password';
@@ -5936,7 +6027,8 @@ async function submitPasswordChange(ev){
 /* ---------- Two-step sign-in (MFA) ----------
    After the password, a 6-digit code from an authenticator app (Google or Microsoft Authenticator). The first time,
    Kiroku shows a QR code to scan. The database gives no data without the code (supabase/18_require_mfa.sql).
-   Lost phone: Admin removes the person's MFA factor in Supabase > Authentication > Users; they scan a new code. */
+   Lost phone, online: Admin removes the person's MFA factor in Supabase > Authentication > Users; they scan a new code.
+   Lost phone, offline server: "Lost access to authenticator?" on the code screen (see recoveryApi below). */
 let mfaPending = null;   // {factorId, resolve} while the code screen is up
 async function requireMfa(session){
   const mfa = sbClient().auth.mfa;
@@ -5962,12 +6054,15 @@ async function requireMfa(session){
     mfaPending = {factorId, resolve};
     document.getElementById('siMfaSetup').hidden = !setup;
     document.getElementById('siMfaAsk').hidden = !!setup;
+    document.getElementById('siLost').hidden = !!setup;
     if(setup){
       document.getElementById('siMfaQr').src = setup.qr_code;
       document.getElementById('siMfaSecret').textContent = setup.secret;
     }
     document.getElementById('siCode').value = '';
     showSignIn('mfa');
+    // Asked Admin earlier? Continue where it stopped: waiting, or set up again once approved.
+    if(!setup && recoveryApi()) resumeRecovery();
   });
 }
 async function submitMfaCode(ev){
@@ -5977,8 +6072,8 @@ async function submitMfaCode(ev){
   if(!/^\d{6}$/.test(code)){ showSignIn('mfa', 'Type the 6 digits your authenticator app shows.'); return; }
   const btn = document.getElementById('siCodeBtn');
   btn.disabled = true; btn.textContent = 'Checking…';
-  let error = null;
-  try { ({error} = await sbClient().auth.mfa.challengeAndVerify({factorId: mfaPending.factorId, code})); }
+  let error = null, data = null;
+  try { ({data, error} = await sbClient().auth.mfa.challengeAndVerify({factorId: mfaPending.factorId, code})); }
   catch(e){ error = e; }
   btn.disabled = false; btn.textContent = 'Continue';
   if(error){
@@ -5986,16 +6081,244 @@ async function submitMfaCode(ev){
     showSignIn('mfa', /invalid|expired|code/i.test(error.message || '') ? 'That code is not right or has expired. Type the code the app shows now.' : signInMessage(error));
     return;
   }
+  // First set-up on the offline server: the recovery codes come with it, shown once before Kiroku opens.
+  if(data && data.recovery_codes && data.recovery_codes.length){ showRecoveryCodes(data.recovery_codes, finishMfa); return; }
+  await finishMfa();
+}
+async function finishMfa(){
   const {data:{session}} = await sbClient().auth.getSession();
   const pending = mfaPending;
   mfaPending = null;
-  pending.resolve(session);
+  if(pending) pending.resolve(session);
 }
 function cancelMfa(){
+  stopRecoveryPoll();
+  recTicket = null;
   const pending = mfaPending;
   mfaPending = null;
   if(pending) pending.resolve(null);
   signOut('');
+}
+
+/* ---------- Lost authenticator (offline server only) ----------
+   Offered only when the page runs on the Kiroku Offline server (kiroku-client.js has auth.mfa.recovery); online,
+   supabase-js has no such thing and nothing here shows. From the code screen (password already checked):
+     a recovery code, or ask Admin -> Admin approves in Configuration > Users -> set up the app again (QR, key, code)
+     -> 10 new recovery codes. The server checks every step; this page only shows them. */
+let recTicket = null;    // {ticket, factorId} while setting up the app again
+let recPoll = null;
+let codesShown = null;   // {codes, done} while the recovery codes are on screen
+function recoveryApi(){
+  const c = sbClient();
+  return (c && c.auth && c.auth.mfa && c.auth.mfa.recovery) || null;
+}
+function recoveryMessage(error, fallback){
+  const m = (error && error.message) || '';
+  if(error && error.status === 429) return m || 'Too many tries. Wait a few minutes, then try again.';
+  if(/fetch|network/i.test(m)) return 'Could not reach Kiroku. Check your connection and try again.';
+  return m || fallback;
+}
+function openRecovery(){
+  if(!mfaPending) return;
+  // Online (Supabase) there is no self-service recovery: Admin removes the old authenticator.
+  if(!recoveryApi()){
+    showSignIn('mfa', '', 'Ask Admin to reset your authenticator. If you are the Admin, you can do it yourself without Kiroku: sign in at supabase.com → your Kiroku project → Authentication → Users → your login → remove the MFA factor. At your next sign-in Kiroku shows a new QR code to scan.');
+    return;
+  }
+  document.getElementById('siRecCode').value = '';
+  showSignIn('recover');
+}
+function backToCode(){
+  stopRecoveryPoll();
+  document.getElementById('siCode').value = '';
+  showSignIn('mfa');
+}
+async function resumeRecovery(){
+  const {data, error} = await recoveryApi().status();
+  if(error || !data || !mfaPending) return;
+  if(data.status === 'approved' && data.ticket) startRecoverySetup(data.ticket, 'Admin approved your request. Set up the authenticator app again.');
+  else if(data.status === 'pending') showRecoveryWait(data);
+}
+async function submitRecoveryCode(ev){
+  ev.preventDefault();
+  const el = document.getElementById('siRecCode'), code = el.value.replace(/[\s-]/g, '').toUpperCase();
+  if(!/^[A-Z0-9]{10}$/.test(code)){ showSignIn('recover', 'Type the 10-character recovery code, like ABCDE-FGHJK.'); return; }
+  const btn = document.getElementById('siRecCodeBtn');
+  btn.disabled = true; btn.textContent = 'Checking…';
+  let r;
+  try { r = await recoveryApi().useCode(code); } catch(e){ r = {error: e}; }
+  btn.disabled = false; btn.textContent = 'Use recovery code';
+  el.value = '';
+  if(r.error){ showSignIn('recover', recoveryMessage(r.error, 'That recovery code is not right or was already used.')); return; }
+  const left = r.data.codes_left;
+  startRecoverySetup(r.data.ticket, `Recovery code accepted (${left} left). You get 10 new codes at the end.`);
+}
+async function requestAdminReset(){
+  const btn = document.getElementById('siRecAskBtn');
+  btn.disabled = true;
+  let r;
+  try { r = await recoveryApi().requestReset(); } catch(e){ r = {error: e}; }
+  btn.disabled = false;
+  if(r.error){ showSignIn('recover', recoveryMessage(r.error, 'Could not send the request. Try again.')); return; }
+  if(r.data.status === 'approved'){ resumeRecovery(); return; }
+  showRecoveryWait(r.data);
+}
+function showRecoveryWait(data){
+  const when = data.requested_at ? new Date(data.requested_at).toLocaleString('en-US', {month:'short', day:'numeric', hour:'numeric', minute:'2-digit'}) : '';
+  document.getElementById('siRecWaitText').textContent = `Your request was sent to Admin${when ? ' on ' + when : ''}.`;
+  showSignIn('recwait');
+  stopRecoveryPoll();
+  recPoll = setInterval(() => checkRecoveryStatus(), 15000);
+}
+function stopRecoveryPoll(){ clearInterval(recPoll); recPoll = null; }
+async function checkRecoveryStatus(ev){
+  if(ev) ev.preventDefault();
+  const manual = !!ev;
+  let r;
+  try { r = await recoveryApi().status(); } catch(e){ r = {error: e}; }
+  if(!mfaPending){ stopRecoveryPoll(); return; }
+  if(r.error){ if(manual) showSignIn('recwait', recoveryMessage(r.error, 'Could not check. Try again.')); return; }
+  const s = r.data.status;
+  if(s === 'approved' && r.data.ticket){ stopRecoveryPoll(); startRecoverySetup(r.data.ticket, 'Admin approved your request. Set up the authenticator app again.'); }
+  else if(s === 'denied'){ stopRecoveryPoll(); showSignIn('recover', 'Admin did not approve the request. Talk to Admin, then ask again.'); }
+  else if(s === 'none'){ stopRecoveryPoll(); showSignIn('recover', 'The request has ended. Ask again if you still need a new authenticator.'); }
+  else if(manual) showSignIn('recwait', '', 'Still waiting for Admin.');
+}
+async function startRecoverySetup(ticket, note){
+  let r;
+  try { r = await recoveryApi().enroll(ticket); } catch(e){ r = {error: e}; }
+  if(r.error){ recTicket = null; showSignIn('recover', recoveryMessage(r.error, 'Could not start the set-up. Try again.')); return; }
+  recTicket = {ticket, factorId: r.data.id};
+  document.getElementById('siRecQr').src = r.data.totp.qr_code;
+  document.getElementById('siRecSecret').textContent = r.data.totp.secret;
+  document.getElementById('siRecTotp').value = '';
+  showSignIn('recsetup', '', note || '');
+}
+async function submitRecoverySetup(ev){
+  ev.preventDefault();
+  if(!recTicket) return;
+  const el = document.getElementById('siRecTotp'), code = el.value.replace(/\s/g, '');
+  if(!/^\d{6}$/.test(code)){ showSignIn('recsetup', 'Type the 6 digits your authenticator app shows.'); return; }
+  const btn = document.getElementById('siRecSetupBtn');
+  btn.disabled = true; btn.textContent = 'Checking…';
+  let r;
+  try { r = await recoveryApi().verify({ticket: recTicket.ticket, factorId: recTicket.factorId, code}); } catch(e){ r = {error: e}; }
+  btn.disabled = false; btn.textContent = 'Finish set-up';
+  el.value = '';
+  if(r.error){
+    if(r.error.code === 'recovery_ticket_invalid'){ recTicket = null; showSignIn('recover', 'This recovery step has expired. Start again.'); }
+    else showSignIn('recsetup', /invalid|expired|code/i.test(r.error.message || '') && r.error.status === 422
+      ? 'That code is not right or has expired. Type the code the app shows now.' : recoveryMessage(r.error, 'Could not finish. Try again.'));
+    return;
+  }
+  recTicket = null;
+  showRecoveryCodes(r.data.recovery_codes || [], finishMfa);
+}
+// The codes screen, used after a set-up (sign-in continues afterwards) and from the account menu.
+function showRecoveryCodes(codes, done){
+  codesShown = {codes, done};
+  const list = document.getElementById('siCodesList');
+  list.innerHTML = `<li class="si-codes-head">Kiroku recovery codes · ${escHTML(new Date().toLocaleDateString('en-US', {year:'numeric', month:'short', day:'numeric'}))}</li>` +
+    codes.map(c => `<li>${escHTML(c)}</li>`).join('');
+  document.getElementById('siCodesSaved').checked = false;
+  document.getElementById('siCodesDone').disabled = true;
+  showSignIn('codes');
+}
+async function finishRecoveryCodes(ev){
+  ev.preventDefault();
+  const shown = codesShown;
+  codesShown = null;
+  document.getElementById('siCodesList').innerHTML = '';   // not left in the page
+  if(shown && shown.done) await shown.done();
+}
+function recoveryCodesText(){
+  const codes = (codesShown && codesShown.codes) || [];
+  return 'Kiroku recovery codes\nMade ' + new Date().toLocaleString('en-US') + '\n' +
+    'Each code works once, to sign in and set up the authenticator app again if you lose it.\n\n' + codes.join('\n') + '\n';
+}
+async function copyRecoveryCodes(btn){
+  const text = recoveryCodesText();
+  try { await navigator.clipboard.writeText(text); }
+  catch(e){
+    const t = document.createElement('textarea'); t.value = text; document.body.appendChild(t); t.select();
+    try { document.execCommand('copy'); } catch(x){} t.remove();
+  }
+  btn.textContent = 'Copied'; setTimeout(() => { btn.textContent = 'Copy'; }, 1500);
+}
+function downloadRecoveryCodes(){
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([recoveryCodesText()], {type: 'text/plain'}));
+  a.download = 'Kiroku recovery codes.txt';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+}
+function printRecoveryCodes(){
+  document.body.classList.add('print-codes');
+  window.addEventListener('afterprint', () => document.body.classList.remove('print-codes'), {once: true});
+  window.print();
+}
+// Account menu > Recovery codes (signed in): new codes after a fresh 6-digit code.
+function openNewCodes(){
+  if(!recoveryApi()) return;
+  document.getElementById('siNewCodesTotp').value = '';
+  showSignIn('newcodes');
+}
+function closeCodesOverlay(){
+  codesShown = null;
+  document.getElementById('siCodesList').innerHTML = '';
+  document.getElementById('signin').hidden = true;
+  showScreenFocus();
+}
+function showScreenFocus(){ const b = document.querySelector('.screen.active .kh-profile'); if(b) b.focus(); }
+async function submitNewCodes(ev){
+  ev.preventDefault();
+  const el = document.getElementById('siNewCodesTotp'), code = el.value.replace(/\s/g, '');
+  if(!/^\d{6}$/.test(code)){ showSignIn('newcodes', 'Type the 6 digits your authenticator app shows.'); return; }
+  const btn = document.getElementById('siNewCodesBtn');
+  btn.disabled = true;
+  let r;
+  try { r = await recoveryApi().newCodes(code); } catch(e){ r = {error: e}; }
+  btn.disabled = false;
+  el.value = '';
+  if(r.error){
+    showSignIn('newcodes', r.error.status === 422 ? 'That code is not right or has expired. Type the code the app shows now.' : recoveryMessage(r.error, 'Could not make new codes. Try again.'));
+    return;
+  }
+  showRecoveryCodes(r.data.recovery_codes, async () => { closeCodesOverlay(); showToast('✓ New recovery codes made. The old ones no longer work.', 6000); });
+}
+// After sign-in: a gentle reminder for people who set up the app before recovery codes existed.
+async function remindRecoveryCodes(){
+  if(!recoveryApi()) return;
+  const {data, error} = await recoveryApi().codesLeft();
+  if(error || !data) return;
+  if(data.remaining === 0) showToast('You have no recovery codes. Make them in the account menu → Recovery codes.', 9000);
+  else if(data.remaining <= 2) showToast(`Only ${data.remaining} recovery code${data.remaining === 1 ? '' : 's'} left. Make new ones in the account menu → Recovery codes.`, 9000);
+}
+// Configuration > Users (Admin): the people waiting for a new authenticator.
+async function loadResetRequests(){
+  const box = document.getElementById('resetReqs');
+  if(!box || !recoveryApi()) return;
+  const {data, error} = await recoveryApi().listRequests();
+  if(!document.body.contains(box)) return;
+  if(error){ box.innerHTML = `<div class="cfg-sub">Could not load the requests: ${escHTML(error.message || '')}</div>`; return; }
+  if(!data.length){ box.innerHTML = '<div class="cfg-sub">Nobody is waiting for a new authenticator.</div>'; return; }
+  const rows = data.map(r => {
+    const who = r.name ? `${escHTML(r.name)} <span class="cfg-sub">${escHTML(r.email)}</span>` : escHTML(r.email);
+    const state = r.status === 'approved' ? 'Approved: waiting for them to set it up' : 'Waiting for your approval';
+    const id = escAttr(r.id);
+    const acts = r.self ? '<span class="cfg-sub">Your own request: another Admin must decide</span>' : `<div class="rr-actions">
+      ${r.status === 'pending' ? `<button class="act-btn small primary" type="button" onclick="decideResetRequest('${id}','approve')">Approve</button>` : ''}
+      <button class="act-btn small" type="button" onclick="decideResetRequest('${id}','deny')">${r.status === 'approved' ? 'Withdraw' : 'Deny'}</button></div>`;
+    return `<tr><td>${who}</td><td class="cfg-time">${fmtManila(r.requested_at)}</td><td>${state}</td><td>${acts}</td></tr>`;
+  }).join('');
+  box.innerHTML = `<div class="cfg-table-wrap"><table class="cfg-table"><thead><tr><th>Person</th><th>Asked</th><th>Status</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+async function decideResetRequest(id, action){
+  if(action === 'approve' && !confirm('Approve a new authenticator for this person?\n\nOnly approve after you have checked, in person or by phone, that they asked for it. Whoever has their password could otherwise take over the login.')) return;
+  const {error} = await recoveryApi().decide(id, action);
+  if(error) showToast(`✗ ${error.message || 'Could not save.'}`, 6000);
+  else showToast(action === 'approve' ? '✓ Approved. They can set up the app at their next sign-in.' : '✓ Request closed.', 5000);
+  loadResetRequests();
 }
 async function startSession(session){
   try { session = await requireMfa(session); }
@@ -6033,6 +6356,7 @@ async function startSession(session){
     return;
   }
   startActivityRealtime();
+  remindRecoveryCodes();
 }
 // Idle sign-out: any click, key, scroll or touch counts as use; checked every 30 seconds and on return to the tab.
 let lastActivity = Date.now();
