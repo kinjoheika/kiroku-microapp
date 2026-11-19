@@ -1981,6 +1981,36 @@ button, .act-btn, .dg-btn, .signout-btn, .mt-resume, .tab, .card-tab, .cfg-tab{f
 .jo-archive:disabled{opacity:.45; cursor:default;}
 .jo-archive:focus-visible{outline:2px solid var(--focus); outline-offset:2px;}
 :root[data-theme="dark"] .jo-archive{background:var(--dk-raised); border-color:var(--dk-border-strong);}
+/* Two-step sign-in set-up: fits on one screen (no page scroll). Wider card in two columns:
+   steps and the code on the left, QR code and key on the right; one column on phones. */
+.si:has(#siMfa:not([hidden]) #siMfaSetup:not([hidden])){justify-content:center; gap:14px; padding:16px; overflow:hidden;}
+.si:has(#siMfa:not([hidden]) #siMfaSetup:not([hidden])) .si-logo{flex-direction:row; gap:12px; text-align:left;}
+.si:has(#siMfa:not([hidden]) #siMfaSetup:not([hidden])) .si-mark{width:40px; height:40px; margin:0; font-size:1.125rem;}
+.si:has(#siMfa:not([hidden]) #siMfaSetup:not([hidden])) .si-logo h1{font-size:1.25rem;}
+.si:has(#siMfa:not([hidden]) #siMfaSetup:not([hidden])) .si-sub{margin-top:0;}
+.si:has(#siMfa:not([hidden]) #siMfaSetup:not([hidden])) .si-card{max-width:620px; padding:20px 22px;}
+#siMfa:not([hidden]):has(#siMfaSetup:not([hidden])){display:grid; grid-template-columns:minmax(0,1fr) auto; column-gap:22px; align-items:start;}
+#siMfa:not([hidden]):has(#siMfaSetup:not([hidden])) > *{grid-column:1;}
+#siMfaSetup:not([hidden]){display:contents;}
+#siMfaSetup .si-note{margin-bottom:8px;}
+#siMfaSetup .si-steps{margin-bottom:12px; line-height:1.45;}
+.si-qr-box{grid-column:2 !important; grid-row:1 / span 9; display:flex; flex-direction:column; align-items:center; width:200px; padding-top:2px;}
+.si-qr-box .si-qr{width:170px; height:170px; margin:0 0 8px;}
+.si-qr-box .si-key{margin:0; max-width:200px;}
+.si:has(#siMfa:not([hidden]) #siMfaSetup:not([hidden])) .si-alt, .si:has(#siMfa:not([hidden]) #siMfaSetup:not([hidden])) .si-lost{margin-top:6px;}
+@media (max-width:620px){
+  #siMfa:not([hidden]):has(#siMfaSetup:not([hidden])){display:flex; flex-direction:column; align-items:stretch;}
+  .si:has(#siMfa:not([hidden]) #siMfaSetup:not([hidden])) .si-sub{display:none;}
+  .si-qr-box{order:0; width:100%; margin-bottom:10px;}
+  .si-qr-box .si-qr{width:140px; height:140px;}
+  .si-qr-box .si-key{max-width:none;}
+  .si:has(#siMfa:not([hidden]) #siMfaSetup:not([hidden])){justify-content:flex-start; padding:12px; gap:10px;}
+  .si:has(#siMfa:not([hidden]) #siMfaSetup:not([hidden])) .si-card{padding:16px;}
+  #siMfaSetup .si-note{margin-bottom:6px;}
+  #siMfaSetup .si-steps{margin-bottom:8px;}
+}
+/* very short windows: let it scroll rather than cut anything off */
+@media (max-height:520px){ .si:has(#siMfa:not([hidden]) #siMfaSetup:not([hidden])){overflow-y:auto; justify-content:flex-start;} }
 /* ===== Centered layout =====
    Desktop (1440px and wider): the app sits in the middle 60%, 20% blank on each side.
    Smaller screens widen it so the three Due Gates columns stay usable; phones keep a 16px gutter. */
@@ -2438,8 +2468,10 @@ a.dc-task:hover{color:var(--darkred); background:var(--darkred-light);}
           <li>In the app, tap <b>+</b> and scan this code.</li>
           <li>Type the 6-digit code the app shows for Kiroku.</li>
         </ol>
-        <img class="si-qr" id="siMfaQr" alt="QR code to scan with your authenticator app">
-        <p class="si-key">Can't scan? Enter this key in the app instead:<br><code id="siMfaSecret"></code></p>
+        <div class="si-qr-box">
+          <img class="si-qr" id="siMfaQr" alt="QR code to scan with your authenticator app">
+          <p class="si-key">Can't scan? Enter this key in the app instead:<br><code id="siMfaSecret"></code></p>
+        </div>
       </div>
       <p class="si-note si-mfa-part" id="siMfaAsk" hidden>Open your authenticator app and type the 6-digit code for Kiroku.</p>
       <label for="siCode">6-digit code</label>
