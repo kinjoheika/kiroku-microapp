@@ -1960,7 +1960,10 @@ button, .act-btn, .dg-btn, .signout-btn, .mt-resume, .tab, .card-tab, .cfg-tab{f
 /* Two-step sign-in set-up: fits on one screen (no page scroll). Wider card in two columns:
    steps and the code on the left, QR code and key on the right; one column on phones. */
 .si:has(#siMfa:not([hidden]) #siMfaSetup:not([hidden])){justify-content:center; gap:14px; padding:16px; overflow:hidden;}
-.si:has(#siMfa:not([hidden]) #siMfaSetup:not([hidden])) .si-logo{flex-direction:row; gap:12px; text-align:left;}
+.si:has(#siMfa:not([hidden]) #siMfaSetup:not([hidden])) .si-logo{display:grid; grid-template-columns:auto auto; grid-template-areas:"mark title" "mark sub"; align-items:center; column-gap:12px; row-gap:1px; text-align:left;}
+.si:has(#siMfa:not([hidden]) #siMfaSetup:not([hidden])) .si-mark{grid-area:mark;}
+.si:has(#siMfa:not([hidden]) #siMfaSetup:not([hidden])) .si-logo h1{grid-area:title; align-self:end;}
+.si:has(#siMfa:not([hidden]) #siMfaSetup:not([hidden])) .si-sub{grid-area:sub; align-self:start;}
 .si:has(#siMfa:not([hidden]) #siMfaSetup:not([hidden])) .si-mark{width:40px; height:40px; margin:0; font-size:1.125rem;}
 .si:has(#siMfa:not([hidden]) #siMfaSetup:not([hidden])) .si-logo h1{font-size:1.25rem;}
 .si:has(#siMfa:not([hidden]) #siMfaSetup:not([hidden])) .si-sub{margin-top:0;}
@@ -1976,7 +1979,6 @@ button, .act-btn, .dg-btn, .signout-btn, .mt-resume, .tab, .card-tab, .cfg-tab{f
 .si:has(#siMfa:not([hidden]) #siMfaSetup:not([hidden])) .si-alt, .si:has(#siMfa:not([hidden]) #siMfaSetup:not([hidden])) .si-lost{margin-top:6px;}
 @media (max-width:620px){
   #siMfa:not([hidden]):has(#siMfaSetup:not([hidden])){display:flex; flex-direction:column; align-items:stretch;}
-  .si:has(#siMfa:not([hidden]) #siMfaSetup:not([hidden])) .si-sub{display:none;}
   .si-qr-box{order:0; width:100%; margin-bottom:10px;}
   .si-qr-box .si-qr{width:140px; height:140px;}
   .si-qr-box .si-key{max-width:none;}
